@@ -440,6 +440,8 @@ Renderer::Renderer()
     , m_TestTriangle(nullptr)
     , m_TexturedShader(nullptr)
     , m_TestModel(nullptr)
+    , m_Camera(nullptr)
+    , m_CameraController(nullptr)
 {
 }
 
@@ -479,7 +481,28 @@ bool Renderer::Initialize() {
         // Continue anyway - this isn't fatal
     }
     
+    // Initialize camera (platform-specific setup is done later)
+    m_Camera = new Camera(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
+    m_Camera->SetPosition(glm::vec3(0.0f, 0.0f, 3.0f));
+    
     return true;
+}
+
+void Renderer::SetupCamera(Platform* platform) {
+    if (!m_Camera) {
+        std::cerr << "Camera not initialized" << std::endl;
+        return;
+    }
+    
+    // Update aspect ratio based on window size
+    float aspectRatio = static_cast<float>(platform->GetWidth()) / static_cast<float>(platform->GetHeight());
+    m_Camera->SetAspectRatio(aspectRatio);
+    
+    // Create the camera controller
+    if (!m_CameraController) {
+        m_CameraController = new CameraController(m_Camera, platform);
+        m_CameraController->SetControlMode(CameraController::ControlMode::FirstPerson);
+    }
 }
 
 void Renderer::BeginFrame() {
@@ -494,8 +517,8 @@ void Renderer::RenderScene() {
         m_TestTriangle->Draw();
     }
     
-    // If we have a model and shader, render the model too
-    if (m_TexturedShader && m_TestModel) {
+    // If we have a model, shader, and camera, render the model
+    if (m_TexturedShader && m_TestModel && m_Camera) {
         m_TexturedShader->Use();
         
         // Set up transformation matrices
@@ -506,12 +529,9 @@ void Renderer::RenderScene() {
         model = glm::translate(model, glm::vec3(1.0f, 0.0f, -2.0f)); // Move the cube to the right and away
         model = glm::rotate(model, rotation, glm::vec3(0.5f, 1.0f, 0.0f)); // Rotate around an axis
         
-        glm::mat4 view = glm::mat4(1.0f);
-        view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), // camera position
-                          glm::vec3(0.0f, 0.0f, 0.0f),  // target
-                          glm::vec3(0.0f, 1.0f, 0.0f)); // up vector
-        
-        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+        // Use camera matrices
+        glm::mat4 view = m_Camera->GetViewMatrix();
+        glm::mat4 projection = m_Camera->GetProjectionMatrix();
         
         m_TexturedShader->SetMat4("model", model);
         m_TexturedShader->SetMat4("view", view);
@@ -520,12 +540,10 @@ void Renderer::RenderScene() {
         
         m_TestModel->Draw(m_TexturedShader);
     }
-    
-    // More complex rendering will be added in later phases
 }
 
 void Renderer::EndFrame() {
-    // Currently nothing to do here, but we might add post-processing, etc. later
+    // Currently nothing to do here
 }
 
 void Renderer::Shutdown() {
@@ -540,6 +558,12 @@ void Renderer::Shutdown() {
     
     delete m_TestModel;
     m_TestModel = nullptr;
+    
+    delete m_CameraController;
+    m_CameraController = nullptr;
+    
+    delete m_Camera;
+    m_Camera = nullptr;
 }
 
 void Renderer::SetClearColor(const glm::vec4& color) {

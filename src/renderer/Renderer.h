@@ -6,11 +6,15 @@
 #include <vector>
 
 #include "../platform/Platform.h"
+#include "Camera.h"
+#include "CameraController.h"
 
 namespace Sylva {
 
 // Forward declarations
 class Platform;
+class Camera;
+class CameraController;
 
 // Simple shader class
 class Shader {
@@ -101,6 +105,11 @@ public:
     
     void SetClearColor(const glm::vec4& color);
     
+    // Camera methods
+    Camera* GetCamera() const { return m_Camera; }
+    CameraController* GetCameraController() const { return m_CameraController; }
+    void SetupCamera(Platform* platform);
+    
     // In a larger engine, these would be in separate classes/systems
     Shader* LoadShader(const std::string& vertexPath, const std::string& fragmentPath);
     Mesh* CreateMesh(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
@@ -120,6 +129,10 @@ private:
     // Model rendering objects
     Shader* m_TexturedShader;
     Model* m_TestModel;
+    
+    // Camera
+    Camera* m_Camera;
+    CameraController* m_CameraController;
 };
 
 } 
