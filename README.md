@@ -39,33 +39,61 @@ The current goal is to build an MVP demonstrating the core concepts:
 | Audio Library   | OpenAL Soft / SDL2_mixer (TBD)          | Decision pending further research         |
 | Input/Windowing | GLFW                                    | Cross-platform window and input handling  |
 
-## Getting Started (Placeholder)
+## Getting Started
 
-*(Instructions on how to build and run the project will go here once available)*
+### Prerequisites
 
-1.  **Prerequisites:**
-    *   C++17 compatible compiler (GCC, Clang, MSVC)
-    *   CMake (version X.Y or higher)
-    *   `vcpkg`
-    *   Git
-2.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd Sylva
-    ```
-3.  **Install dependencies using `vcpkg`:**
-    ```bash
-    vcpkg install glfw3 glm glad # Add other dependencies as needed
-    ```
-4.  **Configure and build with CMake:**
-    ```bash
-    cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=[path-to-vcpkg]/scripts/buildsystems/vcpkg.cmake
-    cmake --build build
-    ```
-5.  **Run:**
-    ```bash
-    ./build/bin/Sylva # Adjust executable path as needed
-    ```
+*   C++17 compatible compiler (GCC, Clang, MSVC)
+*   CMake (version 3.15 or higher)
+*   vcpkg (for dependency management)
+*   Git
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/nathandona/Sylva.git
+cd Sylva
+```
+
+### Install Dependencies Using vcpkg
+
+```bash
+# If you haven't set up vcpkg yet:
+git clone https://github.com/Microsoft/vcpkg.git
+cd vcpkg
+./bootstrap-vcpkg.sh  # For Linux/macOS
+# OR
+bootstrap-vcpkg.bat   # For Windows
+
+# Install dependencies
+./vcpkg install glfw3 glad glm
+
+# Set VCPKG_ROOT environment variable (optional but recommended)
+# For Windows (PowerShell):
+# $env:VCPKG_ROOT = "C:\path\to\vcpkg"
+# For Linux/macOS:
+# export VCPKG_ROOT=/path/to/vcpkg
+```
+
+### Configure and Build with CMake
+
+```bash
+# Configure (pointing to vcpkg toolchain file)
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=[path-to-vcpkg]/scripts/buildsystems/vcpkg.cmake
+
+# Build
+cmake --build build --config Release
+```
+
+### Run the Game
+
+```bash
+# On Windows:
+.\build\Release\Sylva.exe
+
+# On Linux/macOS:
+./build/Sylva
+```
 
 ## Development Roadmap (MVP - Rough Estimate)
 
