@@ -31,4 +31,23 @@
 *.out
 *.app
 
+# Markdown files
 MVP.md
+
+# Build files
+build/
+
+# CMake files
+CMakeLists.txt
+
+# vcpkg files
+vcpkg.json
+
+# vcpkg ports
+ports/
+
+# vcpkg installed packages
+installed/
+
+# vscode files
+.vscode/
