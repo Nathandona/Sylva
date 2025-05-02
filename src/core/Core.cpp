@@ -35,6 +35,10 @@ bool Core::Initialize() {
         return false;
     }
     
+    // Position the camera to better view the terrain (higher up and further back)
+    m_Renderer.GetCamera()->SetPosition(glm::vec3(0.0f, 20.0f, 30.0f));
+    m_Renderer.GetCamera()->SetTarget(glm::vec3(0.0f, 0.0f, 0.0f));
+    
     // Setup camera with platform
     m_Renderer.SetupCamera(&m_Platform);
     

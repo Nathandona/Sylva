@@ -59,10 +59,19 @@ void Terrain::Render(Shader* shader) const {
         glm::mat4 model = glm::mat4(1.0f);
         shader->SetMat4("model", model);
         
+        // Get view and projection matrices from the renderer
+        // The renderer passes these from the camera
+        // Note: We're assuming the renderer has set these matrices as uniforms
+        // If that's not the case, we'll need to modify our Renderer class to expose these
+        
         // Set terrain texture if available
         if (m_Texture) {
             m_Texture->Bind(0);
             shader->SetInt("textureSampler", 0);
+        } else {
+            // Debug: If no texture is available, set a flag
+            shader->SetInt("textureSampler", 0); // Still set it to avoid errors
+            std::cerr << "Warning: Rendering terrain without texture!" << std::endl;
         }
     }
     
@@ -107,6 +116,10 @@ void Terrain::GenerateVertices() {
     float texU = 1.0f / (float)(m_Resolution - 1);
     float texV = 1.0f / (float)(m_Resolution - 1);
     
+    // Debug output
+    std::cout << "Generating terrain vertices: " << m_Resolution << "x" << m_Resolution << " resolution" << std::endl;
+    std::cout << "Terrain size: " << m_Width << "x" << m_Depth << " units" << std::endl;
+    
     // Generate vertices with positions, normals, and texture coordinates
     for (unsigned int z = 0; z < m_Resolution; z++) {
         for (unsigned int x = 0; x < m_Resolution; x++) {
@@ -137,6 +150,10 @@ void Terrain::GenerateVertices() {
             m_Vertices.push_back(v);
         }
     }
+    
+    // Debug output
+    std::cout << "Generated " << m_Vertices.size() / 8 << " vertices for terrain" << std::endl;
+    std::cout << "Total vertex data size: " << m_Vertices.size() * sizeof(float) << " bytes" << std::endl;
 }
 
 void Terrain::GenerateIndices(unsigned int resolution) {

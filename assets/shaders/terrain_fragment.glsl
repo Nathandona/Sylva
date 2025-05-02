@@ -38,6 +38,11 @@ void main() {
     // Sample texture
     vec4 texColor = texture(textureSampler, TexCoord);
     
+    // If texture is missing (alpha is 0), use a debug color
+    if (texColor.a < 0.1) {
+        texColor = vec4(0.0, 1.0, 0.0, 1.0); // Bright green for debugging
+    }
+    
     // Apply lighting to texture color
     vec3 result = lighting * texColor.rgb;
     

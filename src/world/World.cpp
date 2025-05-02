@@ -44,6 +44,8 @@ bool World::Initialize(Renderer* renderer) {
     if (!m_TerrainTexture) {
         std::cerr << "Failed to load terrain texture, using default texture." << std::endl;
         // We'll continue without a texture for now
+    } else {
+        std::cout << "Successfully loaded terrain texture." << std::endl;
     }
     
     // Initialize the terrain (100x100 units, 64x64 resolution)
@@ -74,7 +76,26 @@ void World::Render() {
         return;
     }
     
-    // Render the terrain
+    // Get camera from renderer
+    Camera* camera = m_Renderer->GetCamera();
+    if (!camera) {
+        std::cerr << "Cannot render terrain without camera!" << std::endl;
+        return;
+    }
+    
+    // Use the terrain shader
+    m_TerrainShader->Use();
+    
+    // Pass camera matrices to the shader
+    m_TerrainShader->SetMat4("view", camera->GetViewMatrix());
+    m_TerrainShader->SetMat4("projection", camera->GetProjectionMatrix());
+    
+    // Set lighting values if needed
+    m_TerrainShader->SetVec3("lightDir", glm::normalize(glm::vec3(0.5f, 1.0f, 0.3f)));
+    m_TerrainShader->SetVec3("lightColor", glm::vec3(1.0f, 1.0f, 0.9f));
+    m_TerrainShader->SetVec3("viewPos", camera->GetPosition());
+    
+    // Render the terrain with the configured shader
     m_Terrain.Render(m_TerrainShader);
     
     // Future: render world entities, effects, etc.
