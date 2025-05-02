@@ -22,6 +22,13 @@ bool Core::Initialize() {
         return false;
     }
     
+    // Set the window icon
+    // The icon path is relative to the working directory when the application is run
+    if (!m_Platform.SetWindowIcon("assets/icon.png")) {
+        std::cerr << "Warning: Failed to set window icon" << std::endl;
+        // Not a critical error, continue initialization
+    }
+    
     // Initialize the renderer
     if (!m_Renderer.Initialize()) {
         std::cerr << "Failed to initialize Renderer" << std::endl;

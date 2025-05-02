@@ -38,6 +38,9 @@ public:
     bool IsMouseButtonPressed(int button) const;
     void GetMousePosition(double& x, double& y) const;
     
+    // New function to set the window icon
+    bool SetWindowIcon(const char* iconPath);
+    
     // Get the GLFW window (for renderer to access)
     GLFWwindow* GetNativeWindow() const { return m_Window; }
 

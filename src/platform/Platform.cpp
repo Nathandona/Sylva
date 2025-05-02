@@ -1,5 +1,7 @@
 #include "Platform.h"
 #include <iostream>
+// Include stb_image.h for loading the icon
+#include "../renderer/stb_image.h"
 
 namespace Sylva {
 
@@ -103,6 +105,32 @@ bool Platform::IsMouseButtonPressed(int button) const {
 
 void Platform::GetMousePosition(double& x, double& y) const {
     glfwGetCursorPos(m_Window, &x, &y);
+}
+
+bool Platform::SetWindowIcon(const char* iconPath) {
+    // Load the image using stb_image
+    int width, height, channels;
+    unsigned char* pixels = stbi_load(iconPath, &width, &height, &channels, 4); // Force RGBA
+    
+    if (!pixels) {
+        std::cerr << "Failed to load icon: " << iconPath << std::endl;
+        std::cerr << "STB Error: " << stbi_failure_reason() << std::endl;
+        return false;
+    }
+    
+    // Create a GLFW image structure
+    GLFWimage image;
+    image.width = width;
+    image.height = height;
+    image.pixels = pixels;
+    
+    // Set the window icon
+    glfwSetWindowIcon(m_Window, 1, &image);
+    
+    // Free the image data
+    stbi_image_free(pixels);
+    
+    return true;
 }
 
 } 
