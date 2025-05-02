@@ -22,6 +22,8 @@ set(SOURCES
     src/core/Core.cpp
     src/platform/Platform.cpp
     src/renderer/Renderer.cpp
+    src/renderer/Camera.cpp
+    src/renderer/CameraController.cpp
 )
 
 # Set header files
@@ -29,6 +31,8 @@ set(HEADERS
     src/core/Core.h
     src/platform/Platform.h
     src/renderer/Renderer.h
+    src/renderer/Camera.h
+    src/renderer/CameraController.h
 )
 
 # Create executable
