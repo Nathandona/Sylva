@@ -435,7 +435,7 @@ void Model::Draw(Shader* shader) const {
 
 // Renderer implementation
 Renderer::Renderer()
-    : m_ClearColor(0.2f, 0.3f, 0.3f, 1.0f)
+    : m_ClearColor(0.53f, 0.81f, 0.92f, 1.0f)  // Light blue sky color
     , m_BasicShader(nullptr)
     , m_TestTriangle(nullptr)
     , m_TexturedShader(nullptr)
@@ -470,9 +470,6 @@ bool Renderer::Initialize() {
         std::cerr << "Failed to load textured shaders" << std::endl;
         return false;
     }
-    
-    // Create a test triangle for Phase 1
-    CreateTriangle();
     
     // Load a test model
     m_TestModel = LoadModel("assets/models/cube.obj");
@@ -511,12 +508,6 @@ void Renderer::BeginFrame() {
 }
 
 void Renderer::RenderScene() {
-    // For Phase 1, just render our test triangle
-    if (m_BasicShader && m_TestTriangle) {
-        m_BasicShader->Use();
-        m_TestTriangle->Draw();
-    }
-    
     // If we have a model, shader, and camera, render the model
     if (m_TexturedShader && m_TestModel && m_Camera) {
         m_TexturedShader->Use();
