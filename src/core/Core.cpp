@@ -28,6 +28,9 @@ bool Core::Initialize() {
         return false;
     }
     
+    // Setup camera with platform
+    m_Renderer.SetupCamera(&m_Platform);
+    
     m_Running = true;
     return true;
 }
@@ -51,6 +54,11 @@ void Core::Run() {
         if (m_Platform.WindowShouldClose()) {
             m_Running = false;
             continue;
+        }
+        
+        // Update camera
+        if (m_Renderer.GetCameraController()) {
+            m_Renderer.GetCameraController()->Update(m_DeltaTime);
         }
         
         // Begin new frame
