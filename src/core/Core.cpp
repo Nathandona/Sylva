@@ -31,6 +31,12 @@ bool Core::Initialize() {
     // Setup camera with platform
     m_Renderer.SetupCamera(&m_Platform);
     
+    // Initialize the world
+    if (!m_World.Initialize(&m_Renderer)) {
+        std::cerr << "Failed to initialize World" << std::endl;
+        return false;
+    }
+    
     m_Running = true;
     return true;
 }
@@ -61,12 +67,16 @@ void Core::Run() {
             m_Renderer.GetCameraController()->Update(m_DeltaTime);
         }
         
+        // Update world
+        m_World.Update(m_DeltaTime);
+        
         // Begin new frame
         m_Renderer.BeginFrame();
         
-        // TODO: Update game systems
+        // Render the world
+        m_World.Render();
         
-        // Render the scene
+        // Render the scene (models, etc. not part of world)
         m_Renderer.RenderScene();
         
         // End frame and swap buffers

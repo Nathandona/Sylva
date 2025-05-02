@@ -2,6 +2,7 @@
 
 #include "../platform/Platform.h"
 #include "../renderer/Renderer.h"
+#include "../world/World.h"
 
 namespace Sylva {
 
@@ -27,6 +28,7 @@ private:
     // Core systems
     Platform m_Platform;
     Renderer m_Renderer;
+    World m_World;
 };
 
 } 
