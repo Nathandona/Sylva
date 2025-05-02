@@ -33,13 +33,36 @@ private:
     bool CheckCompileErrors(GLuint shader, const std::string& type);
 };
 
+// Texture class for handling image loading and OpenGL texture creation
+class Texture {
+public:
+    Texture();
+    ~Texture();
+    
+    bool LoadFromFile(const std::string& path);
+    void Bind(unsigned int slot = 0) const;
+    
+    inline int GetWidth() const { return m_Width; }
+    inline int GetHeight() const { return m_Height; }
+    inline int GetChannels() const { return m_Channels; }
+    inline const std::string& GetPath() const { return m_Path; }
+    
+private:
+    GLuint m_ID;
+    int m_Width;
+    int m_Height;
+    int m_Channels;
+    std::string m_Path;
+};
+
 // Simple mesh class
 class Mesh {
 public:
     Mesh();
     ~Mesh();
     
-    void SetVertexData(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
+    // Updated to handle texture coordinates
+    void SetVertexData(const std::vector<float>& vertices, const std::vector<unsigned int>& indices, int stride, int posOffset, int normalOffset = -1, int texCoordOffset = -1, int colorOffset = -1);
     void Draw() const;
     
 private:
@@ -47,6 +70,21 @@ private:
     GLuint m_VBO;
     GLuint m_EBO;
     unsigned int m_IndexCount;
+};
+
+// Model class to hold multiple meshes loaded from an .obj file
+class Model {
+public:
+    Model();
+    ~Model();
+    
+    bool LoadFromFile(const std::string& path);
+    void Draw(Shader* shader) const;
+    
+private:
+    std::vector<Mesh*> m_Meshes;
+    std::vector<Texture*> m_Textures;
+    std::string m_Directory;
 };
 
 // Main renderer class
@@ -66,6 +104,8 @@ public:
     // In a larger engine, these would be in separate classes/systems
     Shader* LoadShader(const std::string& vertexPath, const std::string& fragmentPath);
     Mesh* CreateMesh(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
+    Texture* LoadTexture(const std::string& path);
+    Model* LoadModel(const std::string& path);
     
 private:
     void CreateTriangle(); // Temporary test function for Phase 1
@@ -76,6 +116,10 @@ private:
     // Test objects for Phase 1
     Shader* m_BasicShader;
     Mesh* m_TestTriangle;
+    
+    // Model rendering objects
+    Shader* m_TexturedShader;
+    Model* m_TestModel;
 };
 
 } 
