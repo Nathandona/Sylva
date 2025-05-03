@@ -62,8 +62,12 @@ bool Core::Initialize() {
         // Set the world reference for collision detection
         m_CameraController->SetWorld(&m_World);
         
+        // Get and log player position
+        glm::vec3 playerPos = m_World.GetPlayer().GetPosition();
+        std::cout << "Initial player position: x=" << playerPos.x << ", y=" << playerPos.y << ", z=" << playerPos.z << std::endl;
+        
         // Set initial target (player position)
-        m_CameraController->SetTargetPosition(m_World.GetPlayer().GetPosition());
+        m_CameraController->SetTargetPosition(playerPos);
     }
     
     // Set up running state
@@ -102,7 +106,15 @@ void Core::Run() {
         
         // Update camera target position based on player's position
         if (m_CameraController) {
-            m_CameraController->SetTargetPosition(m_World.GetPlayer().GetPosition());
+            glm::vec3 playerPos = m_World.GetPlayer().GetPosition();
+            // Log player position only on significant change (to avoid console spam)
+            static glm::vec3 lastLoggedPos(0.0f);
+            if (glm::distance(playerPos, lastLoggedPos) > 1.0f) {
+                std::cout << "Player position updated: x=" << playerPos.x << ", y=" << playerPos.y << ", z=" << playerPos.z << std::endl;
+                lastLoggedPos = playerPos;
+            }
+            
+            m_CameraController->SetTargetPosition(playerPos);
             m_CameraController->Update(m_DeltaTime);
         }
         

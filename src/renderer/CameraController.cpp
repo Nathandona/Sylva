@@ -13,7 +13,7 @@ CameraController::CameraController(Camera* camera, Platform* platform)
     , m_TargetPosition(glm::vec3(0.0f))
     , m_CurrentPosition(glm::vec3(0.0f, 0.0f, 5.0f))
     , m_OrbitDistance(5.0f)
-    , m_VerticalOffset(2.0f)
+    , m_VerticalOffset(1.5f)
     , m_SmoothingFactor(5.0f)
     , m_CollisionBuffer(0.2f)
     , m_FirstMouse(true)
@@ -28,8 +28,12 @@ CameraController::CameraController(Camera* camera, Platform* platform)
     m_LastMouseX = mouseX;
     m_LastMouseY = mouseY;
     
-    // Set initial rotation to look slightly downward (typical for third-person view)
-    m_Camera->SetRotation(-30.0f, -180.0f);
+    // Set initial rotation to look directly behind the player (fixed for proper third-person view)
+    m_Camera->SetRotation(-30.0f, 0.0f);
+    
+    // Log initial camera setup
+    std::cout << "Camera initialized with rotation: pitch=" << -30.0f << ", yaw=" << 0.0f << std::endl;
+    std::cout << "Camera vertical offset: " << m_VerticalOffset << std::endl;
 }
 
 void CameraController::SetTargetPosition(const glm::vec3& targetPosition) {
