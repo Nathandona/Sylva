@@ -22,6 +22,7 @@ Player::Player()
 
 Player::~Player() {
     // We don't own the renderer or shader, so don't delete them
+    // m_Mesh is now handled by the unique_ptr
 }
 
 bool Player::Initialize(Renderer* renderer) {
@@ -97,12 +98,11 @@ bool Player::Initialize(Renderer* renderer) {
         20, 21, 22, 22, 23, 20
     };
     
-    // Create the mesh - manually create the mesh with the proper stride and attribute layouts
-    Mesh* mesh = new Mesh();
+    // Create the mesh using make_unique instead of raw new
+    m_Mesh = std::make_unique<Mesh>();
     // Stride of 9: (3 position + 3 normal + 3 color)
     // Position at offset 0, normals at offset 3, colors at offset 6
-    mesh->SetVertexData(vertices, indices, 9, 0, 3, -1, 6);
-    m_Mesh = mesh;
+    m_Mesh->SetVertexData(vertices, indices, 9, 0, 3, -1, 6);
     
     if (!m_Mesh) {
         std::cerr << "Failed to create player mesh!" << std::endl;

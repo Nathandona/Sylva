@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <memory>
 #include "../renderer/Renderer.h"
 #include "../platform/Platform.h"
 
@@ -40,7 +41,7 @@ private:
     
     // Rendering resources
     Renderer* m_Renderer;        // Pointer to renderer (not owned)
-    Mesh* m_Mesh;                // Player mesh
+    std::unique_ptr<Mesh> m_Mesh; // Player mesh (now using unique_ptr)
     Shader* m_Shader;            // Player shader
     glm::vec3 m_Color;           // Player color
 };
