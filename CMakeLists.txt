@@ -26,6 +26,7 @@ set(SOURCES
     src/renderer/CameraController.cpp
     src/world/World.cpp
     src/world/Terrain.cpp
+    src/world/Player.cpp
 )
 
 # Set header files
@@ -37,6 +38,7 @@ set(HEADERS
     src/renderer/CameraController.h
     src/world/World.h
     src/world/Terrain.h
+    src/world/Player.h
 )
 
 # Create executable

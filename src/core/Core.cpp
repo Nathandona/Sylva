@@ -35,15 +35,15 @@ bool Core::Initialize() {
         return false;
     }
     
-    // Position the camera to better view the terrain (higher up and further back)
-    m_Renderer.GetCamera()->SetPosition(glm::vec3(0.0f, 20.0f, 30.0f));
+    // Position the camera for a Cube World style view
+    m_Renderer.GetCamera()->SetPosition(glm::vec3(0.0f, 5.0f, 5.0f));
     m_Renderer.GetCamera()->SetTarget(glm::vec3(0.0f, 0.0f, 0.0f));
     
     // Setup camera with platform
     m_Renderer.SetupCamera(&m_Platform);
     
     // Initialize the world
-    if (!m_World.Initialize(&m_Renderer)) {
+    if (!m_World.Initialize(&m_Renderer, &m_Platform)) {
         std::cerr << "Failed to initialize World" << std::endl;
         return false;
     }
