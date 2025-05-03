@@ -20,6 +20,8 @@ find_package(glm CONFIG REQUIRED)
 set(SOURCES
     src/main.cpp
     src/core/Core.cpp
+    src/core/Logger.cpp
+    src/core/Config.cpp
     src/platform/Platform.cpp
     src/renderer/Renderer.cpp
     src/renderer/Camera.cpp
@@ -38,6 +40,8 @@ set(SOURCES
 # Set header files
 set(HEADERS
     src/core/Core.h
+    src/core/Logger.h
+    src/core/Config.h
     src/platform/Platform.h
     src/renderer/Renderer.h
     src/renderer/Camera.h
