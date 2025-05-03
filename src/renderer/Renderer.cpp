@@ -454,8 +454,9 @@ bool Renderer::Initialize() {
     
     // Set OpenGL state
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    // Temporarily disable face culling for debugging visibility issues
+    //glEnable(GL_CULL_FACE);
+    //glCullFace(GL_BACK);
     
     // Create a basic shader for our triangle
     m_BasicShader = new Shader();
@@ -498,7 +499,11 @@ void Renderer::SetupCamera(Platform* platform) {
     // Create the camera controller
     if (!m_CameraController) {
         m_CameraController = new CameraController(m_Camera, platform);
-        m_CameraController->SetControlMode(CameraController::ControlMode::FirstPerson);
+        m_CameraController->SetControlMode(CameraController::ControlMode::ThirdPerson);
+        m_CameraController->SetOrbitDistance(8.0f); // Better distance for Cube World style
+        
+        // Set initial camera rotation to look from behind the player
+        m_Camera->SetRotation(-15.0f, -180.0f); // Slight downward angle
     }
 }
 
