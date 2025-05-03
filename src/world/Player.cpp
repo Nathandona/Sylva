@@ -51,80 +51,101 @@ bool Player::Initialize(Renderer* renderer) {
     
     // Create a simple rectangular mesh for the player (box shape)
     // The rectangle is 3x8x3 units (width x height x depth) - much larger for visibility
+    const float width = 1.0f;
+    const float height = 2.0f;
+    const float depth = 1.0f;
+    
+    // Define the 8 corners of a cube
+    glm::vec3 p0(-width/2, 0.0f, -depth/2);
+    glm::vec3 p1( width/2, 0.0f, -depth/2);
+    glm::vec3 p2( width/2, 0.0f,  depth/2);
+    glm::vec3 p3(-width/2, 0.0f,  depth/2);
+    glm::vec3 p4(-width/2, height, -depth/2);
+    glm::vec3 p5( width/2, height, -depth/2);
+    glm::vec3 p6( width/2, height,  depth/2);
+    glm::vec3 p7(-width/2, height,  depth/2);
+    
     std::vector<float> vertices = {
-        // Position           Normal             Color
-        // Front face
-        -1.5f, 0.0f, 1.5f,    0.0f, 0.0f, 1.0f,  m_Color.r, m_Color.g, m_Color.b,
-         1.5f, 0.0f, 1.5f,    0.0f, 0.0f, 1.0f,  m_Color.r, m_Color.g, m_Color.b,
-         1.5f, 8.0f, 1.5f,    0.0f, 0.0f, 1.0f,  m_Color.r, m_Color.g, m_Color.b,
-        -1.5f, 8.0f, 1.5f,    0.0f, 0.0f, 1.0f,  m_Color.r, m_Color.g, m_Color.b,
-        
-        // Back face
-        -1.5f, 0.0f, -1.5f,   0.0f, 0.0f, -1.0f, m_Color.r, m_Color.g, m_Color.b,
-         1.5f, 0.0f, -1.5f,   0.0f, 0.0f, -1.0f, m_Color.r, m_Color.g, m_Color.b,
-         1.5f, 8.0f, -1.5f,   0.0f, 0.0f, -1.0f, m_Color.r, m_Color.g, m_Color.b,
-        -1.5f, 8.0f, -1.5f,   0.0f, 0.0f, -1.0f, m_Color.r, m_Color.g, m_Color.b,
-        
-        // Left face
-        -1.5f, 0.0f, -1.5f,   -1.0f, 0.0f, 0.0f, m_Color.r, m_Color.g, m_Color.b,
-        -1.5f, 0.0f, 1.5f,    -1.0f, 0.0f, 0.0f, m_Color.r, m_Color.g, m_Color.b,
-        -1.5f, 8.0f, 1.5f,    -1.0f, 0.0f, 0.0f, m_Color.r, m_Color.g, m_Color.b,
-        -1.5f, 8.0f, -1.5f,   -1.0f, 0.0f, 0.0f, m_Color.r, m_Color.g, m_Color.b,
-        
-        // Right face
-         1.5f, 0.0f, -1.5f,   1.0f, 0.0f, 0.0f,  m_Color.r, m_Color.g, m_Color.b,
-         1.5f, 0.0f, 1.5f,    1.0f, 0.0f, 0.0f,  m_Color.r, m_Color.g, m_Color.b,
-         1.5f, 8.0f, 1.5f,    1.0f, 0.0f, 0.0f,  m_Color.r, m_Color.g, m_Color.b,
-         1.5f, 8.0f, -1.5f,   1.0f, 0.0f, 0.0f,  m_Color.r, m_Color.g, m_Color.b,
+        // Positions (XYZ)           Colors (RGB)
+        // Bottom face
+        p0.x, p0.y, p0.z,           m_Color.r, m_Color.g, m_Color.b,
+        p1.x, p1.y, p1.z,           m_Color.r, m_Color.g, m_Color.b,
+        p2.x, p2.y, p2.z,           m_Color.r, m_Color.g, m_Color.b,
+        p3.x, p3.y, p3.z,           m_Color.r, m_Color.g, m_Color.b,
         
         // Top face
-        -1.5f, 8.0f, -1.5f,   0.0f, 1.0f, 0.0f,  m_Color.r, m_Color.g, m_Color.b,
-        -1.5f, 8.0f, 1.5f,    0.0f, 1.0f, 0.0f,  m_Color.r, m_Color.g, m_Color.b,
-         1.5f, 8.0f, 1.5f,    0.0f, 1.0f, 0.0f,  m_Color.r, m_Color.g, m_Color.b,
-         1.5f, 8.0f, -1.5f,   0.0f, 1.0f, 0.0f,  m_Color.r, m_Color.g, m_Color.b,
+        p4.x, p4.y, p4.z,           m_Color.r, m_Color.g, m_Color.b,
+        p5.x, p5.y, p5.z,           m_Color.r, m_Color.g, m_Color.b,
+        p6.x, p6.y, p6.z,           m_Color.r, m_Color.g, m_Color.b,
+        p7.x, p7.y, p7.z,           m_Color.r, m_Color.g, m_Color.b,
         
-        // Bottom face
-        -1.5f, 0.0f, -1.5f,   0.0f, -1.0f, 0.0f, m_Color.r, m_Color.g, m_Color.b,
-        -1.5f, 0.0f, 1.5f,    0.0f, -1.0f, 0.0f, m_Color.r, m_Color.g, m_Color.b,
-         1.5f, 0.0f, 1.5f,    0.0f, -1.0f, 0.0f, m_Color.r, m_Color.g, m_Color.b,
-         1.5f, 0.0f, -1.5f,   0.0f, -1.0f, 0.0f, m_Color.r, m_Color.g, m_Color.b
+        // Front face
+        p3.x, p3.y, p3.z,           m_Color.r, m_Color.g, m_Color.b,
+        p2.x, p2.y, p2.z,           m_Color.r, m_Color.g, m_Color.b,
+        p6.x, p6.y, p6.z,           m_Color.r, m_Color.g, m_Color.b,
+        p7.x, p7.y, p7.z,           m_Color.r, m_Color.g, m_Color.b,
+        
+        // Back face
+        p0.x, p0.y, p0.z,           m_Color.r, m_Color.g, m_Color.b,
+        p4.x, p4.y, p4.z,           m_Color.r, m_Color.g, m_Color.b,
+        p5.x, p5.y, p5.z,           m_Color.r, m_Color.g, m_Color.b,
+        p1.x, p1.y, p1.z,           m_Color.r, m_Color.g, m_Color.b,
+        
+        // Left face
+        p0.x, p0.y, p0.z,           m_Color.r, m_Color.g, m_Color.b,
+        p3.x, p3.y, p3.z,           m_Color.r, m_Color.g, m_Color.b,
+        p7.x, p7.y, p7.z,           m_Color.r, m_Color.g, m_Color.b,
+        p4.x, p4.y, p4.z,           m_Color.r, m_Color.g, m_Color.b,
+        
+        // Right face
+        p1.x, p1.y, p1.z,           m_Color.r, m_Color.g, m_Color.b,
+        p5.x, p5.y, p5.z,           m_Color.r, m_Color.g, m_Color.b,
+        p6.x, p6.y, p6.z,           m_Color.r, m_Color.g, m_Color.b,
+        p2.x, p2.y, p2.z,           m_Color.r, m_Color.g, m_Color.b
     };
     
-    // Indices for drawing the triangles
     std::vector<unsigned int> indices = {
-        // Front face
-        0, 1, 2, 2, 3, 0,
-        // Back face
-        4, 5, 6, 6, 7, 4,
-        // Left face
-        8, 9, 10, 10, 11, 8,
-        // Right face
-        12, 13, 14, 14, 15, 12,
-        // Top face
-        16, 17, 18, 18, 19, 16,
         // Bottom face
-        20, 21, 22, 22, 23, 20
+        0, 1, 2,
+        2, 3, 0,
+        
+        // Top face
+        4, 7, 6,
+        6, 5, 4,
+        
+        // Front face
+        8, 9, 10,
+        10, 11, 8,
+        
+        // Back face
+        12, 13, 14,
+        14, 15, 12,
+        
+        // Left face
+        16, 17, 18,
+        18, 19, 16,
+        
+        // Right face
+        20, 21, 22,
+        22, 23, 20
     };
     
-    // Create the mesh using make_unique instead of raw new
+    // Create the mesh
     m_Mesh = std::make_unique<Mesh>();
-    // Stride of 9: (3 position + 3 normal + 3 color)
-    // Position at offset 0, normals at offset 3, colors at offset 6
-    m_Mesh->SetVertexData(vertices, indices, 9, 0, 3, -1, 6);
+    m_Mesh->SetVertexData(vertices, indices, 6, 0, -1, -1, 3);
     
-    if (!m_Mesh) {
-        std::cerr << "Failed to create player mesh!" << std::endl;
-        return false;
-    }
-    
-    std::cout << "Player initialized successfully." << std::endl;
     return true;
 }
 
 void Player::Update(float deltaTime, const Platform* platform, World* world) {
-    // Get the camera for determining movement direction
+    // Validate inputs
+    if (!platform || !world) {
+        return;
+    }
+    
+    // Get the camera forward and right vectors for player movement
     Camera* camera = m_Renderer->GetCamera();
-    if (!camera || !platform || !world) {
+    if (!camera) {
         return;
     }
     
@@ -175,76 +196,49 @@ void Player::Update(float deltaTime, const Platform* platform, World* world) {
     
     // If on ground, prevent falling further and allow jumping
     if (m_IsGrounded) {
-        m_Position.y = terrainHeight;
+        // Stop vertical movement if on ground
         m_Velocity.y = 0.0f;
+        m_Position.y = terrainHeight + 0.1f;
         
-        // Jump if space key is pressed
+        // Jump if space is pressed
         if (platform->IsKeyPressed(GLFW_KEY_SPACE)) {
             m_Velocity.y = m_JumpForce;
-            m_IsGrounded = false;
         }
     }
     
-    // Store current position before movement
-    glm::vec3 oldPosition = m_Position;
-    
-    // Update player position
+    // Update position based on velocity
     m_Position += m_Velocity * deltaTime;
     
-    // Check if player is below terrain (likely due to steep slopes or falling)
-    terrainHeight = world->GetTerrainHeightAt(m_Position.x, m_Position.z);
-    if (m_Position.y < terrainHeight) {
-        m_Position.y = terrainHeight;
-        m_Velocity.y = 0.0f;
-        m_IsGrounded = true;
-    }
-    
-    // Limit player position to world bounds with a small buffer to prevent getting stuck at edges
-    const float BUFFER = 0.5f; // Small buffer from the edge
-    if (m_Position.x < World::WORLD_MIN_X + BUFFER || m_Position.x > World::WORLD_MAX_X - BUFFER) {
-        // Reset X position and velocity (collision)
-        m_Position.x = glm::clamp(m_Position.x, World::WORLD_MIN_X + BUFFER, World::WORLD_MAX_X - BUFFER);
-        m_Velocity.x = 0.0f;
-    }
-    
-    if (m_Position.z < World::WORLD_MIN_Z + BUFFER || m_Position.z > World::WORLD_MAX_Z - BUFFER) {
-        // Reset Z position and velocity (collision)
-        m_Position.z = glm::clamp(m_Position.z, World::WORLD_MIN_Z + BUFFER, World::WORLD_MAX_Z - BUFFER);
-        m_Velocity.z = 0.0f;
-    }
-    
-    // We no longer need to update the camera position here
-    // The World class will update the camera controller with our position
+    // Ensure player stays within world bounds
+    m_Position.x = std::max(World::WORLD_MIN_X + 1.0f, std::min(m_Position.x, World::WORLD_MAX_X - 1.0f));
+    m_Position.z = std::max(World::WORLD_MIN_Z + 1.0f, std::min(m_Position.z, World::WORLD_MAX_Z - 1.0f));
 }
 
-void Player::Render() {
-    if (!m_Renderer || !m_Mesh || !m_Shader) {
+void Player::Render(Camera* camera) {
+    if (!m_Mesh || !m_Shader || !camera) {
         return;
     }
     
-    // Use player shader
+    // Use the shader
     m_Shader->Use();
     
-    // Get camera matrices
-    Camera* camera = m_Renderer->GetCamera();
-    if (!camera) {
-        return;
-    }
+    // Set view and projection matrices from camera
+    m_Shader->SetMat4("view", camera->GetViewMatrix());
+    m_Shader->SetMat4("projection", camera->GetProjectionMatrix());
     
-    // Set shader uniforms
-    glm::mat4 projection = camera->GetProjectionMatrix();
-    glm::mat4 view = camera->GetViewMatrix();
-    
-    m_Shader->SetMat4("projection", projection);
-    m_Shader->SetMat4("view", view);
-    
-    // Create model matrix from player position and rotation
+    // Create model matrix
     glm::mat4 model = glm::mat4(1.0f);
+    
+    // Apply translation
     model = glm::translate(model, m_Position);
+    
+    // Apply rotation around Y axis
     model = glm::rotate(model, m_RotationY, glm::vec3(0.0f, 1.0f, 0.0f));
+    
+    // Set the model matrix in the shader
     m_Shader->SetMat4("model", model);
     
-    // Draw the player mesh
+    // Draw the mesh
     m_Mesh->Draw();
 }
 

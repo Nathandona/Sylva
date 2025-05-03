@@ -10,12 +10,7 @@ namespace Sylva {
 Renderer::Renderer()
     : m_ClearColor(0.53f, 0.81f, 0.92f, 1.0f)  // Light blue sky color
     , m_ResourceManager(nullptr)
-    , m_BasicShader(nullptr)
-    , m_TestTriangle(nullptr)
-    , m_TexturedShader(nullptr)
-    , m_TestModel(nullptr)
     , m_Camera(nullptr)
-    , m_CameraController(nullptr)
 {
 }
 
@@ -35,28 +30,7 @@ bool Renderer::Initialize() {
     //glEnable(GL_CULL_FACE);
     //glCullFace(GL_BACK);
     
-    // Create a basic shader for our triangle
-    m_BasicShader = LoadShader("assets/shaders/basic.vert", "assets/shaders/basic.frag");
-    if (!m_BasicShader) {
-        std::cerr << "Failed to load basic shaders" << std::endl;
-        return false;
-    }
-    
-    // Create shader for textured models
-    m_TexturedShader = LoadShader("assets/shaders/textured.vert", "assets/shaders/textured.frag");
-    if (!m_TexturedShader) {
-        std::cerr << "Failed to load textured shaders" << std::endl;
-        return false;
-    }
-    
-    // Load a test model
-    m_TestModel = LoadModel("assets/models/cube.obj");
-    if (!m_TestModel) {
-        std::cerr << "Failed to load cube model" << std::endl;
-        // Continue anyway - this isn't fatal
-    }
-    
-    // Initialize camera (platform-specific setup is done later)
+    // Initialize camera
     m_Camera = new Camera(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
     m_Camera->SetPosition(glm::vec3(0.0f, 0.0f, 3.0f));
     
@@ -69,83 +43,12 @@ void Renderer::BeginFrame() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Renderer::SetupCamera(Platform* platform) {
-    if (platform) {
-        // Create a camera controller with the platform for input
-        m_CameraController = new CameraController(m_Camera, platform);
-        
-        // Set an initial position above the terrain
-        m_CameraController->SetTargetPosition(glm::vec3(0.0f, 10.0f, 0.0f));
-        
-        // Create test triangle for Phase 1
-        CreateTriangle();
-        
-        return;
-    }
-    
-    std::cerr << "Cannot set up camera controller without platform!" << std::endl;
-}
-
-void Renderer::RenderScene() {
-    // This is a simple test function that renders our test objects
-    // In a real engine, this would be more sophisticated and driven by a scene graph
-    
-    if (m_BasicShader && m_TestTriangle) {
-        // Use the shader
-        m_BasicShader->Use();
-        
-        // Set view and projection matrices
-        m_BasicShader->SetMat4("view", m_Camera->GetViewMatrix());
-        m_BasicShader->SetMat4("projection", m_Camera->GetProjectionMatrix());
-        
-        // Create a model matrix
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -3.0f));
-        model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
-        m_BasicShader->SetMat4("model", model);
-        
-        // Draw the triangle
-        m_TestTriangle->Draw();
-    }
-    
-    if (m_TexturedShader && m_TestModel) {
-        // Use the shader
-        m_TexturedShader->Use();
-        
-        // Set view and projection matrices
-        m_TexturedShader->SetMat4("view", m_Camera->GetViewMatrix());
-        m_TexturedShader->SetMat4("projection", m_Camera->GetProjectionMatrix());
-        
-        // Create a model matrix for the cube
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(3.0f, 0.0f, -5.0f));
-        model = glm::rotate(model, (float)glfwGetTime() * 0.5f, glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));
-        m_TexturedShader->SetMat4("model", model);
-        
-        // Draw the model
-        m_TestModel->Draw(m_TexturedShader);
-    }
-}
-
 void Renderer::EndFrame() {
     // Currently nothing to do here
 }
 
 void Renderer::Shutdown() {
-    // Note: we don't need to delete shaders and models loaded through ResourceManager
-    // but we still need to clean up any raw pointers we have
-    
-    delete m_TestTriangle;
-    m_TestTriangle = nullptr;
-    
-    m_BasicShader = nullptr;
-    m_TexturedShader = nullptr;
-    m_TestModel = nullptr;
-    
-    delete m_CameraController;
-    m_CameraController = nullptr;
-    
+    // Clean up any raw pointers we have
     delete m_Camera;
     m_Camera = nullptr;
     
@@ -165,32 +68,12 @@ Shader* Renderer::LoadShader(const std::string& vertexPath, const std::string& f
 }
 
 Mesh* Renderer::CreateMesh(const std::vector<float>& vertices, const std::vector<unsigned int>& indices) {
-    // For now, we still create meshes directly since they're not managed by ResourceManager
+    // Create a new mesh directly (no caching for dynamically created meshes)
     Mesh* mesh = new Mesh();
     mesh->SetVertexData(vertices, indices, 6, 0, -1, -1, 3);
     return mesh;
 }
 
-void Renderer::CreateTriangle() {
-    // Define vertices for a simple triangle with position (xyz) and color (rgb)
-    std::vector<float> vertices = {
-        // positions         // colors
-         0.0f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  // top
-        -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  // bottom left
-         0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f   // bottom right
-    };
-    
-    // Define indices
-    std::vector<unsigned int> indices = {
-        0, 1, 2  // first triangle
-    };
-    
-    // Create the mesh
-    m_TestTriangle = new Mesh();
-    m_TestTriangle->SetVertexData(vertices, indices, 6, 0, -1, -1, 3);
-}
-
-// New renderer functions for textures and models
 Texture* Renderer::LoadTexture(const std::string& path) {
     // Use ResourceManager to load the texture
     std::shared_ptr<Texture> texture = m_ResourceManager->GetTexture(path);

@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <memory>
 #include "../renderer/Renderer.h"
+#include "../renderer/Camera.h"
 #include "../platform/Platform.h"
 
 namespace Sylva {
@@ -19,7 +20,7 @@ public:
     void Update(float deltaTime, const Platform* platform, class World* world);
     
     // Render the player
-    void Render();
+    void Render(Camera* camera);
     
     // Get the player's position
     glm::vec3 GetPosition() const { return m_Position; }

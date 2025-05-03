@@ -2,7 +2,10 @@
 
 #include "../platform/Platform.h"
 #include "../renderer/Renderer.h"
+#include "../renderer/Camera.h"
+#include "../renderer/CameraController.h"
 #include "../world/World.h"
+#include <memory>
 
 namespace Sylva {
 
@@ -29,6 +32,9 @@ private:
     Platform m_Platform;
     Renderer m_Renderer;
     World m_World;
+    
+    // Camera controller (owned by Core)
+    std::unique_ptr<CameraController> m_CameraController;
 };
 
 } 

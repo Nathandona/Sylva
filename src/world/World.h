@@ -3,6 +3,7 @@
 #include "Terrain.h"
 #include "Player.h"
 #include "../renderer/Renderer.h"
+#include "../renderer/Camera.h"
 #include "../renderer/ResourceManager.h"
 #include <memory>
 
@@ -17,13 +18,17 @@ public:
     bool Initialize(Renderer* renderer, Platform* platform);
     
     // Update the world state (will be expanded in future)
-    void Update(float deltaTime);
+    void Update(float deltaTime, Camera* camera);
     
     // Render the world
-    void Render();
+    void Render(Camera* camera);
     
     // Get the height at a specific world position
     float GetTerrainHeightAt(float x, float z) const;
+    
+    // Get player reference
+    const Player& GetPlayer() const { return m_Player; }
+    Player& GetPlayer() { return m_Player; }
     
     // Define world coordinate limits
     static constexpr float WORLD_SIZE = 1000.0f;

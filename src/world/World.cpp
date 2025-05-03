@@ -83,24 +83,14 @@ bool World::Initialize(Renderer* renderer, Platform* platform) {
     float initialHeight = m_Terrain.GetHeightAt(0.0f, 0.0f) + 15.0f; // Start much higher for visibility
     m_Player.SetPosition(glm::vec3(0.0f, initialHeight, 0.0f));
     
-    // Initialize camera target position if we have a camera controller
-    if (m_Renderer->GetCameraController()) {
-        m_Renderer->GetCameraController()->SetTargetPosition(m_Player.GetPosition());
-    }
-    
     std::cout << "World initialized successfully." << std::endl;
     return true;
 }
 
-void World::Update(float deltaTime) {
+void World::Update(float deltaTime, Camera* camera) {
     // Update player
-    if (m_Platform) {
+    if (m_Platform && camera) {
         m_Player.Update(deltaTime, m_Platform, this);
-        
-        // Update camera target if we have a camera controller
-        if (m_Renderer->GetCameraController()) {
-            m_Renderer->GetCameraController()->SetTargetPosition(m_Player.GetPosition());
-        }
     }
     
     // Future additions:
@@ -109,36 +99,30 @@ void World::Update(float deltaTime) {
     // - World physics simulation
 }
 
-void World::Render() {
-    if (!m_Renderer || !m_TerrainShader) {
-        std::cerr << "Cannot render World without valid Renderer and Shader!" << std::endl;
-        return;
-    }
-    
-    // Get camera from renderer
-    Camera* camera = m_Renderer->GetCamera();
+void World::Render(Camera* camera) {
     if (!camera) {
-        std::cerr << "Cannot render terrain without camera!" << std::endl;
         return;
     }
     
-    // Use the terrain shader
-    m_TerrainShader->Use();
+    // Render terrain
+    if (m_TerrainShader) {
+        m_TerrainShader->Use();
+        
+        // Set view and projection matrices from camera
+        m_TerrainShader->SetMat4("view", camera->GetViewMatrix());
+        m_TerrainShader->SetMat4("projection", camera->GetProjectionMatrix());
+        
+        // Set lighting values if needed
+        m_TerrainShader->SetVec3("lightDir", glm::normalize(glm::vec3(0.5f, 1.0f, 0.3f)));
+        m_TerrainShader->SetVec3("lightColor", glm::vec3(1.0f, 1.0f, 0.9f));
+        m_TerrainShader->SetVec3("viewPos", camera->GetPosition());
+        
+        // Render the terrain
+        m_Terrain.Render(m_TerrainShader.get());
+    }
     
-    // Pass camera matrices to the shader
-    m_TerrainShader->SetMat4("view", camera->GetViewMatrix());
-    m_TerrainShader->SetMat4("projection", camera->GetProjectionMatrix());
-    
-    // Set lighting values if needed
-    m_TerrainShader->SetVec3("lightDir", glm::normalize(glm::vec3(0.5f, 1.0f, 0.3f)));
-    m_TerrainShader->SetVec3("lightColor", glm::vec3(1.0f, 1.0f, 0.9f));
-    m_TerrainShader->SetVec3("viewPos", camera->GetPosition());
-    
-    // Render the terrain with the configured shader
-    m_Terrain.Render(m_TerrainShader.get());
-    
-    // Render the player
-    m_Player.Render();
+    // Render player
+    m_Player.Render(camera);
     
     // Future: render additional world entities, effects, etc.
 }

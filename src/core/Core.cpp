@@ -6,6 +6,7 @@ namespace Sylva {
 Core::Core() 
     : m_Running(false)
     , m_DeltaTime(0.0f)
+    , m_CameraController(nullptr)
 {
 }
 
@@ -36,11 +37,18 @@ bool Core::Initialize() {
     }
     
     // Position the camera for a Cube World style view
-    m_Renderer.GetCamera()->SetPosition(glm::vec3(0.0f, 5.0f, 5.0f));
-    m_Renderer.GetCamera()->SetTarget(glm::vec3(0.0f, 0.0f, 0.0f));
+    Camera* camera = m_Renderer.GetCamera();
+    if (!camera) {
+        std::cerr << "Failed to get camera from renderer" << std::endl;
+        return false;
+    }
     
-    // Setup camera with platform
-    m_Renderer.SetupCamera(&m_Platform);
+    camera->SetPosition(glm::vec3(0.0f, 5.0f, 5.0f));
+    camera->SetTarget(glm::vec3(0.0f, 0.0f, 0.0f));
+    
+    // Create camera controller with platform for input
+    m_CameraController = std::make_unique<CameraController>(camera, &m_Platform);
+    m_CameraController->SetTargetPosition(glm::vec3(0.0f, 10.0f, 0.0f));
     
     // Initialize the world
     if (!m_World.Initialize(&m_Renderer, &m_Platform)) {
@@ -73,22 +81,23 @@ void Core::Run() {
             continue;
         }
         
-        // Update camera
-        if (m_Renderer.GetCameraController()) {
-            m_Renderer.GetCameraController()->Update(m_DeltaTime);
-        }
+        // Get camera for the frame
+        Camera* camera = m_CameraController ? m_CameraController->GetCamera() : nullptr;
         
         // Update world
-        m_World.Update(m_DeltaTime);
+        m_World.Update(m_DeltaTime, camera);
+        
+        // Update camera target position based on player's position
+        if (m_CameraController) {
+            m_CameraController->SetTargetPosition(m_World.GetPlayer().GetPosition());
+            m_CameraController->Update(m_DeltaTime);
+        }
         
         // Begin new frame
         m_Renderer.BeginFrame();
         
         // Render the world
-        m_World.Render();
-        
-        // Render the scene (models, etc. not part of world)
-        m_Renderer.RenderScene();
+        m_World.Render(camera);
         
         // End frame and swap buffers
         m_Renderer.EndFrame();
@@ -100,6 +109,7 @@ void Core::Shutdown() {
     std::cout << "Shutting down Sylva Engine..." << std::endl;
     
     // Shutdown in reverse order of initialization
+    m_CameraController.reset(); // Ensure controller is destroyed before renderer
     m_Renderer.Shutdown();
     m_Platform.Shutdown();
 }
