@@ -8,7 +8,6 @@ namespace Sylva {
 CameraController::CameraController(Camera* camera, Platform* platform)
     : m_Camera(camera)
     , m_Platform(platform)
-    , m_ControlMode(ControlMode::ThirdPerson)
     , m_TargetPosition(glm::vec3(0.0f))
     , m_OrbitDistance(5.0f)
     , m_FirstMouse(true)
@@ -27,59 +26,40 @@ CameraController::CameraController(Camera* camera, Platform* platform)
     m_Camera->SetRotation(-30.0f, -180.0f);
 }
 
-void CameraController::SetControlMode(ControlMode mode) {
-    m_ControlMode = mode;
-    
-    // Reset mouse state when switching modes
-    m_FirstMouse = true;
-}
-
 void CameraController::SetTargetPosition(const glm::vec3& targetPosition) {
     m_TargetPosition = targetPosition;
     
-    // If in third-person mode, update camera position
-    if (m_ControlMode == ControlMode::ThirdPerson) {
-        // Position the camera at a distance behind and slightly above the target
-        glm::vec3 offset;
-        
-        // Calculate camera position based on yaw (horizontal rotation around player)
-        float cameraYaw = m_Camera->GetYaw();
-        float cameraPitch = m_Camera->GetPitch();
-        
-        // Convert yaw to radians and calculate offset
-        float yawRadians = glm::radians(cameraYaw);
-        float pitchRadians = glm::radians(cameraPitch);
-        
-        // Position camera based on yaw and pitch angles for better 3D control
-        offset.x = -m_OrbitDistance * sin(yawRadians) * cos(pitchRadians);
-        offset.y = m_OrbitDistance * sin(pitchRadians);
-        offset.z = -m_OrbitDistance * cos(yawRadians) * cos(pitchRadians);
-        
-        // Set camera position and make it look at the target
-        m_Camera->SetPosition(m_TargetPosition + offset);
-        m_Camera->SetTarget(m_TargetPosition);
-    }
+    // Position the camera at a distance behind and slightly above the target
+    glm::vec3 offset;
+    
+    // Calculate camera position based on yaw (horizontal rotation around player)
+    float cameraYaw = m_Camera->GetYaw();
+    float cameraPitch = m_Camera->GetPitch();
+    
+    // Convert yaw to radians and calculate offset
+    float yawRadians = glm::radians(cameraYaw);
+    float pitchRadians = glm::radians(cameraPitch);
+    
+    // Position camera based on yaw and pitch angles for better 3D control
+    offset.x = -m_OrbitDistance * sin(yawRadians) * cos(pitchRadians);
+    offset.y = m_OrbitDistance * sin(pitchRadians);
+    offset.z = -m_OrbitDistance * cos(yawRadians) * cos(pitchRadians);
+    
+    // Set camera position and make it look at the target
+    m_Camera->SetPosition(m_TargetPosition + offset);
+    m_Camera->SetTarget(m_TargetPosition);
 }
 
 void CameraController::SetOrbitDistance(float distance) {
     m_OrbitDistance = std::max(0.1f, distance);
     
-    // Update camera position if in third-person mode
-    if (m_ControlMode == ControlMode::ThirdPerson) {
-        SetTargetPosition(m_TargetPosition);
-    }
+    // Update camera position
+    SetTargetPosition(m_TargetPosition);
 }
 
 void CameraController::Update(float deltaTime) {
-    // Process input based on control mode
-    switch (m_ControlMode) {
-        case ControlMode::FirstPerson:
-            HandleFirstPersonInput(deltaTime);
-            break;
-        case ControlMode::ThirdPerson:
-            HandleThirdPersonInput(deltaTime);
-            break;
-    }
+    // Process input for third-person mode
+    HandleThirdPersonInput(deltaTime);
     
     // Handle mouse movement for camera rotation
     HandleMouseMovement();
@@ -90,33 +70,6 @@ void CameraController::OnWindowResize(int width, int height) {
     if (width > 0 && height > 0) {
         float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
         m_Camera->SetAspectRatio(aspectRatio);
-    }
-}
-
-void CameraController::HandleFirstPersonInput(float deltaTime) {
-    // Keyboard input for movement
-    float velocity = m_MovementSpeed * deltaTime;
-    
-    // Check W, A, S, D keys for movement
-    if (m_Platform->IsKeyPressed(GLFW_KEY_W)) {
-        m_Camera->MoveForward(velocity);
-    }
-    if (m_Platform->IsKeyPressed(GLFW_KEY_S)) {
-        m_Camera->MoveForward(-velocity);
-    }
-    if (m_Platform->IsKeyPressed(GLFW_KEY_A)) {
-        m_Camera->MoveRight(-velocity);
-    }
-    if (m_Platform->IsKeyPressed(GLFW_KEY_D)) {
-        m_Camera->MoveRight(velocity);
-    }
-    
-    // Additional movement keys (optional)
-    if (m_Platform->IsKeyPressed(GLFW_KEY_SPACE)) {
-        m_Camera->MoveUp(velocity);
-    }
-    if (m_Platform->IsKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
-        m_Camera->MoveUp(-velocity);
     }
 }
 
@@ -183,10 +136,8 @@ void CameraController::HandleMouseMovement() {
     // Process mouse movement
     m_Camera->ProcessMouseMovement(xOffset, yOffset);
     
-    // For third-person mode, update the camera position
-    if (m_ControlMode == ControlMode::ThirdPerson) {
-        SetTargetPosition(m_TargetPosition);
-    }
+    // Update the camera position
+    SetTargetPosition(m_TargetPosition);
 }
 
 } // namespace Sylva 

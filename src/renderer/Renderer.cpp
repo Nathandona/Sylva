@@ -499,7 +499,6 @@ void Renderer::SetupCamera(Platform* platform) {
     // Create the camera controller
     if (!m_CameraController) {
         m_CameraController = new CameraController(m_Camera, platform);
-        m_CameraController->SetControlMode(CameraController::ControlMode::ThirdPerson);
         m_CameraController->SetOrbitDistance(8.0f); // Better distance for Cube World style
         
         // Set initial camera rotation to look from behind the player
