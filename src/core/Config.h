@@ -163,7 +163,7 @@ private:
         Set<std::string>("assetPath", "assets");
         Set<int>("windowWidth", 1280);
         Set<int>("windowHeight", 720);
-        Set<std::string>("windowTitle", "Sylva Engine");
+        Set<std::string>("windowTitle", "Sylva");
         Set<bool>("fullscreen", false);
         Set<float>("mouseSensitivity", 0.1f);
         Set<bool>("vsync", true);

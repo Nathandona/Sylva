@@ -18,7 +18,7 @@ bool Core::Initialize() {
     std::cout << "Initializing Sylva Engine..." << std::endl;
     
     // Initialize platform (window and input)
-    if (!m_Platform.Initialize("Sylva Engine", 1280, 720)) {
+    if (!m_Platform.Initialize("Sylva", 1280, 720)) {
         std::cerr << "Failed to initialize platform!" << std::endl;
         return false;
     }
@@ -68,6 +68,10 @@ bool Core::Initialize() {
         
         // Set initial target (player position)
         m_CameraController->SetTargetPosition(playerPos);
+
+        // Log initial camera position after setup
+        glm::vec3 camPos = camera->GetPosition();
+        std::cout << "Initial camera position: x=" << camPos.x << ", y=" << camPos.y << ", z=" << camPos.z << std::endl;
     }
     
     // Set up running state
@@ -111,6 +115,9 @@ void Core::Run() {
             static glm::vec3 lastLoggedPos(0.0f);
             if (glm::distance(playerPos, lastLoggedPos) > 1.0f) {
                 std::cout << "Player position updated: x=" << playerPos.x << ", y=" << playerPos.y << ", z=" << playerPos.z << std::endl;
+                // Also log camera position when player position is logged
+                glm::vec3 camPos = m_CameraController->GetCamera()->GetPosition();
+                std::cout << "Camera position: x=" << camPos.x << ", y=" << camPos.y << ", z=" << camPos.z << std::endl;
                 lastLoggedPos = playerPos;
             }
             
