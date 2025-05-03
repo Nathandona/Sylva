@@ -8,7 +8,7 @@ namespace Sylva {
 CameraController::CameraController(Camera* camera, Platform* platform)
     : m_Camera(camera)
     , m_Platform(platform)
-    , m_ControlMode(ControlMode::FirstPerson)
+    , m_ControlMode(ControlMode::ThirdPerson)
     , m_TargetPosition(glm::vec3(0.0f))
     , m_OrbitDistance(5.0f)
     , m_FirstMouse(true)
@@ -22,6 +22,9 @@ CameraController::CameraController(Camera* camera, Platform* platform)
     m_Platform->GetMousePosition(mouseX, mouseY);
     m_LastMouseX = mouseX;
     m_LastMouseY = mouseY;
+    
+    // Set initial rotation to look slightly downward
+    m_Camera->SetRotation(-30.0f, -180.0f);
 }
 
 void CameraController::SetControlMode(ControlMode mode) {
@@ -34,30 +37,25 @@ void CameraController::SetControlMode(ControlMode mode) {
 void CameraController::SetTargetPosition(const glm::vec3& targetPosition) {
     m_TargetPosition = targetPosition;
     
-    // If in third-person/orbit mode, update camera position
-    if (m_ControlMode == ControlMode::ThirdPerson || m_ControlMode == ControlMode::Orbit) {
+    // If in third-person mode, update camera position
+    if (m_ControlMode == ControlMode::ThirdPerson) {
         // Position the camera at a distance behind and slightly above the target
         glm::vec3 offset;
-        if (m_ControlMode == ControlMode::ThirdPerson) {
-            float cameraYaw = m_Camera->GetYaw();
-            float cameraPitch = m_Camera->GetPitch();
-            
-            // Calculate offset based on current camera rotation
-            offset.x = -cos(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch));
-            offset.y = sin(glm::radians(cameraPitch));
-            offset.z = -sin(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch));
-            
-            offset = glm::normalize(offset) * m_OrbitDistance;
-        } else {
-            // In orbit mode, position is based on angles
-            float cameraYaw = m_Camera->GetYaw();
-            float cameraPitch = m_Camera->GetPitch();
-            
-            offset.x = m_OrbitDistance * cos(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch));
-            offset.y = m_OrbitDistance * sin(glm::radians(cameraPitch));
-            offset.z = m_OrbitDistance * sin(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch));
-        }
         
+        // Calculate camera position based on yaw (horizontal rotation around player)
+        float cameraYaw = m_Camera->GetYaw();
+        float cameraPitch = m_Camera->GetPitch();
+        
+        // Convert yaw to radians and calculate offset
+        float yawRadians = glm::radians(cameraYaw);
+        float pitchRadians = glm::radians(cameraPitch);
+        
+        // Position camera based on yaw and pitch angles for better 3D control
+        offset.x = -m_OrbitDistance * sin(yawRadians) * cos(pitchRadians);
+        offset.y = m_OrbitDistance * sin(pitchRadians);
+        offset.z = -m_OrbitDistance * cos(yawRadians) * cos(pitchRadians);
+        
+        // Set camera position and make it look at the target
         m_Camera->SetPosition(m_TargetPosition + offset);
         m_Camera->SetTarget(m_TargetPosition);
     }
@@ -66,8 +64,8 @@ void CameraController::SetTargetPosition(const glm::vec3& targetPosition) {
 void CameraController::SetOrbitDistance(float distance) {
     m_OrbitDistance = std::max(0.1f, distance);
     
-    // Update camera position if in third-person/orbit mode
-    if (m_ControlMode == ControlMode::ThirdPerson || m_ControlMode == ControlMode::Orbit) {
+    // Update camera position if in third-person mode
+    if (m_ControlMode == ControlMode::ThirdPerson) {
         SetTargetPosition(m_TargetPosition);
     }
 }
@@ -80,9 +78,6 @@ void CameraController::Update(float deltaTime) {
             break;
         case ControlMode::ThirdPerson:
             HandleThirdPersonInput(deltaTime);
-            break;
-        case ControlMode::Orbit:
-            HandleOrbitInput(deltaTime);
             break;
     }
     
@@ -126,33 +121,32 @@ void CameraController::HandleFirstPersonInput(float deltaTime) {
 }
 
 void CameraController::HandleThirdPersonInput(float deltaTime) {
-    // In third-person mode, we typically move the target (player character)
-    // For now, let's just orbit around a fixed target
-    
-    // Allow zooming in/out
+    // In third-person mode, we use arrow keys to rotate the camera around the player
     float velocity = m_MovementSpeed * deltaTime;
+    float rotationSpeed = 100.0f * deltaTime; // Degrees per second
     
-    if (m_Platform->IsKeyPressed(GLFW_KEY_Q)) {
-        m_OrbitDistance += velocity;
+    // Arrow keys to rotate camera left/right
+    if (m_Platform->IsKeyPressed(GLFW_KEY_LEFT)) {
+        // Rotate camera left (increase yaw)
+        float currentYaw = m_Camera->GetYaw();
+        m_Camera->SetRotation(m_Camera->GetPitch(), currentYaw + rotationSpeed);
     }
-    if (m_Platform->IsKeyPressed(GLFW_KEY_E)) {
-        m_OrbitDistance = std::max(0.1f, m_OrbitDistance - velocity);
+    if (m_Platform->IsKeyPressed(GLFW_KEY_RIGHT)) {
+        // Rotate camera right (decrease yaw)
+        float currentYaw = m_Camera->GetYaw();
+        m_Camera->SetRotation(m_Camera->GetPitch(), currentYaw - rotationSpeed);
     }
     
-    // Update camera position
-    SetTargetPosition(m_TargetPosition);
-}
-
-void CameraController::HandleOrbitInput(float deltaTime) {
-    // In orbit mode, the camera rotates around a fixed point
-    float velocity = m_MovementSpeed * deltaTime;
-    
-    // Allow zooming in/out
-    if (m_Platform->IsKeyPressed(GLFW_KEY_Q)) {
-        m_OrbitDistance += velocity;
+    // Arrow keys for camera up/down (optional)
+    if (m_Platform->IsKeyPressed(GLFW_KEY_UP)) {
+        // Rotate camera up (increase pitch, clamped to prevent over-rotation)
+        float currentPitch = m_Camera->GetPitch();
+        m_Camera->SetRotation(std::min(currentPitch + rotationSpeed, 89.0f), m_Camera->GetYaw());
     }
-    if (m_Platform->IsKeyPressed(GLFW_KEY_E)) {
-        m_OrbitDistance = std::max(0.1f, m_OrbitDistance - velocity);
+    if (m_Platform->IsKeyPressed(GLFW_KEY_DOWN)) {
+        // Rotate camera down (decrease pitch, clamped to prevent over-rotation)
+        float currentPitch = m_Camera->GetPitch();
+        m_Camera->SetRotation(std::max(currentPitch - rotationSpeed, -89.0f), m_Camera->GetYaw());
     }
     
     // Update camera position
@@ -189,8 +183,8 @@ void CameraController::HandleMouseMovement() {
     // Process mouse movement
     m_Camera->ProcessMouseMovement(xOffset, yOffset);
     
-    // For third-person/orbit mode, update the camera position
-    if (m_ControlMode == ControlMode::ThirdPerson || m_ControlMode == ControlMode::Orbit) {
+    // For third-person mode, update the camera position
+    if (m_ControlMode == ControlMode::ThirdPerson) {
         SetTargetPosition(m_TargetPosition);
     }
 }

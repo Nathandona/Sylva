@@ -9,8 +9,7 @@ class CameraController {
 public:
     enum class ControlMode {
         FirstPerson,
-        ThirdPerson,
-        Orbit
+        ThirdPerson
     };
 
     CameraController(Camera* camera, Platform* platform);
@@ -36,7 +35,6 @@ private:
     // Handle input based on the current control mode
     void HandleFirstPersonInput(float deltaTime);
     void HandleThirdPersonInput(float deltaTime);
-    void HandleOrbitInput(float deltaTime);
     
     // Mouse movement
     void HandleMouseMovement();
