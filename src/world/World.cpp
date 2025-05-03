@@ -5,6 +5,7 @@ namespace Sylva {
 
 World::World()
     : m_Renderer(nullptr)
+    , m_Platform(nullptr)
     , m_TerrainShader(nullptr)
     , m_TerrainTexture(nullptr)
 {
@@ -13,17 +14,23 @@ World::World()
 World::~World() {
     // We don't own the renderer or shader/texture resources
     m_Renderer = nullptr;
+    m_Platform = nullptr;
     m_TerrainShader = nullptr;
     m_TerrainTexture = nullptr;
 }
 
-bool World::Initialize(Renderer* renderer) {
+bool World::Initialize(Renderer* renderer, Platform* platform) {
     if (!renderer) {
         std::cerr << "Cannot initialize World without a valid Renderer!" << std::endl;
         return false;
     }
     
     m_Renderer = renderer;
+    m_Platform = platform;
+    
+    if (!m_Platform) {
+        std::cerr << "Warning: Platform not provided, input will not be processed" << std::endl;
+    }
     
     // Load terrain shader
     m_TerrainShader = m_Renderer->LoadShader("assets/shaders/terrain_vertex.glsl", 
@@ -59,12 +66,37 @@ bool World::Initialize(Renderer* renderer) {
         m_Terrain.SetTexture(m_TerrainTexture);
     }
     
+    // Initialize the player
+    if (!m_Player.Initialize(m_Renderer)) {
+        std::cerr << "Failed to initialize player!" << std::endl;
+        return false;
+    }
+    
+    // Place the player at a reasonable starting position
+    float initialHeight = m_Terrain.GetHeightAt(0.0f, 0.0f) + 15.0f; // Start much higher for visibility
+    m_Player.SetPosition(glm::vec3(0.0f, initialHeight, 0.0f));
+    
+    // Initialize camera target position if we have a camera controller
+    if (m_Renderer->GetCameraController()) {
+        m_Renderer->GetCameraController()->SetTargetPosition(m_Player.GetPosition());
+    }
+    
     std::cout << "World initialized successfully." << std::endl;
     return true;
 }
 
 void World::Update(float deltaTime) {
-    // Currently empty - will be expanded in the future with:
+    // Update player
+    if (m_Platform) {
+        m_Player.Update(deltaTime, m_Platform, this);
+        
+        // Update camera target if we have a camera controller
+        if (m_Renderer->GetCameraController()) {
+            m_Renderer->GetCameraController()->SetTargetPosition(m_Player.GetPosition());
+        }
+    }
+    
+    // Future additions:
     // - Entity updates
     // - Chunk loading/unloading
     // - World physics simulation
@@ -98,7 +130,10 @@ void World::Render() {
     // Render the terrain with the configured shader
     m_Terrain.Render(m_TerrainShader);
     
-    // Future: render world entities, effects, etc.
+    // Render the player
+    m_Player.Render();
+    
+    // Future: render additional world entities, effects, etc.
 }
 
 float World::GetTerrainHeightAt(float x, float z) const {

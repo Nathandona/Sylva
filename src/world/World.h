@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Terrain.h"
+#include "Player.h"
 #include "../renderer/Renderer.h"
 
 namespace Sylva {
@@ -11,7 +12,7 @@ public:
     ~World();
 
     // Initialize the world with a flat terrain
-    bool Initialize(Renderer* renderer);
+    bool Initialize(Renderer* renderer, Platform* platform);
     
     // Update the world state (will be expanded in future)
     void Update(float deltaTime);
@@ -33,8 +34,14 @@ private:
     // Reference to the renderer (not owned by World)
     Renderer* m_Renderer;
     
+    // Platform reference (not owned by World)
+    Platform* m_Platform;
+    
     // Terrain
     Terrain m_Terrain;
+    
+    // Player
+    Player m_Player;
     
     // Rendering resources
     Shader* m_TerrainShader;
