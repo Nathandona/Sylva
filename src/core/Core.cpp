@@ -17,46 +17,59 @@ Core::~Core() {
 bool Core::Initialize() {
     std::cout << "Initializing Sylva Engine..." << std::endl;
     
-    // Initialize the platform layer (window, input)
-    if (!m_Platform.Initialize("Sylva", 1280, 720)) {
-        std::cerr << "Failed to initialize Platform" << std::endl;
+    // Initialize platform (window and input)
+    if (!m_Platform.Initialize("Sylva Engine", 1280, 720)) {
+        std::cerr << "Failed to initialize platform!" << std::endl;
         return false;
     }
     
-    // Set the window icon
-    // The icon path is relative to the working directory when the application is run
-    if (!m_Platform.SetWindowIcon("assets/icon.png")) {
-        std::cerr << "Warning: Failed to set window icon" << std::endl;
-        // Not a critical error, continue initialization
-    }
-    
-    // Initialize the renderer
+    // Initialize renderer
     if (!m_Renderer.Initialize()) {
-        std::cerr << "Failed to initialize Renderer" << std::endl;
+        std::cerr << "Failed to initialize renderer!" << std::endl;
         return false;
     }
     
-    // Position the camera for a Cube World style view
+    // Initialize world
+    if (!m_World.Initialize(&m_Renderer, &m_Platform)) {
+        std::cerr << "Failed to initialize world!" << std::endl;
+        return false;
+    }
+    
+    // Get camera from renderer
     Camera* camera = m_Renderer.GetCamera();
     if (!camera) {
-        std::cerr << "Failed to get camera from renderer" << std::endl;
+        std::cerr << "Failed to get camera from renderer!" << std::endl;
         return false;
     }
     
-    camera->SetPosition(glm::vec3(0.0f, 5.0f, 5.0f));
-    camera->SetTarget(glm::vec3(0.0f, 0.0f, 0.0f));
-    
-    // Create camera controller with platform for input
+    // Create camera controller
     m_CameraController = std::make_unique<CameraController>(camera, &m_Platform);
-    m_CameraController->SetTargetPosition(glm::vec3(0.0f, 10.0f, 0.0f));
     
-    // Initialize the world
-    if (!m_World.Initialize(&m_Renderer, &m_Platform)) {
-        std::cerr << "Failed to initialize World" << std::endl;
-        return false;
+    // Configure camera controller for third-person view
+    if (m_CameraController) {
+        // Set initial orbit distance (how far behind the player)
+        m_CameraController->SetOrbitDistance(5.0f);
+        
+        // Set vertical offset (how far above the player)
+        m_CameraController->SetVerticalOffset(1.5f);
+        
+        // Set smoothing factor (higher = faster camera movement)
+        m_CameraController->SetSmoothingFactor(5.0f);
+        
+        // Set collision buffer (distance from collision point to place camera)
+        m_CameraController->SetCollisionBuffer(0.2f);
+        
+        // Set the world reference for collision detection
+        m_CameraController->SetWorld(&m_World);
+        
+        // Set initial target (player position)
+        m_CameraController->SetTargetPosition(m_World.GetPlayer().GetPosition());
     }
     
+    // Set up running state
     m_Running = true;
+    
+    std::cout << "Sylva Engine initialized successfully." << std::endl;
     return true;
 }
 
