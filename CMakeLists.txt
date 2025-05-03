@@ -24,9 +24,15 @@ set(SOURCES
     src/renderer/Renderer.cpp
     src/renderer/Camera.cpp
     src/renderer/CameraController.cpp
+    src/renderer/Shader.cpp
+    src/renderer/Texture.cpp
+    src/renderer/Mesh.cpp
+    src/renderer/Model.cpp
+    src/renderer/ResourceManager.cpp
     src/world/World.cpp
     src/world/Terrain.cpp
     src/world/Player.cpp
+    vendor/stb/stb_image_impl.cpp
 )
 
 # Set header files
@@ -36,9 +42,16 @@ set(HEADERS
     src/renderer/Renderer.h
     src/renderer/Camera.h
     src/renderer/CameraController.h
+    src/renderer/Shader.h
+    src/renderer/Texture.h
+    src/renderer/Mesh.h
+    src/renderer/Model.h
+    src/renderer/ResourceManager.h
     src/world/World.h
     src/world/Terrain.h
     src/world/Player.h
+    vendor/stb/stb_image.h
+    vendor/tiny_obj_loader/tiny_obj_loader.h
 )
 
 # Create executable
@@ -54,6 +67,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/vendor
 )
 
 # Copy assets to build directory during build

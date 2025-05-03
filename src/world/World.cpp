@@ -12,11 +12,11 @@ World::World()
 }
 
 World::~World() {
-    // We don't own the renderer or shader/texture resources
+    // We don't own the renderer or platform
     m_Renderer = nullptr;
     m_Platform = nullptr;
-    m_TerrainShader = nullptr;
-    m_TerrainTexture = nullptr;
+    
+    // Shared resources are automatically cleaned up
 }
 
 bool World::Initialize(Renderer* renderer, Platform* platform) {
@@ -32,14 +32,21 @@ bool World::Initialize(Renderer* renderer, Platform* platform) {
         std::cerr << "Warning: Platform not provided, input will not be processed" << std::endl;
     }
     
+    // Get resource manager from renderer
+    ResourceManager* resourceManager = m_Renderer->GetResourceManager();
+    if (!resourceManager) {
+        std::cerr << "Error: Renderer does not have a ResourceManager!" << std::endl;
+        return false;
+    }
+    
     // Load terrain shader
-    m_TerrainShader = m_Renderer->LoadShader("assets/shaders/terrain_vertex.glsl", 
-                                             "assets/shaders/terrain_fragment.glsl");
+    m_TerrainShader = resourceManager->GetShader("assets/shaders/terrain_vertex.glsl", 
+                                               "assets/shaders/terrain_fragment.glsl");
     if (!m_TerrainShader) {
         std::cerr << "Failed to load terrain shader!" << std::endl;
         // For MVP, we'll fall back to using a basic shader if the terrain-specific one fails
-        m_TerrainShader = m_Renderer->LoadShader("assets/shaders/basic_vertex.glsl", 
-                                                "assets/shaders/basic_fragment.glsl");
+        m_TerrainShader = resourceManager->GetShader("assets/shaders/basic_vertex.glsl", 
+                                                   "assets/shaders/basic_fragment.glsl");
         if (!m_TerrainShader) {
             std::cerr << "Failed to load fallback shader!" << std::endl;
             return false;
@@ -47,7 +54,7 @@ bool World::Initialize(Renderer* renderer, Platform* platform) {
     }
     
     // Load terrain texture
-    m_TerrainTexture = m_Renderer->LoadTexture("assets/textures/terrain_grass.png");
+    m_TerrainTexture = resourceManager->GetTexture("assets/textures/terrain_grass.png");
     if (!m_TerrainTexture) {
         std::cerr << "Failed to load terrain texture, using default texture." << std::endl;
         // We'll continue without a texture for now
@@ -63,7 +70,7 @@ bool World::Initialize(Renderer* renderer, Platform* platform) {
     
     // Set the terrain texture if loaded
     if (m_TerrainTexture) {
-        m_Terrain.SetTexture(m_TerrainTexture);
+        m_Terrain.SetTexture(m_TerrainTexture.get());
     }
     
     // Initialize the player
@@ -128,7 +135,7 @@ void World::Render() {
     m_TerrainShader->SetVec3("viewPos", camera->GetPosition());
     
     // Render the terrain with the configured shader
-    m_Terrain.Render(m_TerrainShader);
+    m_Terrain.Render(m_TerrainShader.get());
     
     // Render the player
     m_Player.Render();

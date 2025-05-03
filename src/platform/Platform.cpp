@@ -1,7 +1,7 @@
 #include "Platform.h"
 #include <iostream>
 // Include stb_image.h for loading the icon
-#include "../renderer/stb_image.h"
+#include "../../vendor/stb/stb_image.h"
 
 namespace Sylva {
 

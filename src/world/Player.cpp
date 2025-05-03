@@ -21,8 +21,9 @@ Player::Player()
 }
 
 Player::~Player() {
-    // We don't own the renderer or shader, so don't delete them
+    // We don't own the renderer, so don't delete it
     // m_Mesh is now handled by the unique_ptr
+    // m_Shader is now handled by the shared_ptr
 }
 
 bool Player::Initialize(Renderer* renderer) {
@@ -33,9 +34,16 @@ bool Player::Initialize(Renderer* renderer) {
     
     m_Renderer = renderer;
     
+    // Get resource manager from renderer
+    ResourceManager* resourceManager = m_Renderer->GetResourceManager();
+    if (!resourceManager) {
+        std::cerr << "Error: Renderer does not have a ResourceManager!" << std::endl;
+        return false;
+    }
+    
     // Load shader
-    m_Shader = m_Renderer->LoadShader("assets/shaders/basic.vert", 
-                                      "assets/shaders/basic.frag");
+    m_Shader = resourceManager->GetShader("assets/shaders/basic.vert", 
+                                        "assets/shaders/basic.frag");
     if (!m_Shader) {
         std::cerr << "Failed to load player shader!" << std::endl;
         return false;

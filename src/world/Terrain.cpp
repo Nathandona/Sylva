@@ -14,9 +14,8 @@ Terrain::Terrain()
 }
 
 Terrain::~Terrain() {
-    // We assume the renderer owns and will cleanup the mesh and texture
-    m_Mesh = nullptr;
-    m_Texture = nullptr;
+    // m_Mesh is managed by unique_ptr
+    // m_Texture is not owned by Terrain
 }
 
 bool Terrain::Initialize(float width, float depth, unsigned int resolution) {
@@ -94,12 +93,11 @@ void Terrain::GenerateFlatTerrain(float width, float depth, unsigned int resolut
     
     // Create the mesh object
     if (m_Mesh) {
-        // If we already have a mesh, assume it's managed elsewhere and just update data
+        // If we already have a mesh, just update data
         m_Mesh->SetVertexData(m_Vertices, m_Indices, 8, 0, 3, 6);
     } else {
-        // Otherwise create a new mesh (this is a simplified version)
-        // In a real implementation, this would be handled by the renderer
-        m_Mesh = new Mesh();
+        // Otherwise create a new mesh using unique_ptr
+        m_Mesh = std::make_unique<Mesh>();
         m_Mesh->SetVertexData(m_Vertices, m_Indices, 8, 0, 3, 6);
     }
 }

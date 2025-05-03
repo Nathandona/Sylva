@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 #include <vector>
+#include <memory>
 #include "../renderer/Renderer.h"
 
 namespace Sylva {
@@ -49,8 +50,8 @@ private:
     float m_Depth;                          // Physical depth of terrain in world units
     
     // Rendering objects
-    Mesh* m_Mesh;                           // OpenGL mesh object
-    Texture* m_Texture;                     // Terrain texture
+    std::unique_ptr<Mesh> m_Mesh;           // OpenGL mesh object
+    Texture* m_Texture;                     // Terrain texture (not owned)
 };
 
 } // namespace Sylva 

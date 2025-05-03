@@ -3,6 +3,8 @@
 #include "Terrain.h"
 #include "Player.h"
 #include "../renderer/Renderer.h"
+#include "../renderer/ResourceManager.h"
+#include <memory>
 
 namespace Sylva {
 
@@ -44,8 +46,8 @@ private:
     Player m_Player;
     
     // Rendering resources
-    Shader* m_TerrainShader;
-    Texture* m_TerrainTexture;
+    std::shared_ptr<Shader> m_TerrainShader;
+    std::shared_ptr<Texture> m_TerrainTexture;
 };
 
 } // namespace Sylva 

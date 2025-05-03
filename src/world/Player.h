@@ -42,7 +42,7 @@ private:
     // Rendering resources
     Renderer* m_Renderer;        // Pointer to renderer (not owned)
     std::unique_ptr<Mesh> m_Mesh; // Player mesh (now using unique_ptr)
-    Shader* m_Shader;            // Player shader
+    std::shared_ptr<Shader> m_Shader; // Player shader
     glm::vec3 m_Color;           // Player color
 };
 
