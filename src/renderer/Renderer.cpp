@@ -9,9 +9,8 @@ namespace Sylva {
 
 Renderer::Renderer()
     : m_ClearColor(0.53f, 0.81f, 0.92f, 1.0f)  // Light blue sky color
-    , m_ResourceManager(nullptr)
-    , m_Camera(nullptr)
 {
+    // Initialize pointers to nullptr in the initializer list
 }
 
 Renderer::~Renderer() {
@@ -30,8 +29,8 @@ bool Renderer::Initialize() {
     //glEnable(GL_CULL_FACE);
     //glCullFace(GL_BACK);
     
-    // Initialize camera
-    m_Camera = new Camera(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
+    // Initialize camera using std::make_unique
+    m_Camera = std::make_unique<Camera>(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
     m_Camera->SetPosition(glm::vec3(0.0f, 0.0f, 3.0f));
     
     return true;
@@ -48,11 +47,7 @@ void Renderer::EndFrame() {
 }
 
 void Renderer::Shutdown() {
-    // Clean up any raw pointers we have
-    delete m_Camera;
-    m_Camera = nullptr;
-    
-    // ResourceManager will be automatically deleted by the unique_ptr
+    // ResourceManager and Camera will be automatically deleted by their unique_ptrs
 }
 
 void Renderer::SetClearColor(const glm::vec4& color) {

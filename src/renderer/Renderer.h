@@ -35,7 +35,7 @@ public:
     void SetClearColor(const glm::vec4& color);
     
     // Camera methods
-    Camera* GetCamera() const { return m_Camera; }
+    Camera* GetCamera() const { return m_Camera.get(); }
     
     // Resource management (legacy methods that will use ResourceManager internally)
     // These are kept for backward compatibility but should be phased out
@@ -55,7 +55,7 @@ private:
     std::unique_ptr<ResourceManager> m_ResourceManager;
     
     // Camera
-    Camera* m_Camera;
+    std::unique_ptr<Camera> m_Camera;
 };
 
 } 
