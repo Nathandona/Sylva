@@ -9,6 +9,7 @@ namespace Sylva {
 
 Renderer::Renderer()
     : m_ClearColor(0.53f, 0.81f, 0.92f, 1.0f)  // Light blue sky color
+    , m_ActiveCamera(nullptr)
 {
     // Initialize pointers to nullptr in the initializer list
 }

@@ -244,36 +244,66 @@ void Player::HandleInputWithManager(float deltaTime, InputManager* inputManager)
     glm::vec3 moveDirection(0.0f);
     float currentSpeed = m_WalkSpeed;
     
-    // --- Turning ---
-    if (inputManager->IsActionPressed("TurnLeft")) { // Turn left
-        m_Yaw -= m_TurnSpeed * deltaTime; 
+    // If camera is available, get its orientation for movement direction
+    Camera* camera = nullptr;
+    if (m_Renderer) {
+        camera = m_Renderer->GetActiveCamera();
     }
-    if (inputManager->IsActionPressed("TurnRight")) { // Turn right
-        m_Yaw += m_TurnSpeed * deltaTime; 
+    
+    // Calculate movement vectors
+    glm::vec3 forward, right;
+    
+    if (camera) {
+        // Camera-relative movement (Cube World style)
+        // Get camera vectors and project them onto the XZ plane
+        forward = camera->GetFront();
+        right = camera->GetRight();
+        
+        // Project onto XZ plane by zeroing Y component and renormalizing
+        forward.y = 0.0f;
+        right.y = 0.0f;
+        
+        if (glm::length(forward) > 0.01f) forward = glm::normalize(forward);
+        if (glm::length(right) > 0.01f) right = glm::normalize(right);
+    } else {
+        // Fallback to player-relative movement if no camera
+        // Convert yaw to radians for direction calculations
+        float yawRad = glm::radians(m_Yaw);
+        
+        // Calculate forward and right vectors based on player's orientation
+        forward = glm::normalize(glm::vec3(sin(yawRad), 0.0f, cos(yawRad)));
+        right = glm::normalize(glm::vec3(sin(yawRad + glm::radians(90.0f)), 0.0f, cos(yawRad + glm::radians(90.0f))));
     }
-
+    
+    // WASD movement inputs (now relative to camera direction, not player orientation)
+    if (inputManager->IsActionPressed("MoveForward")) {
+        moveDirection += forward; // Move in camera's forward direction
+    }
+    if (inputManager->IsActionPressed("MoveBackward")) {
+        moveDirection -= forward; // Move opposite to camera's forward
+    }
+    if (inputManager->IsActionPressed("MoveLeft")) {
+        moveDirection -= right; // Move to camera's left
+    }
+    if (inputManager->IsActionPressed("MoveRight")) {
+        moveDirection += right; // Move to camera's right
+    }
+    
+    // Only update player rotation for player-relative controls
+    // For camera-relative, skip this as Q/E will be used for camera yaw in future
+    if (!camera) {
+        // --- Turning (only if we're using player-relative controls) ---
+        if (inputManager->IsActionPressed("TurnLeft")) {
+            m_Yaw -= m_TurnSpeed * deltaTime;
+        }
+        if (inputManager->IsActionPressed("TurnRight")) {
+            m_Yaw += m_TurnSpeed * deltaTime;
+        }
+    }
+    
     // Normalize Yaw to keep it within [0, 360) degrees
     m_Yaw = fmod(m_Yaw, 360.0f);
     if (m_Yaw < 0.0f) m_Yaw += 360.0f;
-
-    // Convert yaw to radians for direction calculations
-    float yawRad = glm::radians(m_Yaw);
-    
-    // Calculate forward and right vectors based on player's orientation
-    glm::vec3 forward = glm::normalize(glm::vec3(sin(yawRad), 0.0f, cos(yawRad)));
-    glm::vec3 right = glm::normalize(glm::vec3(sin(yawRad + glm::radians(90.0f)), 0.0f, cos(yawRad + glm::radians(90.0f))));
-    
-    // Get movement direction using axis values
-    float forwardAxis = inputManager->GetAxisValue("MoveForward", "MoveBackward");
-    float rightAxis = inputManager->GetAxisValue("MoveRight", "MoveLeft");
-    
-    // Apply movement based on axes
-    if (forwardAxis != 0.0f) {
-        moveDirection += forward * forwardAxis;
-    }
-    if (rightAxis != 0.0f) {
-        moveDirection += right * rightAxis;
-    }
     
     // --- Running ---
     if (inputManager->IsActionPressed("Run")) {
@@ -283,8 +313,13 @@ void Player::HandleInputWithManager(float deltaTime, InputManager* inputManager)
     // Apply movement velocity
     if (glm::length(moveDirection) > 0.01f) {
         moveDirection = glm::normalize(moveDirection);
+        
+        // Set player velocity based on movement direction
         m_Velocity.x = moveDirection.x * currentSpeed;
         m_Velocity.z = moveDirection.z * currentSpeed;
+        
+        // Update player orientation to face the direction of movement
+        m_Yaw = glm::degrees(atan2(moveDirection.x, moveDirection.z));
     }
     
     // --- Jumping ---

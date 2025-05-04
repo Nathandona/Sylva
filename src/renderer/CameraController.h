@@ -34,6 +34,10 @@ public:
     static constexpr float CAMERA_BEHIND_ANGLE = 180.0f;  // Camera is 180 degrees behind player (degrees)
     static constexpr float SHOULDER_OFFSET_ANGLE = 90.0f; // Right is 90 degrees from forward (degrees)
     
+    // Fixed camera constants (Cube World style)
+    static constexpr float FIXED_CAMERA_PITCH = -35.0f; // Downward angle for fixed camera mode
+    static constexpr float INITIAL_CAMERA_YAW = 0.0f;   // Initial fixed yaw (world +Z direction)
+    
     // New constructor with InputManager (using references instead of pointers)
     CameraController(Camera& camera, Platform& platform, InputManager& inputManager);
     
@@ -82,6 +86,10 @@ public:
     // Toggle shoulder side (left/right)
     void ToggleShoulderSide() { m_ShoulderOffset = -m_ShoulderOffset; }
     
+    // Enable/disable fixed camera mode (Cube World style)
+    void SetFixedCameraMode(bool enabled) { m_FixedCameraMode = enabled; }
+    bool IsFixedCameraMode() const { return m_FixedCameraMode; }
+    
 private:
     // Handle input based on the current control mode
     void HandleCameraInput(float deltaTime);
@@ -119,6 +127,9 @@ private:
     // Camera orientation state (controlled internally/by mouse)
     float m_CameraPitch;    // Renamed from m_CurrentPitch for clarity
     float m_CameraYawOffset; // Renamed from m_CurrentYawOffset for clarity
+    
+    // Fixed camera mode (Cube World style)
+    bool m_FixedCameraMode; // When true, camera uses fixed pitch and independent yaw
     
     // Rotation smoothing
     float m_YawSmoothingFactor;

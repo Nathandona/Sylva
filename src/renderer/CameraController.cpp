@@ -21,9 +21,10 @@ CameraController::CameraController(Camera& camera, Platform& platform, InputMana
     , m_MinOrbitDistance(DEFAULT_MIN_ORBIT_DISTANCE)
     , m_MaxOrbitDistance(DEFAULT_MAX_ORBIT_DISTANCE)
     , m_VerticalOffset(DEFAULT_VERTICAL_OFFSET)
-    , m_ShoulderOffset(DEFAULT_SHOULDER_OFFSET)
-    , m_CameraPitch(DEFAULT_CAMERA_PITCH)
-    , m_CameraYawOffset(0.0f)
+    , m_ShoulderOffset(0.0f) // Set to 0 for centered view in Cube World style
+    , m_CameraPitch(FIXED_CAMERA_PITCH) // Use fixed pitch instead of default
+    , m_CameraYawOffset(INITIAL_CAMERA_YAW)
+    , m_FixedCameraMode(true) // Enable fixed camera mode by default
     , m_YawSmoothingFactor(DEFAULT_YAW_SMOOTHING)
     , m_PitchSmoothingFactor(DEFAULT_PITCH_SMOOTHING)
     , m_SmoothingFactor(DEFAULT_POSITION_SMOOTHING)
@@ -42,8 +43,13 @@ CameraController::CameraController(Camera& camera, Platform& platform, InputMana
     m_LastMouseX = mouseX;
     m_LastMouseY = mouseY;
     
-    // Set initial rotation to look at player
-    m_Camera.SetRotation(m_CameraPitch, m_PlayerYaw + m_CameraYawOffset);
+    // Set initial rotation to fixed yaw in fixed camera mode
+    if (m_FixedCameraMode) {
+        m_Camera.SetRotation(m_CameraPitch, m_CameraYawOffset);
+    } else {
+        // Original behavior: set rotation based on player yaw + offset
+        m_Camera.SetRotation(m_CameraPitch, m_PlayerYaw + m_CameraYawOffset);
+    }
     
     // Set the mouse sensitivity to match the input manager
     m_MouseSensitivity = m_InputManager->GetMouseSensitivity();
@@ -90,7 +96,18 @@ void CameraController::Update(float deltaTime) {
     lastPitch = glm::mix(lastPitch, m_CameraPitch, std::min(m_PitchSmoothingFactor * deltaTime, 1.0f));
     
     // Determine the final yaw for the camera this frame
-    float effectiveYaw = m_PlayerYaw + lastYawOffset;
+    float effectiveYaw;
+    
+    if (m_FixedCameraMode) {
+        // In fixed camera mode, use camera's own yaw independent of player
+        effectiveYaw = m_CameraYawOffset;
+        
+        // Force fixed pitch in this mode
+        lastPitch = FIXED_CAMERA_PITCH;
+    } else {
+        // Original behavior: link camera to player yaw + offset
+        effectiveYaw = m_PlayerYaw + lastYawOffset;
+    }
     
     // Apply rotation to the actual camera object
     m_Camera.SetRotation(lastPitch, effectiveYaw);
@@ -99,8 +116,16 @@ void CameraController::Update(float deltaTime) {
     glm::vec3 focusPoint = m_TargetPosition + glm::vec3(0.0f, m_VerticalOffset, 0.0f);
     
     // Add shoulder offset to focus point
-    float yawRadians = glm::radians(m_PlayerYaw);
-    glm::vec3 rightVector(sin(yawRadians + glm::radians(SHOULDER_OFFSET_ANGLE)), 0.0f, cos(yawRadians + glm::radians(SHOULDER_OFFSET_ANGLE)));
+    // In fixed camera mode, apply the shoulder offset based on camera orientation, not player
+    float offsetYawRadians;
+    
+    if (m_FixedCameraMode) {
+        offsetYawRadians = glm::radians(effectiveYaw + SHOULDER_OFFSET_ANGLE);
+    } else {
+        offsetYawRadians = glm::radians(m_PlayerYaw + SHOULDER_OFFSET_ANGLE);
+    }
+    
+    glm::vec3 rightVector(sin(offsetYawRadians), 0.0f, cos(offsetYawRadians));
     focusPoint += rightVector * m_ShoulderOffset;
     
     // Calculate desired camera position
@@ -238,62 +263,64 @@ void CameraController::HandleCameraInputWithManager(float deltaTime) {
         SetOrbitDistance(m_OrbitDistance + keyZoomAmount);
     }
     
-    // Camera rotation using abstracted actions
+    // Skip camera rotation inputs in fixed camera mode
+    if (m_FixedCameraMode) {
+        // In future, could implement manual camera rotation here (Q/E keys)
+        return;
+    }
+    
+    // Original camera rotation behavior (only used when not in fixed mode)
     float cameraYawSpeed = CAMERA_YAW_SPEED * deltaTime;
     if (m_InputManager->IsActionPressed("TurnLeft")) {
-        // Move camera left (same key as player turn, when used in camera mode)
+        // Move camera left
         m_CameraYawOffset += cameraYawSpeed;
     }
     if (m_InputManager->IsActionPressed("TurnRight")) {
-        // Move camera right (same key as player turn, when used in camera mode)
+        // Move camera right
         m_CameraYawOffset -= cameraYawSpeed;
     }
     
-    // Camera pitch control
+    // Camera pitch control (Up/Down keys or equivalent)
     float pitchSpeed = CAMERA_PITCH_SPEED * deltaTime;
-    if (m_InputManager->IsActionPressed("CameraPitchUp")) {
+    if (m_InputManager->IsActionPressed("LookUp")) {
         m_CameraPitch = std::min(m_CameraPitch + pitchSpeed, MAX_PITCH);
     }
-    if (m_InputManager->IsActionPressed("CameraPitchDown")) {
+    if (m_InputManager->IsActionPressed("LookDown")) {
         m_CameraPitch = std::max(m_CameraPitch - pitchSpeed, MIN_PITCH);
-    }
-    
-    // Toggle shoulder offset
-    static bool toggleAction = false;
-    if (m_InputManager->IsActionPressed("ToggleShoulder")) {
-        if (!toggleAction) {
-            ToggleShoulderSide();
-            toggleAction = true;
-        }
-    } else {
-        toggleAction = false;
     }
 }
 
 void CameraController::HandleMouseMovementWithManager() {
-    // Only process if right mouse button is held (as defined in the action)
-    if (m_InputManager->IsActionPressed("CameraOrbit")) {
+    // Skip mouse movement handling in fixed camera mode
+    if (m_FixedCameraMode) {
+        return;
+    }
+    
+    // Get mouse delta from input manager
+    float deltaX = 0.0f, deltaY = 0.0f;
+    m_InputManager->GetMouseDelta(deltaX, deltaY);
+    
+    // Only process if RMB is held down
+    if (m_InputManager->IsRightMouseButtonPressed()) {
         if (!m_IsMouseOrbiting) {
             m_IsMouseOrbiting = true;
-            m_FirstMouse = true;
             return;
         }
         
-        // Get the mouse delta from the input manager
-        float xOffset, yOffset;
-        m_InputManager->GetMouseDelta(xOffset, yOffset);
+        // Apply sensitivity
+        deltaX *= m_MouseSensitivity;
+        deltaY *= m_MouseSensitivity;
         
         // Update pitch (vertical mouse movement)
-        m_CameraPitch += yOffset;
+        m_CameraPitch += deltaY;
         m_CameraPitch = std::max(MIN_PITCH, std::min(m_CameraPitch, MAX_PITCH)); // Clamp
         
         // Update yaw offset (horizontal mouse movement)
-        m_CameraYawOffset -= xOffset;
-    }
+        m_CameraYawOffset -= deltaX;
+    } 
     else {
         if (m_IsMouseOrbiting) {
             m_IsMouseOrbiting = false;
-            m_FirstMouse = true;
         }
     }
 }

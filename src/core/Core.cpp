@@ -51,6 +51,9 @@ bool Core::Initialize() {
     
     // Configure camera controller for Cube World style camera
     if (m_CameraController) {
+        // Enable fixed camera mode (Cube World style)
+        m_CameraController->SetFixedCameraMode(true);
+        
         // Set initial orbit distance (how far behind the player)
         m_CameraController->SetOrbitDistance(7.0f);
         
@@ -61,11 +64,18 @@ bool Core::Initialize() {
         // Set vertical offset (how far above the player)
         m_CameraController->SetVerticalOffset(1.8f);
         
+        // Set shoulder offset to 0 for centered camera
+        m_CameraController->SetShoulderOffset(0.0f);
+        
         // Set smoothing factor (higher = faster camera movement)
         m_CameraController->SetSmoothingFactor(5.0f);
         
         // Set the player as the target for the camera (Cube World style)
         m_CameraController->SetPlayerTarget(&m_World.GetPlayer());
+        
+        // Set the CameraController's camera as the active camera in the renderer
+        // This allows the Player to access the camera for movement direction
+        m_Renderer.SetActiveCamera(&m_CameraController->GetCamera());
         
         // Force an immediate camera update to position it correctly at startup
         m_CameraController->Update(0.016f); // Using a small delta time for the first update

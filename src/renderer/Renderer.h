@@ -20,6 +20,7 @@ namespace Sylva {
 class Platform;
 class Camera;
 class ResourceManager;
+class CameraController;
 
 // Main renderer class
 class Renderer {
@@ -36,6 +37,12 @@ public:
     
     // Camera methods
     Camera* GetCamera() const { return m_Camera.get(); }
+    
+    // Get the active camera (may be controlled by a CameraController)
+    Camera* GetActiveCamera() const { return m_ActiveCamera ? m_ActiveCamera : m_Camera.get(); }
+    
+    // Set the active camera (for example, from a CameraController)
+    void SetActiveCamera(Camera* camera) { m_ActiveCamera = camera; }
     
     // Resource management (legacy methods that will use ResourceManager internally)
     // These are kept for backward compatibility but should be phased out
@@ -55,6 +62,9 @@ private:
     
     // Camera
     std::unique_ptr<Camera> m_Camera;
+    
+    // Active camera (non-owning pointer, may point to camera owned by CameraController)
+    Camera* m_ActiveCamera;
 };
 
 } 
