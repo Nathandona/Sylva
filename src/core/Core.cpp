@@ -48,9 +48,9 @@ bool Core::Initialize() {
     // Configure camera controller for third-person view
     if (m_CameraController) {
         // Set initial orbit distance (how far behind the player)
-        m_CameraController->SetOrbitDistance(5.0f);
+        m_CameraController->SetOrbitDistance(4.0f);
         
-        // Set vertical offset (how far above the player)
+        // Set vertical offset (how far above the player) - ensure this is enough to see the player
         m_CameraController->SetVerticalOffset(1.5f);
         
         // Set smoothing factor (higher = faster camera movement)
@@ -62,12 +62,22 @@ bool Core::Initialize() {
         // Set the world reference for collision detection
         m_CameraController->SetWorld(&m_World);
         
-        // Get and log player position
+        // Get player information
         glm::vec3 playerPos = m_World.GetPlayer().GetPosition();
-        std::cout << "Initial player position: x=" << playerPos.x << ", y=" << playerPos.y << ", z=" << playerPos.z << std::endl;
+        float playerYaw = m_World.GetPlayer().GetYaw();
         
-        // Set initial target (player position)
+        std::cout << "Initial player position: x=" << playerPos.x << ", y=" << playerPos.y << ", z=" << playerPos.z << std::endl;
+        std::cout << "Initial player yaw: " << playerYaw << std::endl;
+        
+        // Set initial target position and yaw
         m_CameraController->SetTargetPosition(playerPos);
+        m_CameraController->SetTargetYaw(playerYaw);
+        
+        // Force an immediate camera update to position it correctly at startup
+        m_CameraController->Update(0.016f); // Using a small delta time for the first update
+        
+        // Call the update a second time to make sure camera is fully stabilized
+        m_CameraController->Update(0.016f);
 
         // Log initial camera position after setup
         glm::vec3 camPos = camera->GetPosition();
@@ -105,23 +115,35 @@ void Core::Run() {
         // Get camera for the frame
         Camera* camera = m_CameraController ? m_CameraController->GetCamera() : nullptr;
         
-        // Update world
+        // Update world (which updates the player)
         m_World.Update(m_DeltaTime, camera);
         
         // Update camera target position based on player's position
         if (m_CameraController) {
+            // Get latest player state AFTER world update
             glm::vec3 playerPos = m_World.GetPlayer().GetPosition();
+            float playerYaw = m_World.GetPlayer().GetYaw();
+            
             // Log player position only on significant change (to avoid console spam)
             static glm::vec3 lastLoggedPos(0.0f);
-            if (glm::distance(playerPos, lastLoggedPos) > 1.0f) {
+            static float lastLoggedYaw = 0.0f;
+            if (glm::distance(playerPos, lastLoggedPos) > 1.0f || std::abs(playerYaw - lastLoggedYaw) > 10.0f) {
                 std::cout << "Player position updated: x=" << playerPos.x << ", y=" << playerPos.y << ", z=" << playerPos.z << std::endl;
+                std::cout << "Player yaw: " << playerYaw << std::endl;
+                
                 // Also log camera position when player position is logged
                 glm::vec3 camPos = m_CameraController->GetCamera()->GetPosition();
                 std::cout << "Camera position: x=" << camPos.x << ", y=" << camPos.y << ", z=" << camPos.z << std::endl;
+                
                 lastLoggedPos = playerPos;
+                lastLoggedYaw = playerYaw;
             }
             
+            // Provide player state to camera controller
             m_CameraController->SetTargetPosition(playerPos);
+            m_CameraController->SetTargetYaw(playerYaw);
+            
+            // Update camera controller
             m_CameraController->Update(m_DeltaTime);
         }
         

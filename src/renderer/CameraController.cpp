@@ -3,6 +3,10 @@
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <iostream>
+#include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/rotate_vector.hpp>
+#include "../core/Logger.h"
 
 namespace Sylva {
 
@@ -11,35 +15,43 @@ CameraController::CameraController(Camera* camera, Platform* platform)
     , m_Platform(platform)
     , m_World(nullptr)
     , m_TargetPosition(glm::vec3(0.0f))
-    , m_CurrentPosition(glm::vec3(0.0f, 0.0f, 5.0f))
-    , m_OrbitDistance(5.0f)
-    , m_VerticalOffset(1.5f)
+    , m_PlayerYaw(0.0f)  // Renamed from m_TargetYaw
+    , m_CurrentPosition(glm::vec3(0.0f, 2.0f, -5.0f))
+    , m_OrbitDistance(6.0f)
+    , m_VerticalOffset(2.0f)
+    , m_ShoulderOffset(0.5f)  // Default slight offset to the right
+    , m_CameraPitch(-10.0f)   // Renamed from m_CurrentPitch
+    , m_CameraYawOffset(0.0f) // Renamed from m_CurrentYawOffset
+    , m_YawSmoothingFactor(8.0f)
+    , m_PitchSmoothingFactor(8.0f)
     , m_SmoothingFactor(5.0f)
     , m_CollisionBuffer(0.2f)
+    , m_CollisionRadius(0.3f)  // Radius for sphere casting
     , m_FirstMouse(true)
     , m_LastMouseX(0.0)
     , m_LastMouseY(0.0)
+    , m_IsMouseOrbiting(false)
     , m_MovementSpeed(5.0f)
     , m_MouseSensitivity(0.1f)
+    , m_ZoomSensitivity(2.0f)
 {
     // Initial camera setup
+    
     double mouseX, mouseY;
     m_Platform->GetMousePosition(mouseX, mouseY);
     m_LastMouseX = mouseX;
     m_LastMouseY = mouseY;
     
-    // Set initial rotation to look directly behind the player (fixed for proper third-person view)
-    m_Camera->SetRotation(-30.0f, 0.0f);
-    
-    // Log initial camera setup
-    std::cout << "Camera initialized with rotation: pitch=" << -30.0f << ", yaw=" << 0.0f << std::endl;
-    std::cout << "Camera vertical offset: " << m_VerticalOffset << std::endl;
+    // Set initial rotation to look at player
+    m_Camera->SetRotation(m_CameraPitch, m_PlayerYaw + m_CameraYawOffset);
 }
 
 void CameraController::SetTargetPosition(const glm::vec3& targetPosition) {
     m_TargetPosition = targetPosition;
-    // Add vertical offset to look at player's head level rather than feet
-    m_Camera->SetTarget(m_TargetPosition + glm::vec3(0.0f, m_VerticalOffset, 0.0f));
+}
+
+void CameraController::SetTargetYaw(float yaw) {
+    m_PlayerYaw = yaw; // Updated variable name
 }
 
 void CameraController::SetOrbitDistance(float distance) {
@@ -47,23 +59,48 @@ void CameraController::SetOrbitDistance(float distance) {
 }
 
 void CameraController::Update(float deltaTime) {
-    // Process input for third-person mode
-    HandleThirdPersonInput(deltaTime);
+    // Process input for camera controls (zoom, optional pitch keys)
+    HandleCameraInput(deltaTime);
     
-    // Handle mouse movement for camera rotation
+    // Handle mouse movement for camera rotation (updates pitch/yaw offset)
     HandleMouseMovement();
     
-    // Calculate desired camera position with collision handling
+    // Apply smooth rotation - new code for rotation smoothing
+    static float lastYawOffset = m_CameraYawOffset;
+    static float lastPitch = m_CameraPitch;
+    
+    // Smooth the rotation values
+    lastYawOffset = glm::mix(lastYawOffset, m_CameraYawOffset, std::min(m_YawSmoothingFactor * deltaTime, 1.0f));
+    lastPitch = glm::mix(lastPitch, m_CameraPitch, std::min(m_PitchSmoothingFactor * deltaTime, 1.0f));
+    
+    // Determine the final yaw for the camera this frame
+    float effectiveYaw = m_PlayerYaw + lastYawOffset;
+    
+    // Apply rotation to the actual camera object
+    m_Camera->SetRotation(lastPitch, effectiveYaw);
+    
+    // Calculate focus point with vertical offset
+    glm::vec3 focusPoint = m_TargetPosition + glm::vec3(0.0f, m_VerticalOffset, 0.0f);
+    
+    // Add shoulder offset to focus point - new feature
+    float yawRadians = glm::radians(m_PlayerYaw);
+    glm::vec3 rightVector(sin(yawRadians + glm::radians(90.0f)), 0.0f, cos(yawRadians + glm::radians(90.0f)));
+    focusPoint += rightVector * m_ShoulderOffset;
+    
+    // Calculate desired camera position based on orientation and distance
     glm::vec3 desiredPosition = CalculateCameraPosition();
     
     // Smoothly interpolate camera position
-    m_CurrentPosition = glm::mix(m_CurrentPosition, desiredPosition, m_SmoothingFactor * deltaTime);
+    m_CurrentPosition = glm::mix(m_CurrentPosition, desiredPosition, std::min(m_SmoothingFactor * deltaTime, 1.0f));
     
     // Set the camera position
     m_Camera->SetPosition(m_CurrentPosition);
     
-    // Make camera look at the target (player) with vertical offset
-    m_Camera->SetTarget(m_TargetPosition + glm::vec3(0.0f, m_VerticalOffset, 0.0f));
+    // Set what the camera looks at (after position/rotation is set)
+    m_Camera->SetTarget(focusPoint);
+    
+    // Update the camera's internal view matrix
+    m_Camera->UpdateCameraVectors();
 }
 
 void CameraController::OnWindowResize(int width, int height) {
@@ -74,43 +111,42 @@ void CameraController::OnWindowResize(int width, int height) {
     }
 }
 
-void CameraController::HandleThirdPersonInput(float deltaTime) {
-    // In third-person mode, we use arrow keys to rotate the camera around the player
-    float velocity = m_MovementSpeed * deltaTime;
-    float rotationSpeed = 100.0f * deltaTime; // Degrees per second
-    
-    // Arrow keys to rotate camera left/right
-    if (m_Platform->IsKeyPressed(GLFW_KEY_LEFT)) {
-        // Rotate camera left (increase yaw)
-        float currentYaw = m_Camera->GetYaw();
-        m_Camera->SetRotation(m_Camera->GetPitch(), currentYaw + rotationSpeed);
-    }
-    if (m_Platform->IsKeyPressed(GLFW_KEY_RIGHT)) {
-        // Rotate camera right (decrease yaw)
-        float currentYaw = m_Camera->GetYaw();
-        m_Camera->SetRotation(m_Camera->GetPitch(), currentYaw - rotationSpeed);
+void CameraController::HandleCameraInput(float deltaTime) {
+    // Mouse wheel zooming
+    float scrollOffset = m_Platform->GetMouseScrollOffset();
+    if (scrollOffset != 0.0f) {
+        // Scale the scroll sensitivity
+        float zoomAmount = scrollOffset * m_ZoomSensitivity * 0.1f;
+        SetOrbitDistance(m_OrbitDistance - zoomAmount);
     }
     
-    // Arrow keys for camera up/down (pitch control)
-    if (m_Platform->IsKeyPressed(GLFW_KEY_UP)) {
-        // Rotate camera up (increase pitch, clamped to prevent over-rotation)
-        float currentPitch = m_Camera->GetPitch();
-        m_Camera->SetRotation(std::min(currentPitch + rotationSpeed, 89.0f), m_Camera->GetYaw());
-    }
-    if (m_Platform->IsKeyPressed(GLFW_KEY_DOWN)) {
-        // Rotate camera down (decrease pitch, clamped to prevent over-rotation)
-        float currentPitch = m_Camera->GetPitch();
-        m_Camera->SetRotation(std::max(currentPitch - rotationSpeed, -89.0f), m_Camera->GetYaw());
-    }
-    
-    // Zoom controls using PageUp/PageDown
+    // PageUp/PageDown zooming (kept for backward compatibility)
+    float keyZoomAmount = m_ZoomSensitivity * deltaTime * 10.0f;
     if (m_Platform->IsKeyPressed(GLFW_KEY_PAGE_UP)) {
-        // Zoom in
-        SetOrbitDistance(m_OrbitDistance - (velocity * 2.0f));
+        SetOrbitDistance(m_OrbitDistance - keyZoomAmount);
     }
     if (m_Platform->IsKeyPressed(GLFW_KEY_PAGE_DOWN)) {
-        // Zoom out
-        SetOrbitDistance(m_OrbitDistance + (velocity * 2.0f));
+        SetOrbitDistance(m_OrbitDistance + keyZoomAmount);
+    }
+    
+    // Arrow keys for pitch control (independent of mouse)
+    float pitchSpeed = 90.0f * deltaTime;
+    if (m_Platform->IsKeyPressed(GLFW_KEY_UP)) {
+        m_CameraPitch = std::min(m_CameraPitch + pitchSpeed, 89.0f);
+    }
+    if (m_Platform->IsKeyPressed(GLFW_KEY_DOWN)) {
+        m_CameraPitch = std::max(m_CameraPitch - pitchSpeed, -89.0f);
+    }
+    
+    // Toggle shoulder offset with Tab key
+    static bool tabPressed = false;
+    if (m_Platform->IsKeyPressed(GLFW_KEY_TAB)) {
+        if (!tabPressed) {
+            ToggleShoulderSide();
+            tabPressed = true;
+        }
+    } else {
+        tabPressed = false;
     }
 }
 
@@ -119,7 +155,6 @@ void CameraController::HandleMouseMovement() {
     double mouseX, mouseY;
     m_Platform->GetMousePosition(mouseX, mouseY);
     
-    // Skip if it's the first mouse movement (avoid jumps)
     if (m_FirstMouse) {
         m_LastMouseX = mouseX;
         m_LastMouseY = mouseY;
@@ -135,55 +170,83 @@ void CameraController::HandleMouseMovement() {
     m_LastMouseX = mouseX;
     m_LastMouseY = mouseY;
     
-    // Check if right mouse button is pressed (for orbit controls)
+    // Only process if RMB is held down
     if (m_Platform->IsMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+        if (!m_IsMouseOrbiting) {
+            m_IsMouseOrbiting = true;
+            // Avoid jump on first click by resetting first mouse
+            m_FirstMouse = true;
+            return;
+        }
+        
         // Apply sensitivity
         xOffset *= m_MouseSensitivity;
         yOffset *= m_MouseSensitivity;
         
-        // Update camera rotation
-        float currentYaw = m_Camera->GetYaw();
-        float currentPitch = m_Camera->GetPitch();
+        // Update pitch (vertical mouse movement)
+        m_CameraPitch += yOffset;
+        m_CameraPitch = std::max(-89.0f, std::min(m_CameraPitch, 89.0f)); // Clamp
         
-        currentYaw += xOffset;
-        currentPitch = std::max(-89.0f, std::min(currentPitch + yOffset, 89.0f));
-        
-        // Set the new rotation
-        m_Camera->SetRotation(currentPitch, currentYaw);
+        // Update yaw offset (horizontal mouse movement)
+        // Subtract xOffset to make movement intuitive
+        m_CameraYawOffset -= xOffset;
+    } 
+    else {
+        if (m_IsMouseOrbiting) {
+            m_IsMouseOrbiting = false;
+            m_FirstMouse = true;
+        }
     }
 }
 
 glm::vec3 CameraController::CalculateCameraPosition() {
-    // Get camera orientation in radians
-    float yawRadians = glm::radians(m_Camera->GetYaw());
-    float pitchRadians = glm::radians(m_Camera->GetPitch());
+    // Convert player's yaw to radians (this is the direction the player is facing)
+    float playerYawRad = glm::radians(m_PlayerYaw);
     
-    // Calculate offset based on orbit distance and camera orientation
-    glm::vec3 offset;
-    offset.x = -m_OrbitDistance * sin(yawRadians) * cos(pitchRadians);
-    offset.y = m_OrbitDistance * sin(pitchRadians);
-    offset.z = -m_OrbitDistance * cos(yawRadians) * cos(pitchRadians);
+    // Add the yaw offset from mouse control
+    float totalYawRad = playerYawRad + glm::radians(m_CameraYawOffset);
     
-    // Calculate desired position (player position + vertical offset + rotated camera offset)
-    glm::vec3 targetWithOffset = m_TargetPosition + glm::vec3(0.0f, m_VerticalOffset, 0.0f);
-    glm::vec3 desiredPosition = targetWithOffset + offset;
+    // Calculate pitch in radians
+    float pitchRad = glm::radians(m_CameraPitch);
     
-    // Handle collision detection if we have a world reference
+    // Define the focus point (what the camera will look at) with shoulder offset
+    glm::vec3 focusPoint = m_TargetPosition + glm::vec3(0.0f, m_VerticalOffset, 0.0f);
+    
+    // Add shoulder offset to focus point
+    float shoulderYawRad = playerYawRad + glm::radians(90.0f); // Right is 90 degrees from forward
+    glm::vec3 rightVector(sin(shoulderYawRad), 0.0f, cos(shoulderYawRad));
+    focusPoint += rightVector * m_ShoulderOffset;
+    
+    // Calculate camera position using spherical coordinates
+    // Important: For a third-person camera behind the player, we need to reverse the direction
+    // When yaw=0, player faces +Z, so camera should be at -Z (180 degrees from facing direction)
+    float cameraYawRad = totalYawRad + glm::radians(180.0f);
+    
+    // Convert from spherical to Cartesian coordinates
+    float x = m_OrbitDistance * cos(pitchRad) * sin(cameraYawRad);
+    float y = m_OrbitDistance * -sin(pitchRad); // Negate for correct orientation
+    float z = m_OrbitDistance * cos(pitchRad) * cos(cameraYawRad);
+    
+    // The offset vector FROM the focus point TO the camera
+    glm::vec3 cameraOffset(x, y, z);
+    
+    // Calculate final camera position
+    glm::vec3 desiredPosition = focusPoint + cameraOffset;
+    
+    // Collision Handling
     glm::vec3 adjustedPosition = desiredPosition;
     if (m_World) {
-        if (HandleCameraCollision(targetWithOffset, desiredPosition, adjustedPosition)) {
-            // If collision occurred, use the adjusted position
-            return adjustedPosition;
+        // Use sphere cast for better collision detection
+        if (SphereCastCollision(focusPoint, desiredPosition, m_CollisionRadius, adjustedPosition)) {
+            return adjustedPosition; // Use collision-adjusted position
         }
     }
     
-    // Return the desired position if no collision or no world reference
-    return desiredPosition;
+    return desiredPosition; // Use original desired position if no collision
 }
 
 bool CameraController::HandleCameraCollision(const glm::vec3& from, const glm::vec3& to, glm::vec3& adjustedPosition) {
     if (!m_World) {
-        // No collision possible without world reference
         return false;
     }
     
@@ -193,33 +256,122 @@ bool CameraController::HandleCameraCollision(const glm::vec3& from, const glm::v
     if (distance < 0.001f) return false; // Prevent division by zero
     
     // Normalize direction
-    direction = direction / distance;
+    direction /= distance;
     
-    // Perform simple collision check against terrain
-    // Start a bit away from the player to prevent early collisions
+    // Improved collision check with better precision and avoiding early collisions
     const float stepSize = 0.25f; // Check every 0.25 units along the ray
-    const float startOffset = 0.5f; // Start checking 0.5 units away from player
-    
-    glm::vec3 currentPos = from + direction * startOffset;
+    const float startOffset = 0.1f; // Start checking 0.1 units away from player
     float currentDist = startOffset;
     
+    glm::vec3 currentPos = from + direction * startOffset;
+    
+    // Ray march from 'from' towards 'to'
     while (currentDist < distance) {
-        // Check for collision at current point
         float terrainHeight = m_World->GetTerrainHeightAt(currentPos.x, currentPos.z);
+        float checkBuffer = 0.1f; // Small buffer above terrain
         
-        // If the ray is below terrain, we have a collision
-        if (currentPos.y < terrainHeight) {
-            // Move back by buffer distance to avoid clipping
+        if (currentPos.y < terrainHeight + checkBuffer) {
+            // Collision! Position camera just before this point
             adjustedPosition = currentPos - direction * m_CollisionBuffer;
+            
+            // Sanity check: ensure adjusted position isn't also below terrain
+            float adjustedTerrainHeight = m_World->GetTerrainHeightAt(adjustedPosition.x, adjustedPosition.z);
+            if (adjustedPosition.y < adjustedTerrainHeight + checkBuffer) {
+                adjustedPosition.y = adjustedTerrainHeight + checkBuffer;
+            }
+            
             return true;
         }
         
-        // Move to next point along ray
         currentPos += direction * stepSize;
         currentDist += stepSize;
     }
     
-    // No collision detected
+    // Check the final 'to' point as well
+    float finalTerrainHeight = m_World->GetTerrainHeightAt(to.x, to.z);
+    float checkBuffer = 0.1f;
+    if (to.y < finalTerrainHeight + checkBuffer) {
+        adjustedPosition = to - direction * m_CollisionBuffer;
+        float adjustedTerrainHeight = m_World->GetTerrainHeightAt(adjustedPosition.x, adjustedPosition.z);
+        if (adjustedPosition.y < adjustedTerrainHeight + checkBuffer) {
+            adjustedPosition.y = adjustedTerrainHeight + checkBuffer;
+        }
+        return true;
+    }
+    
+    return false; // No collision found
+}
+
+bool CameraController::SphereCastCollision(const glm::vec3& from, const glm::vec3& to, float radius, glm::vec3& hitPosition) {
+    if (!m_World) {
+        return false;
+    }
+    
+    // Direction and distance
+    glm::vec3 direction = to - from;
+    float distance = glm::length(direction);
+    if (distance < 0.001f) return false;
+    
+    // Normalize direction
+    direction /= distance;
+    
+    // Higher precision for sphere cast
+    const float stepSize = 0.2f;
+    const float startOffset = 0.1f;
+    float currentDist = startOffset;
+    
+    // Track closest point of collision to handle multiple collisions correctly
+    bool hasCollision = false;
+    float closestCollisionDistance = distance;
+    
+    // Ray march with sphere check at each point
+    while (currentDist < distance) {
+        glm::vec3 centerPos = from + direction * currentDist;
+        
+        // Check terrain height at multiple points around the sphere
+        // Center point
+        float terrainHeight = m_World->GetTerrainHeightAt(centerPos.x, centerPos.z);
+        if (centerPos.y - radius < terrainHeight) {
+            // Sphere intersects terrain at center point
+            float collisionDist = currentDist - stepSize;
+            if (collisionDist < closestCollisionDistance) {
+                closestCollisionDistance = collisionDist;
+                hasCollision = true;
+            }
+        }
+        
+        // Check points around the sphere for better coverage
+        for (int i = 0; i < 4; i++) {
+            float angle = glm::radians(i * 90.0f); // Check at 90-degree intervals
+            glm::vec3 offset(radius * cos(angle), 0.0f, radius * sin(angle));
+            glm::vec3 checkPos = centerPos + offset;
+            
+            float pointTerrainHeight = m_World->GetTerrainHeightAt(checkPos.x, checkPos.z);
+            if (checkPos.y - radius < pointTerrainHeight) {
+                float collisionDist = currentDist - stepSize;
+                if (collisionDist < closestCollisionDistance) {
+                    closestCollisionDistance = collisionDist;
+                    hasCollision = true;
+                }
+            }
+        }
+        
+        currentDist += stepSize;
+    }
+    
+    if (hasCollision) {
+        // Position the camera at the closest collision point with buffer
+        hitPosition = from + direction * std::max(0.1f, closestCollisionDistance - m_CollisionBuffer);
+        
+        // Verify the hit position is above terrain
+        float hitTerrainHeight = m_World->GetTerrainHeightAt(hitPosition.x, hitPosition.z);
+        if (hitPosition.y - radius < hitTerrainHeight) {
+            hitPosition.y = hitTerrainHeight + radius + 0.1f; // Ensure we're above terrain
+        }
+        
+        return true;
+    }
+    
     return false;
 }
 

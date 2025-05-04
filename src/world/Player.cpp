@@ -1,29 +1,37 @@
 #include "Player.h"
 #include "World.h"
+#include "../renderer/Renderer.h"
+#include "../renderer/Mesh.h"
+#include "../renderer/Shader.h"
+#include "../renderer/ResourceManager.h"
 #include <iostream>
 #include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/rotate_vector.hpp>
+#include <algorithm>
 
 namespace Sylva {
 
 Player::Player()
-    : m_Position(0.0f, 1.0f, 0.0f)
+    : m_Position(0.0f, 10.0f, 0.0f)
     , m_Velocity(0.0f)
-    , m_RotationY(0.0f)
-    , m_Speed(10.0f)
+    , m_Yaw(0.0f) // Initialize Yaw (facing positive Z initially)
+    , m_WalkSpeed(3.0f)
+    , m_RunSpeed(6.0f)
+    , m_TurnSpeed(180.0f) // 180 degrees per second
     , m_JumpForce(8.0f)
     , m_Gravity(20.0f)
     , m_IsGrounded(false)
+    , m_GroundCheckDistance(0.2f)
     , m_Renderer(nullptr)
     , m_Mesh(nullptr)
     , m_Shader(nullptr)
-    , m_Color(1.0f, 1.0f, 1.0f) // Bright white color for maximum visibility
+    , m_Color(1.0f, 1.0f, 1.0f)
 {
 }
 
 Player::~Player() {
-    // We don't own the renderer, so don't delete it
-    // m_Mesh is now handled by the unique_ptr
-    // m_Shader is now handled by the shared_ptr
+    // Resources handled by smart pointers
 }
 
 bool Player::Initialize(Renderer* renderer) {
@@ -50,7 +58,6 @@ bool Player::Initialize(Renderer* renderer) {
     }
     
     // Create a simple rectangular mesh for the player (box shape)
-    // The rectangle is 3x8x3 units (width x height x depth) - much larger for visibility
     const float width = 1.0f;
     const float height = 2.0f;
     const float depth = 1.0f;
@@ -143,24 +150,56 @@ void Player::Update(float deltaTime, const Platform* platform, World* world) {
         return;
     }
     
-    // Get the camera forward and right vectors for player movement
-    Camera* camera = m_Renderer->GetCamera();
-    if (!camera) {
-        return;
+    // Handle input (this now handles rotation and movement)
+    HandleInput(deltaTime, platform);
+    
+    // Apply gravity if not grounded
+    if (!m_IsGrounded) {
+        ApplyGravity(deltaTime);
+    } else {
+        // Prevent sliding down slopes when grounded but not moving vertically
+        if (m_Velocity.y < 0.0f) {
+            m_Velocity.y = 0.0f;
+        }
     }
     
-    // Get the camera forward vector (ignoring Y component for XZ-plane movement)
-    glm::vec3 forward = camera->GetFront();
-    forward.y = 0.0f;
-    forward = glm::normalize(forward);
+    // Update position based on velocity
+    m_Position += m_Velocity * deltaTime;
     
-    // Get the camera right vector
-    glm::vec3 right = camera->GetRight();
-    right.y = 0.0f;
-    right = glm::normalize(right);
+    // Reset horizontal velocity each frame (movement is applied instantly via input)
+    // Keep vertical velocity for gravity/jumping
+    m_Velocity.x = 0.0f;
+    m_Velocity.z = 0.0f;
     
-    // Movement based on WASD keys
+    // Check for ground collision
+    CheckGroundCollision(world);
+    
+    // Ensure player stays within world bounds
+    m_Position.x = std::max(World::WORLD_MIN_X + 1.0f, std::min(m_Position.x, World::WORLD_MAX_X - 1.0f));
+    m_Position.z = std::max(World::WORLD_MIN_Z + 1.0f, std::min(m_Position.z, World::WORLD_MAX_Z - 1.0f));
+}
+
+void Player::HandleInput(float deltaTime, const Platform* platform) {
+    if (!platform) return;
+    
     glm::vec3 moveDirection(0.0f);
+    float currentSpeed = m_WalkSpeed;
+    
+    // --- Rotation ---
+    if (platform->IsKeyPressed(GLFW_KEY_A)) {
+        m_Yaw += m_TurnSpeed * deltaTime; // Turn Left
+    }
+    if (platform->IsKeyPressed(GLFW_KEY_D)) {
+        m_Yaw -= m_TurnSpeed * deltaTime; // Turn Right
+    }
+    
+    // Normalize Yaw to keep it within [0, 360) degrees
+    m_Yaw = fmod(m_Yaw, 360.0f);
+    if (m_Yaw < 0.0f) m_Yaw += 360.0f;
+    
+    // --- Forward/Backward Movement ---
+    float yawRad = glm::radians(m_Yaw);
+    glm::vec3 forward = glm::normalize(glm::vec3(sin(yawRad), 0.0f, cos(yawRad)));
     
     if (platform->IsKeyPressed(GLFW_KEY_W)) {
         moveDirection += forward;
@@ -168,50 +207,61 @@ void Player::Update(float deltaTime, const Platform* platform, World* world) {
     if (platform->IsKeyPressed(GLFW_KEY_S)) {
         moveDirection -= forward;
     }
-    if (platform->IsKeyPressed(GLFW_KEY_A)) {
-        moveDirection -= right;
-    }
-    if (platform->IsKeyPressed(GLFW_KEY_D)) {
-        moveDirection += right;
+    
+    // --- Running ---
+    if (platform->IsKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
+        currentSpeed = m_RunSpeed;
     }
     
-    // Normalize the movement direction if needed
+    // Apply movement velocity
     if (glm::length(moveDirection) > 0.01f) {
         moveDirection = glm::normalize(moveDirection);
-        
-        // Set the player's rotation to face the movement direction
-        m_RotationY = atan2(moveDirection.x, moveDirection.z);
+        m_Velocity.x = moveDirection.x * currentSpeed;
+        m_Velocity.z = moveDirection.z * currentSpeed;
     }
     
-    // Apply horizontal movement
-    m_Velocity.x = moveDirection.x * m_Speed;
-    m_Velocity.z = moveDirection.z * m_Speed;
-    
-    // Apply gravity
+    // --- Jumping ---
+    if (m_IsGrounded && platform->IsKeyPressed(GLFW_KEY_SPACE)) {
+        m_Velocity.y = m_JumpForce;
+        m_IsGrounded = false;
+    }
+}
+
+void Player::ApplyGravity(float deltaTime) {
     m_Velocity.y -= m_Gravity * deltaTime;
-    
-    // Check if player is on the ground
-    float terrainHeight = world->GetTerrainHeightAt(m_Position.x, m_Position.z);
-    m_IsGrounded = (m_Position.y <= terrainHeight + 0.1f);
-    
-    // If on ground, prevent falling further and allow jumping
-    if (m_IsGrounded) {
-        // Stop vertical movement if on ground
-        m_Velocity.y = 0.0f;
-        m_Position.y = terrainHeight + 0.1f;
-        
-        // Jump if space is pressed
-        if (platform->IsKeyPressed(GLFW_KEY_SPACE)) {
-            m_Velocity.y = m_JumpForce;
-        }
+    // Optional: Clamp to terminal velocity
+    m_Velocity.y = std::max(m_Velocity.y, -30.0f);
+}
+
+void Player::CheckGroundCollision(World* world) {
+    if (!world) {
+        m_IsGrounded = false;
+        return;
     }
     
-    // Update position based on velocity
-    m_Position += m_Velocity * deltaTime;
+    float terrainHeight = world->GetTerrainHeightAt(m_Position.x, m_Position.z);
     
-    // Ensure player stays within world bounds
-    m_Position.x = std::max(World::WORLD_MIN_X + 1.0f, std::min(m_Position.x, World::WORLD_MAX_X - 1.0f));
-    m_Position.z = std::max(World::WORLD_MIN_Z + 1.0f, std::min(m_Position.z, World::WORLD_MAX_Z - 1.0f));
+    // Adjust for player height - feet are at the bottom of the model
+    float playerFeetY = m_Position.y;
+    
+    if (playerFeetY <= terrainHeight + m_GroundCheckDistance && m_Velocity.y <= 0.0f) {
+        // Snap position to ground and reset vertical velocity
+        m_Position.y = terrainHeight;
+        m_Velocity.y = 0.0f;
+        m_IsGrounded = true;
+    } else {
+        m_IsGrounded = false;
+    }
+}
+
+float Player::GetYaw() const {
+    return m_Yaw;
+}
+
+void Player::SetPosition(const glm::vec3& position) {
+    m_Position = position;
+    m_Velocity = glm::vec3(0.0f); // Reset velocity on position change
+    m_IsGrounded = false; // Force recheck of ground status
 }
 
 void Player::Render(Camera* camera) {
@@ -232,8 +282,8 @@ void Player::Render(Camera* camera) {
     // Apply translation
     model = glm::translate(model, m_Position);
     
-    // Apply rotation around Y axis
-    model = glm::rotate(model, m_RotationY, glm::vec3(0.0f, 1.0f, 0.0f));
+    // Apply rotation around Y axis (now using m_Yaw in degrees)
+    model = glm::rotate(model, glm::radians(m_Yaw), glm::vec3(0.0f, 1.0f, 0.0f));
     
     // Set the model matrix in the shader
     m_Shader->SetMat4("model", model);

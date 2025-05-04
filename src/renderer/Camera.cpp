@@ -9,7 +9,7 @@ constexpr float YAW = -90.0f;
 constexpr float PITCH = 0.0f;
 constexpr float SPEED = 2.5f;
 constexpr float SENSITIVITY = 0.1f;
-constexpr float ZOOM = 45.0f;
+constexpr float ZOOM = 60.0f;
 
 Camera::Camera(float fov, float aspectRatio, float nearClip, float farClip)
     : m_Position(glm::vec3(0.0f, 0.0f, 3.0f))
@@ -116,7 +116,7 @@ void Camera::ProcessMouseMovement(float xOffset, float yOffset, bool constrainPi
 void Camera::ProcessMouseScroll(float yOffset) {
     // Adjust FOV based on scroll (zoom)
     m_Zoom -= yOffset;
-    m_Zoom = std::clamp(m_Zoom, 1.0f, 45.0f);
+    m_Zoom = std::clamp(m_Zoom, 20.0f, 70.0f);
 }
 
 glm::mat4 Camera::GetViewMatrix() const {

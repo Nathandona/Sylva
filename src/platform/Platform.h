@@ -37,6 +37,7 @@ public:
     bool IsKeyPressed(int keyCode) const;
     bool IsMouseButtonPressed(int button) const;
     void GetMousePosition(double& x, double& y) const;
+    float GetMouseScrollOffset(); // Get and reset scroll offset
     
     // New function to set the window icon
     bool SetWindowIcon(const char* iconPath);
@@ -49,6 +50,12 @@ private:
     std::string m_Title;
     int m_Width;
     int m_Height;
+    
+    // Mouse scroll tracking
+    float m_ScrollYOffset;
+    
+    // Static callback for scroll events
+    static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 };
 
 } 

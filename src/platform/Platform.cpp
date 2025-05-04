@@ -10,10 +10,20 @@ static void GLFWErrorCallback(int error, const char* description) {
     std::cerr << "GLFW Error (" << error << "): " << description << std::endl;
 }
 
+// Static method to handle scroll callback
+void Platform::ScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+    // Get the Platform instance from the user pointer
+    Platform* platform = static_cast<Platform*>(glfwGetWindowUserPointer(window));
+    if (platform) {
+        platform->m_ScrollYOffset = static_cast<float>(yoffset);
+    }
+}
+
 Platform::Platform()
     : m_Window(nullptr)
     , m_Width(0)
     , m_Height(0)
+    , m_ScrollYOffset(0.0f)
 {
 }
 
@@ -49,6 +59,12 @@ bool Platform::Initialize(const std::string& title, int width, int height) {
         glfwTerminate();
         return false;
     }
+    
+    // Store this instance in window user pointer for callbacks
+    glfwSetWindowUserPointer(m_Window, this);
+    
+    // Set up scroll callback
+    glfwSetScrollCallback(m_Window, ScrollCallback);
     
     // Make OpenGL context current
     glfwMakeContextCurrent(m_Window);
@@ -131,6 +147,12 @@ bool Platform::SetWindowIcon(const char* iconPath) {
     stbi_image_free(pixels);
     
     return true;
+}
+
+float Platform::GetMouseScrollOffset() {
+    float offset = m_ScrollYOffset;
+    m_ScrollYOffset = 0.0f; // Reset after reading
+    return offset;
 }
 
 } 
