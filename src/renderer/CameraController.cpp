@@ -16,23 +16,23 @@ CameraController::CameraController(Camera* camera, Platform* platform)
     , m_PlayerTarget(nullptr)
     , m_PlayerYaw(0.0f)  // Renamed from m_TargetYaw
     , m_CurrentPosition(glm::vec3(0.0f, 2.0f, -5.0f))
-    , m_OrbitDistance(6.0f)
-    , m_MinOrbitDistance(1.0f)
-    , m_MaxOrbitDistance(15.0f)
-    , m_VerticalOffset(2.0f)
-    , m_ShoulderOffset(0.5f)  // Default slight offset to the right
-    , m_CameraPitch(-10.0f)   // Renamed from m_CurrentPitch
+    , m_OrbitDistance(DEFAULT_ORBIT_DISTANCE)
+    , m_MinOrbitDistance(DEFAULT_MIN_ORBIT_DISTANCE)
+    , m_MaxOrbitDistance(DEFAULT_MAX_ORBIT_DISTANCE)
+    , m_VerticalOffset(DEFAULT_VERTICAL_OFFSET)
+    , m_ShoulderOffset(DEFAULT_SHOULDER_OFFSET)  // Default slight offset to the right
+    , m_CameraPitch(DEFAULT_CAMERA_PITCH)   // Renamed from m_CurrentPitch
     , m_CameraYawOffset(0.0f) // Renamed from m_CurrentYawOffset
-    , m_YawSmoothingFactor(8.0f)
-    , m_PitchSmoothingFactor(8.0f)
-    , m_SmoothingFactor(5.0f)
+    , m_YawSmoothingFactor(DEFAULT_YAW_SMOOTHING)
+    , m_PitchSmoothingFactor(DEFAULT_PITCH_SMOOTHING)
+    , m_SmoothingFactor(DEFAULT_POSITION_SMOOTHING)
     , m_FirstMouse(true)
     , m_LastMouseX(0.0)
     , m_LastMouseY(0.0)
     , m_IsMouseOrbiting(false)
-    , m_MovementSpeed(5.0f)
-    , m_MouseSensitivity(0.1f)
-    , m_ZoomSensitivity(2.0f)
+    , m_MovementSpeed(DEFAULT_MOVEMENT_SPEED)
+    , m_MouseSensitivity(DEFAULT_MOUSE_SENSITIVITY)
+    , m_ZoomSensitivity(DEFAULT_ZOOM_SENSITIVITY)
 {
     // Initial camera setup
     
@@ -119,12 +119,12 @@ void CameraController::HandleCameraInput(float deltaTime) {
     float scrollOffset = m_Platform->GetMouseScrollOffset();
     if (scrollOffset != 0.0f) {
         // Scale the scroll sensitivity
-        float zoomAmount = scrollOffset * m_ZoomSensitivity * 0.1f;
+        float zoomAmount = scrollOffset * m_ZoomSensitivity * ZOOM_SCROLL_MULTIPLIER;
         SetOrbitDistance(m_OrbitDistance - zoomAmount);
     }
     
     // PageUp/PageDown zooming (kept for backward compatibility)
-    float keyZoomAmount = m_ZoomSensitivity * deltaTime * 10.0f;
+    float keyZoomAmount = m_ZoomSensitivity * deltaTime * ZOOM_KEY_MULTIPLIER;
     if (m_Platform->IsKeyPressed(GLFW_KEY_PAGE_UP)) {
         SetOrbitDistance(m_OrbitDistance - keyZoomAmount);
     }
@@ -133,7 +133,7 @@ void CameraController::HandleCameraInput(float deltaTime) {
     }
     
     // Camera left/right movement with Q and E keys
-    float cameraYawSpeed = 90.0f * deltaTime;
+    float cameraYawSpeed = CAMERA_YAW_SPEED * deltaTime;
     if (m_Platform->IsKeyPressed(GLFW_KEY_Q)) {
         // Move camera left
         m_CameraYawOffset += cameraYawSpeed;
@@ -144,12 +144,12 @@ void CameraController::HandleCameraInput(float deltaTime) {
     }
     
     // Arrow keys for pitch control (independent of mouse)
-    float pitchSpeed = 90.0f * deltaTime;
+    float pitchSpeed = CAMERA_PITCH_SPEED * deltaTime;
     if (m_Platform->IsKeyPressed(GLFW_KEY_UP)) {
-        m_CameraPitch = std::min(m_CameraPitch + pitchSpeed, 89.0f);
+        m_CameraPitch = std::min(m_CameraPitch + pitchSpeed, MAX_PITCH);
     }
     if (m_Platform->IsKeyPressed(GLFW_KEY_DOWN)) {
-        m_CameraPitch = std::max(m_CameraPitch - pitchSpeed, -89.0f);
+        m_CameraPitch = std::max(m_CameraPitch - pitchSpeed, MIN_PITCH);
     }
     
     // Toggle shoulder offset with Tab key
@@ -199,7 +199,7 @@ void CameraController::HandleMouseMovement() {
         
         // Update pitch (vertical mouse movement)
         m_CameraPitch += yOffset;
-        m_CameraPitch = std::max(-89.0f, std::min(m_CameraPitch, 89.0f)); // Clamp
+        m_CameraPitch = std::max(MIN_PITCH, std::min(m_CameraPitch, MAX_PITCH)); // Clamp
         
         // Update yaw offset (horizontal mouse movement)
         // Subtract xOffset to make movement intuitive

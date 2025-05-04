@@ -7,8 +7,6 @@ namespace Sylva {
 // Default camera values
 constexpr float YAW = -90.0f;
 constexpr float PITCH = 0.0f;
-constexpr float SPEED = 2.5f;
-constexpr float SENSITIVITY = 0.1f;
 constexpr float ZOOM = 60.0f;
 
 Camera::Camera(float fov, float aspectRatio, float nearClip, float farClip)
@@ -19,8 +17,6 @@ Camera::Camera(float fov, float aspectRatio, float nearClip, float farClip)
     , m_WorldUp(glm::vec3(0.0f, 1.0f, 0.0f))
     , m_Yaw(YAW)
     , m_Pitch(PITCH)
-    , m_MovementSpeed(SPEED)
-    , m_MouseSensitivity(SENSITIVITY)
     , m_Zoom(ZOOM)
     , m_ProjectionType(ProjectionType::Perspective)
     , m_FOV(fov)
@@ -83,40 +79,6 @@ void Camera::SetOrthographicProjection(float left, float right, float bottom, fl
     m_OrthoTop = top;
     m_NearClip = nearClip;
     m_FarClip = farClip;
-}
-
-void Camera::MoveForward(float distance) {
-    m_Position += m_Front * distance;
-}
-
-void Camera::MoveRight(float distance) {
-    m_Position += m_Right * distance;
-}
-
-void Camera::MoveUp(float distance) {
-    m_Position += m_WorldUp * distance;
-}
-
-void Camera::ProcessMouseMovement(float xOffset, float yOffset, bool constrainPitch) {
-    xOffset *= m_MouseSensitivity;
-    yOffset *= m_MouseSensitivity;
-
-    m_Yaw += xOffset;
-    m_Pitch += yOffset;
-
-    // Constrain pitch to avoid flipping
-    if (constrainPitch) {
-        m_Pitch = std::clamp(m_Pitch, -89.0f, 89.0f);
-    }
-
-    // Update camera vectors
-    UpdateCameraVectors();
-}
-
-void Camera::ProcessMouseScroll(float yOffset) {
-    // Adjust FOV based on scroll (zoom)
-    m_Zoom -= yOffset;
-    m_Zoom = std::clamp(m_Zoom, 20.0f, 70.0f);
 }
 
 glm::mat4 Camera::GetViewMatrix() const {

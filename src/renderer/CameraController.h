@@ -9,6 +9,26 @@ namespace Sylva {
 
 class CameraController {
 public:
+    // Default configuration constants
+    static constexpr float DEFAULT_ORBIT_DISTANCE = 6.0f;
+    static constexpr float DEFAULT_MIN_ORBIT_DISTANCE = 1.0f;
+    static constexpr float DEFAULT_MAX_ORBIT_DISTANCE = 15.0f;
+    static constexpr float DEFAULT_VERTICAL_OFFSET = 2.0f;
+    static constexpr float DEFAULT_SHOULDER_OFFSET = 0.5f;
+    static constexpr float DEFAULT_CAMERA_PITCH = -10.0f;
+    static constexpr float DEFAULT_YAW_SMOOTHING = 8.0f;
+    static constexpr float DEFAULT_PITCH_SMOOTHING = 8.0f;
+    static constexpr float DEFAULT_POSITION_SMOOTHING = 5.0f;
+    static constexpr float DEFAULT_MOVEMENT_SPEED = 5.0f;
+    static constexpr float DEFAULT_MOUSE_SENSITIVITY = 0.1f;
+    static constexpr float DEFAULT_ZOOM_SENSITIVITY = 2.0f;
+    static constexpr float MIN_PITCH = -89.0f;
+    static constexpr float MAX_PITCH = 89.0f;
+    static constexpr float CAMERA_YAW_SPEED = 90.0f;
+    static constexpr float CAMERA_PITCH_SPEED = 90.0f;
+    static constexpr float ZOOM_SCROLL_MULTIPLIER = 0.1f;
+    static constexpr float ZOOM_KEY_MULTIPLIER = 10.0f;
+
     CameraController(Camera* camera, Platform* platform);
     ~CameraController() = default;
     

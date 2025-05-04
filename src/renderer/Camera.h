@@ -32,15 +32,6 @@ public:
     float GetYaw() const { return m_Yaw; }
     float GetPitch() const { return m_Pitch; }
 
-    // Camera movement
-    void MoveForward(float distance);
-    void MoveRight(float distance);
-    void MoveUp(float distance);
-
-    // Mouse/orbit controls
-    void ProcessMouseMovement(float xOffset, float yOffset, bool constrainPitch = true);
-    void ProcessMouseScroll(float yOffset);
-
     // Get view and projection matrices
     glm::mat4 GetViewMatrix() const;
     glm::mat4 GetProjectionMatrix() const;
@@ -60,10 +51,8 @@ private:
     float m_Yaw;
     float m_Pitch;
 
-    // Camera options
-    float m_MovementSpeed;
-    float m_MouseSensitivity;
-    float m_Zoom; // Field of view
+    // Removed: Camera options (movement speed, mouse sensitivity)
+    float m_Zoom; // Field of view (kept for projection calculation)
 
     // Projection settings
     ProjectionType m_ProjectionType;
