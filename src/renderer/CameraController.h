@@ -33,9 +33,6 @@ public:
     // Additional camera position calculation constants
     static constexpr float CAMERA_BEHIND_ANGLE = 180.0f;  // Camera is 180 degrees behind player (degrees)
     static constexpr float SHOULDER_OFFSET_ANGLE = 90.0f; // Right is 90 degrees from forward (degrees)
-
-    // Legacy constructor (using references instead of pointers)
-    CameraController(Camera& camera, Platform& platform);
     
     // New constructor with InputManager (using references instead of pointers)
     CameraController(Camera& camera, Platform& platform, InputManager& inputManager);

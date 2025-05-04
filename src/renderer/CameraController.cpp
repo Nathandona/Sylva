@@ -9,43 +9,6 @@
 
 namespace Sylva {
 
-CameraController::CameraController(Camera& camera, Platform& platform)
-    : m_Camera(camera)
-    , m_Platform(platform)
-    , m_InputManager(nullptr)
-    , m_TargetPosition(glm::vec3(0.0f))
-    , m_PlayerTarget(nullptr)
-    , m_PlayerYaw(0.0f)  // Renamed from m_TargetYaw
-    , m_CurrentPosition(glm::vec3(0.0f, 2.0f, -5.0f))
-    , m_OrbitDistance(DEFAULT_ORBIT_DISTANCE)
-    , m_MinOrbitDistance(DEFAULT_MIN_ORBIT_DISTANCE)
-    , m_MaxOrbitDistance(DEFAULT_MAX_ORBIT_DISTANCE)
-    , m_VerticalOffset(DEFAULT_VERTICAL_OFFSET)
-    , m_ShoulderOffset(DEFAULT_SHOULDER_OFFSET)  // Default slight offset to the right
-    , m_CameraPitch(DEFAULT_CAMERA_PITCH)   // Renamed from m_CurrentPitch
-    , m_CameraYawOffset(0.0f) // Renamed from m_CurrentYawOffset
-    , m_YawSmoothingFactor(DEFAULT_YAW_SMOOTHING)
-    , m_PitchSmoothingFactor(DEFAULT_PITCH_SMOOTHING)
-    , m_SmoothingFactor(DEFAULT_POSITION_SMOOTHING)
-    , m_FirstMouse(true)
-    , m_LastMouseX(0.0)
-    , m_LastMouseY(0.0)
-    , m_IsMouseOrbiting(false)
-    , m_MovementSpeed(DEFAULT_MOVEMENT_SPEED)
-    , m_MouseSensitivity(DEFAULT_MOUSE_SENSITIVITY)
-    , m_ZoomSensitivity(DEFAULT_ZOOM_SENSITIVITY)
-{
-    // Initial camera setup
-    
-    double mouseX, mouseY;
-    m_Platform.GetMousePosition(mouseX, mouseY);
-    m_LastMouseX = mouseX;
-    m_LastMouseY = mouseY;
-    
-    // Set initial rotation to look at player
-    m_Camera.SetRotation(m_CameraPitch, m_PlayerYaw + m_CameraYawOffset);
-}
-
 CameraController::CameraController(Camera& camera, Platform& platform, InputManager& inputManager)
     : m_Camera(camera)
     , m_Platform(platform)
