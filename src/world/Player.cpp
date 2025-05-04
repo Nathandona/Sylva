@@ -144,6 +144,7 @@ bool Player::Initialize(Renderer* renderer) {
     return true;
 }
 
+// Original Update method without InputManager
 void Player::Update(float deltaTime, const Platform* platform, World* world) {
     // Validate inputs
     if (!platform || !world) {
@@ -152,6 +153,42 @@ void Player::Update(float deltaTime, const Platform* platform, World* world) {
     
     // Handle input (this now handles rotation and movement)
     HandleInput(deltaTime, platform);
+    
+    // Apply gravity if not grounded
+    if (!m_IsGrounded) {
+        ApplyGravity(deltaTime);
+    } else {
+        // Prevent sliding down slopes when grounded but not moving vertically
+        if (m_Velocity.y < 0.0f) {
+            m_Velocity.y = 0.0f;
+        }
+    }
+    
+    // Update position based on velocity
+    m_Position += m_Velocity * deltaTime;
+    
+    // Reset horizontal velocity each frame (movement is applied instantly via input)
+    // Keep vertical velocity for gravity/jumping
+    m_Velocity.x = 0.0f;
+    m_Velocity.z = 0.0f;
+    
+    // Check for ground collision
+    CheckGroundCollision(world);
+    
+    // Ensure player stays within world bounds
+    m_Position.x = std::max(World::WORLD_MIN_X + 1.0f, std::min(m_Position.x, World::WORLD_MAX_X - 1.0f));
+    m_Position.z = std::max(World::WORLD_MIN_Z + 1.0f, std::min(m_Position.z, World::WORLD_MAX_Z - 1.0f));
+}
+
+// New Update method with InputManager
+void Player::Update(float deltaTime, const Platform* platform, World* world, InputManager* inputManager) {
+    // Validate inputs
+    if (!platform || !world || !inputManager) {
+        return;
+    }
+    
+    // Handle input using the input manager
+    HandleInputWithManager(deltaTime, inputManager);
     
     // Apply gravity if not grounded
     if (!m_IsGrounded) {
@@ -232,6 +269,62 @@ void Player::HandleInput(float deltaTime, const Platform* platform) {
     
     // --- Jumping ---
     if (m_IsGrounded && platform->IsKeyPressed(GLFW_KEY_SPACE)) {
+        m_Velocity.y = m_JumpForce;
+        m_IsGrounded = false;
+    }
+}
+
+void Player::HandleInputWithManager(float deltaTime, InputManager* inputManager) {
+    if (!inputManager) return;
+    
+    glm::vec3 moveDirection(0.0f);
+    float currentSpeed = m_WalkSpeed;
+    
+    // --- Turning ---
+    if (inputManager->IsActionPressed("TurnLeft")) { // Turn left
+        m_Yaw -= m_TurnSpeed * deltaTime; 
+    }
+    if (inputManager->IsActionPressed("TurnRight")) { // Turn right
+        m_Yaw += m_TurnSpeed * deltaTime; 
+    }
+
+    // Normalize Yaw to keep it within [0, 360) degrees
+    m_Yaw = fmod(m_Yaw, 360.0f);
+    if (m_Yaw < 0.0f) m_Yaw += 360.0f;
+
+    // Convert yaw to radians for direction calculations
+    float yawRad = glm::radians(m_Yaw);
+    
+    // Calculate forward and right vectors based on player's orientation
+    glm::vec3 forward = glm::normalize(glm::vec3(sin(yawRad), 0.0f, cos(yawRad)));
+    glm::vec3 right = glm::normalize(glm::vec3(sin(yawRad + glm::radians(90.0f)), 0.0f, cos(yawRad + glm::radians(90.0f))));
+    
+    // Get movement direction using axis values
+    float forwardAxis = inputManager->GetAxisValue("MoveForward", "MoveBackward");
+    float rightAxis = inputManager->GetAxisValue("MoveRight", "MoveLeft");
+    
+    // Apply movement based on axes
+    if (forwardAxis != 0.0f) {
+        moveDirection += forward * forwardAxis;
+    }
+    if (rightAxis != 0.0f) {
+        moveDirection += right * rightAxis;
+    }
+    
+    // --- Running ---
+    if (inputManager->IsActionPressed("Run")) {
+        currentSpeed = m_RunSpeed;
+    }
+    
+    // Apply movement velocity
+    if (glm::length(moveDirection) > 0.01f) {
+        moveDirection = glm::normalize(moveDirection);
+        m_Velocity.x = moveDirection.x * currentSpeed;
+        m_Velocity.z = moveDirection.z * currentSpeed;
+    }
+    
+    // --- Jumping ---
+    if (m_IsGrounded && inputManager->IsActionPressed("Jump")) {
         m_Velocity.y = m_JumpForce;
         m_IsGrounded = false;
     }

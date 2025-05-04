@@ -6,20 +6,22 @@ namespace Sylva {
 World::World()
     : m_Renderer(nullptr)
     , m_Platform(nullptr)
+    , m_InputManager(nullptr)
     , m_TerrainShader(nullptr)
     , m_TerrainTexture(nullptr)
 {
 }
 
 World::~World() {
-    // We don't own the renderer or platform
+    // We don't own these pointers
     m_Renderer = nullptr;
     m_Platform = nullptr;
+    m_InputManager = nullptr;
     
     // Shared resources are automatically cleaned up
 }
 
-bool World::Initialize(Renderer* renderer, Platform* platform) {
+bool World::Initialize(Renderer* renderer, Platform* platform, InputManager* inputManager) {
     if (!renderer) {
         std::cerr << "Cannot initialize World without a valid Renderer!" << std::endl;
         return false;
@@ -27,9 +29,14 @@ bool World::Initialize(Renderer* renderer, Platform* platform) {
     
     m_Renderer = renderer;
     m_Platform = platform;
+    m_InputManager = inputManager;
     
     if (!m_Platform) {
         std::cerr << "Warning: Platform not provided, input will not be processed" << std::endl;
+    }
+    
+    if (!m_InputManager) {
+        std::cerr << "Warning: InputManager not provided, input abstraction will not be available" << std::endl;
     }
     
     // Get resource manager from renderer
@@ -90,7 +97,13 @@ bool World::Initialize(Renderer* renderer, Platform* platform) {
 void World::Update(float deltaTime, Camera* camera) {
     // Update player
     if (m_Platform && camera) {
-        m_Player.Update(deltaTime, m_Platform, this);
+        if (m_InputManager) {
+            // Use the input manager for player updates
+            m_Player.Update(deltaTime, m_Platform, this, m_InputManager);
+        } else {
+            // Fallback to the old method without input manager
+            m_Player.Update(deltaTime, m_Platform, this);
+        }
     }
     
     // Future additions:

@@ -5,6 +5,7 @@
 #include "../renderer/Renderer.h"
 #include "../renderer/Camera.h"
 #include "../renderer/ResourceManager.h"
+#include "../input/InputManager.h"
 #include <memory>
 
 namespace Sylva {
@@ -15,7 +16,7 @@ public:
     ~World();
 
     // Initialize the world with a flat terrain
-    bool Initialize(Renderer* renderer, Platform* platform);
+    bool Initialize(Renderer* renderer, Platform* platform, InputManager* inputManager);
     
     // Update the world state (will be expanded in future)
     void Update(float deltaTime, Camera* camera);
@@ -43,6 +44,9 @@ private:
     
     // Platform reference (not owned by World)
     Platform* m_Platform;
+    
+    // Input manager reference (not owned by World)
+    InputManager* m_InputManager;
     
     // Terrain
     Terrain m_Terrain;

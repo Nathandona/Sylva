@@ -5,6 +5,7 @@
 #include "../renderer/Camera.h"
 #include "../renderer/CameraController.h"
 #include "../world/World.h"
+#include "../input/InputManager.h"
 #include <memory>
 
 namespace Sylva {
@@ -32,6 +33,7 @@ private:
     Platform m_Platform;
     Renderer m_Renderer;
     World m_World;
+    InputManager m_InputManager;
     
     // Camera controller (owned by Core)
     std::unique_ptr<CameraController> m_CameraController;

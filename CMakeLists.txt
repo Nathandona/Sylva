@@ -34,6 +34,7 @@ set(SOURCES
     src/world/World.cpp
     src/world/Terrain.cpp
     src/world/Player.cpp
+    src/input/InputManager.cpp
     vendor/stb/stb_image_impl.cpp
 )
 
@@ -54,6 +55,7 @@ set(HEADERS
     src/world/World.h
     src/world/Terrain.h
     src/world/Player.h
+    src/input/InputManager.h
     vendor/stb/stb_image.h
     vendor/tiny_obj_loader/tiny_obj_loader.h
 )

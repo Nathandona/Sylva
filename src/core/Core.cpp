@@ -6,6 +6,7 @@ namespace Sylva {
 Core::Core() 
     : m_Running(false)
     , m_DeltaTime(0.0f)
+    , m_InputManager(&m_Platform)
     , m_CameraController(nullptr)
 {
 }
@@ -23,6 +24,9 @@ bool Core::Initialize() {
         return false;
     }
     
+    // Initialize input manager with default mappings
+    m_InputManager.Initialize();
+    
     // Initialize renderer
     if (!m_Renderer.Initialize()) {
         std::cerr << "Failed to initialize renderer!" << std::endl;
@@ -30,7 +34,7 @@ bool Core::Initialize() {
     }
     
     // Initialize world
-    if (!m_World.Initialize(&m_Renderer, &m_Platform)) {
+    if (!m_World.Initialize(&m_Renderer, &m_Platform, &m_InputManager)) {
         std::cerr << "Failed to initialize world!" << std::endl;
         return false;
     }
@@ -43,7 +47,7 @@ bool Core::Initialize() {
     }
     
     // Create camera controller
-    m_CameraController = std::make_unique<CameraController>(camera, &m_Platform);
+    m_CameraController = std::make_unique<CameraController>(camera, &m_Platform, &m_InputManager);
     
     // Configure camera controller for Cube World style camera
     if (m_CameraController) {

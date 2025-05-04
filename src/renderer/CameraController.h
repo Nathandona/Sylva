@@ -3,6 +3,7 @@
 #include "Camera.h"
 #include "../platform/Platform.h"
 #include "../world/Player.h"
+#include "../input/InputManager.h"
 #include <algorithm>
 
 namespace Sylva {
@@ -29,7 +30,12 @@ public:
     static constexpr float ZOOM_SCROLL_MULTIPLIER = 0.1f;
     static constexpr float ZOOM_KEY_MULTIPLIER = 10.0f;
 
+    // Legacy constructor
     CameraController(Camera* camera, Platform* platform);
+    
+    // New constructor with InputManager
+    CameraController(Camera* camera, Platform* platform, InputManager* inputManager);
+    
     ~CameraController() = default;
     
     // For third-person/orbit mode
@@ -79,14 +85,21 @@ private:
     // Handle input based on the current control mode
     void HandleCameraInput(float deltaTime);
     
+    // Handle input using InputManager (new method)
+    void HandleCameraInputWithManager(float deltaTime);
+    
     // Handle mouse movement for camera rotation
     void HandleMouseMovement();
+    
+    // Handle mouse movement with InputManager (new method)
+    void HandleMouseMovementWithManager();
     
     // Calculate desired camera position with collision handling
     glm::vec3 CalculateCameraPosition();
     
     Camera* m_Camera;
     Platform* m_Platform;
+    InputManager* m_InputManager;  // New pointer to input manager
     
     // Target tracking
     glm::vec3 m_TargetPosition;

@@ -5,6 +5,7 @@
 #include "../renderer/Renderer.h"
 #include "../renderer/Camera.h"
 #include "../platform/Platform.h"
+#include "../input/InputManager.h"
 
 // Forward declarations
 namespace Sylva {
@@ -14,6 +15,7 @@ namespace Sylva {
     class World; // Forward declare World
     class Mesh;
     class Shader;
+    class InputManager;
 }
 
 namespace Sylva {
@@ -26,8 +28,11 @@ public:
     // Initialize the player with a simple rectangular mesh
     bool Initialize(Renderer* renderer);
     
-    // Update player position and state based on input and physics
+    // Update player position and state based on input and physics (legacy method)
     void Update(float deltaTime, const Platform* platform, World* world);
+    
+    // Update with InputManager (new method)
+    void Update(float deltaTime, const Platform* platform, World* world, InputManager* inputManager);
     
     // Render the player
     void Render(Camera* camera);
@@ -58,6 +63,7 @@ private:
     
     // Methods for handling different aspects of player behavior
     void HandleInput(float deltaTime, const Platform* platform);
+    void HandleInputWithManager(float deltaTime, InputManager* inputManager);
     void ApplyGravity(float deltaTime);
     void CheckGroundCollision(World* world);
     
