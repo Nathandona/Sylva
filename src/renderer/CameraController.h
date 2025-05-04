@@ -5,6 +5,7 @@
 #include "../world/Player.h"
 #include "../input/InputManager.h"
 #include <algorithm>
+#include <memory>
 
 namespace Sylva {
 
@@ -29,12 +30,15 @@ public:
     static constexpr float CAMERA_PITCH_SPEED = 90.0f;
     static constexpr float ZOOM_SCROLL_MULTIPLIER = 0.1f;
     static constexpr float ZOOM_KEY_MULTIPLIER = 10.0f;
+    // Additional camera position calculation constants
+    static constexpr float CAMERA_BEHIND_ANGLE = 180.0f;  // Camera is 180 degrees behind player (degrees)
+    static constexpr float SHOULDER_OFFSET_ANGLE = 90.0f; // Right is 90 degrees from forward (degrees)
 
-    // Legacy constructor
-    CameraController(Camera* camera, Platform* platform);
+    // Legacy constructor (using references instead of pointers)
+    CameraController(Camera& camera, Platform& platform);
     
-    // New constructor with InputManager
-    CameraController(Camera* camera, Platform* platform, InputManager* inputManager);
+    // New constructor with InputManager (using references instead of pointers)
+    CameraController(Camera& camera, Platform& platform, InputManager& inputManager);
     
     ~CameraController() = default;
     
@@ -64,7 +68,7 @@ public:
     void OnWindowResize(int width, int height);
     
     // Get the camera
-    Camera* GetCamera() const { return m_Camera; }
+    Camera& GetCamera() const { return m_Camera; }
     
     // Get/Set smoothing factor
     float GetSmoothingFactor() const { return m_SmoothingFactor; }
@@ -97,13 +101,14 @@ private:
     // Calculate desired camera position with collision handling
     glm::vec3 CalculateCameraPosition();
     
-    Camera* m_Camera;
-    Platform* m_Platform;
-    InputManager* m_InputManager;  // New pointer to input manager
+    // Non-owning references to external resources
+    Camera& m_Camera;
+    Platform& m_Platform;
+    InputManager* m_InputManager;  // Optional reference (nullable)
     
     // Target tracking
     glm::vec3 m_TargetPosition;
-    Player* m_PlayerTarget;  // Pointer to the player (for Cube World style camera)
+    Player* m_PlayerTarget;  // Non-owning pointer (nullable)
     float m_PlayerYaw;  // Renamed from m_TargetYaw for clarity
     
     // Camera position and state

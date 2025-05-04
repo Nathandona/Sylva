@@ -9,7 +9,7 @@
 
 namespace Sylva {
 
-CameraController::CameraController(Camera* camera, Platform* platform)
+CameraController::CameraController(Camera& camera, Platform& platform)
     : m_Camera(camera)
     , m_Platform(platform)
     , m_InputManager(nullptr)
@@ -38,18 +38,18 @@ CameraController::CameraController(Camera* camera, Platform* platform)
     // Initial camera setup
     
     double mouseX, mouseY;
-    m_Platform->GetMousePosition(mouseX, mouseY);
+    m_Platform.GetMousePosition(mouseX, mouseY);
     m_LastMouseX = mouseX;
     m_LastMouseY = mouseY;
     
     // Set initial rotation to look at player
-    m_Camera->SetRotation(m_CameraPitch, m_PlayerYaw + m_CameraYawOffset);
+    m_Camera.SetRotation(m_CameraPitch, m_PlayerYaw + m_CameraYawOffset);
 }
 
-CameraController::CameraController(Camera* camera, Platform* platform, InputManager* inputManager)
+CameraController::CameraController(Camera& camera, Platform& platform, InputManager& inputManager)
     : m_Camera(camera)
     , m_Platform(platform)
-    , m_InputManager(inputManager)
+    , m_InputManager(&inputManager) // Store a pointer for backward compatibility with existing code
     , m_TargetPosition(glm::vec3(0.0f))
     , m_PlayerTarget(nullptr)
     , m_PlayerYaw(0.0f)
@@ -75,17 +75,15 @@ CameraController::CameraController(Camera* camera, Platform* platform, InputMana
     // Initial camera setup
     
     double mouseX, mouseY;
-    m_Platform->GetMousePosition(mouseX, mouseY);
+    m_Platform.GetMousePosition(mouseX, mouseY);
     m_LastMouseX = mouseX;
     m_LastMouseY = mouseY;
     
     // Set initial rotation to look at player
-    m_Camera->SetRotation(m_CameraPitch, m_PlayerYaw + m_CameraYawOffset);
+    m_Camera.SetRotation(m_CameraPitch, m_PlayerYaw + m_CameraYawOffset);
     
-    // If we have an input manager, set the mouse sensitivity to match
-    if (m_InputManager) {
-        m_MouseSensitivity = m_InputManager->GetMouseSensitivity();
-    }
+    // Set the mouse sensitivity to match the input manager
+    m_MouseSensitivity = m_InputManager->GetMouseSensitivity();
 }
 
 void CameraController::SetTargetPosition(const glm::vec3& targetPosition) {
@@ -132,14 +130,14 @@ void CameraController::Update(float deltaTime) {
     float effectiveYaw = m_PlayerYaw + lastYawOffset;
     
     // Apply rotation to the actual camera object
-    m_Camera->SetRotation(lastPitch, effectiveYaw);
+    m_Camera.SetRotation(lastPitch, effectiveYaw);
     
     // Calculate focus point with vertical offset
     glm::vec3 focusPoint = m_TargetPosition + glm::vec3(0.0f, m_VerticalOffset, 0.0f);
     
     // Add shoulder offset to focus point
     float yawRadians = glm::radians(m_PlayerYaw);
-    glm::vec3 rightVector(sin(yawRadians + glm::radians(90.0f)), 0.0f, cos(yawRadians + glm::radians(90.0f)));
+    glm::vec3 rightVector(sin(yawRadians + glm::radians(SHOULDER_OFFSET_ANGLE)), 0.0f, cos(yawRadians + glm::radians(SHOULDER_OFFSET_ANGLE)));
     focusPoint += rightVector * m_ShoulderOffset;
     
     // Calculate desired camera position
@@ -149,20 +147,20 @@ void CameraController::Update(float deltaTime) {
     m_CurrentPosition = glm::mix(m_CurrentPosition, desiredPosition, std::min(m_SmoothingFactor * deltaTime, 1.0f));
     
     // Set the camera position
-    m_Camera->SetPosition(m_CurrentPosition);
+    m_Camera.SetPosition(m_CurrentPosition);
 }
 
 void CameraController::OnWindowResize(int width, int height) {
     // Update camera's aspect ratio
     if (width > 0 && height > 0) {
         float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-        m_Camera->SetAspectRatio(aspectRatio);
+        m_Camera.SetAspectRatio(aspectRatio);
     }
 }
 
 void CameraController::HandleCameraInput(float deltaTime) {
     // Mouse wheel zooming
-    float scrollOffset = m_Platform->GetMouseScrollOffset();
+    float scrollOffset = m_Platform.GetMouseScrollOffset();
     if (scrollOffset != 0.0f) {
         // Scale the scroll sensitivity
         float zoomAmount = scrollOffset * m_ZoomSensitivity * ZOOM_SCROLL_MULTIPLIER;
@@ -171,36 +169,36 @@ void CameraController::HandleCameraInput(float deltaTime) {
     
     // PageUp/PageDown zooming (kept for backward compatibility)
     float keyZoomAmount = m_ZoomSensitivity * deltaTime * ZOOM_KEY_MULTIPLIER;
-    if (m_Platform->IsKeyPressed(GLFW_KEY_PAGE_UP)) {
+    if (m_Platform.IsKeyPressed(GLFW_KEY_PAGE_UP)) {
         SetOrbitDistance(m_OrbitDistance - keyZoomAmount);
     }
-    if (m_Platform->IsKeyPressed(GLFW_KEY_PAGE_DOWN)) {
+    if (m_Platform.IsKeyPressed(GLFW_KEY_PAGE_DOWN)) {
         SetOrbitDistance(m_OrbitDistance + keyZoomAmount);
     }
     
     // Camera left/right movement with Q and E keys
     float cameraYawSpeed = CAMERA_YAW_SPEED * deltaTime;
-    if (m_Platform->IsKeyPressed(GLFW_KEY_Q)) {
+    if (m_Platform.IsKeyPressed(GLFW_KEY_Q)) {
         // Move camera left
         m_CameraYawOffset += cameraYawSpeed;
     }
-    if (m_Platform->IsKeyPressed(GLFW_KEY_E)) {
+    if (m_Platform.IsKeyPressed(GLFW_KEY_E)) {
         // Move camera right
         m_CameraYawOffset -= cameraYawSpeed;
     }
     
     // Arrow keys for pitch control (independent of mouse)
     float pitchSpeed = CAMERA_PITCH_SPEED * deltaTime;
-    if (m_Platform->IsKeyPressed(GLFW_KEY_UP)) {
+    if (m_Platform.IsKeyPressed(GLFW_KEY_UP)) {
         m_CameraPitch = std::min(m_CameraPitch + pitchSpeed, MAX_PITCH);
     }
-    if (m_Platform->IsKeyPressed(GLFW_KEY_DOWN)) {
+    if (m_Platform.IsKeyPressed(GLFW_KEY_DOWN)) {
         m_CameraPitch = std::max(m_CameraPitch - pitchSpeed, MIN_PITCH);
     }
     
     // Toggle shoulder offset with Tab key
     static bool tabPressed = false;
-    if (m_Platform->IsKeyPressed(GLFW_KEY_TAB)) {
+    if (m_Platform.IsKeyPressed(GLFW_KEY_TAB)) {
         if (!tabPressed) {
             ToggleShoulderSide();
             tabPressed = true;
@@ -213,7 +211,7 @@ void CameraController::HandleCameraInput(float deltaTime) {
 void CameraController::HandleMouseMovement() {
     // Get current mouse position
     double mouseX, mouseY;
-    m_Platform->GetMousePosition(mouseX, mouseY);
+    m_Platform.GetMousePosition(mouseX, mouseY);
     
     if (m_FirstMouse) {
         m_LastMouseX = mouseX;
@@ -231,7 +229,7 @@ void CameraController::HandleMouseMovement() {
     m_LastMouseY = mouseY;
     
     // Only process if RMB is held down
-    if (m_Platform->IsMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+    if (m_Platform.IsMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT)) {
         if (!m_IsMouseOrbiting) {
             m_IsMouseOrbiting = true;
             // Avoid jump on first click by resetting first mouse
@@ -351,14 +349,14 @@ glm::vec3 CameraController::CalculateCameraPosition() {
     glm::vec3 focusPoint = m_TargetPosition + glm::vec3(0.0f, m_VerticalOffset, 0.0f);
     
     // Add shoulder offset to focus point
-    float shoulderYawRad = playerYawRad + glm::radians(90.0f); // Right is 90 degrees from forward
+    float shoulderYawRad = playerYawRad + glm::radians(SHOULDER_OFFSET_ANGLE); // Right is 90 degrees from forward
     glm::vec3 rightVector(sin(shoulderYawRad), 0.0f, cos(shoulderYawRad));
     focusPoint += rightVector * m_ShoulderOffset;
     
     // Calculate camera position using spherical coordinates
     // Important: For a third-person camera behind the player, we need to reverse the direction
     // When yaw=0, player faces +Z, so camera should be at -Z (180 degrees from facing direction)
-    float cameraYawRad = totalYawRad + glm::radians(180.0f);
+    float cameraYawRad = totalYawRad + glm::radians(CAMERA_BEHIND_ANGLE);
     
     // Convert from spherical to Cartesian coordinates
     float x = m_OrbitDistance * cos(pitchRad) * sin(cameraYawRad);

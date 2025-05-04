@@ -46,8 +46,8 @@ bool Core::Initialize() {
         return false;
     }
     
-    // Create camera controller
-    m_CameraController = std::make_unique<CameraController>(camera, &m_Platform, &m_InputManager);
+    // Create camera controller with references instead of pointers
+    m_CameraController = std::make_unique<CameraController>(*camera, m_Platform, m_InputManager);
     
     // Configure camera controller for Cube World style camera
     if (m_CameraController) {
@@ -106,11 +106,11 @@ void Core::Run() {
             continue;
         }
         
-        // Get camera for the frame
-        Camera* camera = m_CameraController ? m_CameraController->GetCamera() : nullptr;
+        // Get camera for the frame (now using reference)
+        Camera& camera = m_CameraController ? m_CameraController->GetCamera() : *m_Renderer.GetCamera();
         
         // Update world (which updates the player)
-        m_World.Update(m_DeltaTime, camera);
+        m_World.Update(m_DeltaTime, &camera);
         
         // Update camera controller (player position is now handled inside the controller)
         if (m_CameraController) {
@@ -122,7 +122,7 @@ void Core::Run() {
                 if (player) {
                     glm::vec3 playerPos = player->GetPosition();
                     float playerYaw = player->GetYaw();
-                    glm::vec3 camPos = camera->GetPosition();
+                    glm::vec3 camPos = camera.GetPosition();
                     
                     std::cout << "Player position: x=" << playerPos.x << ", y=" << playerPos.y << ", z=" << playerPos.z << ", yaw=" << playerYaw << std::endl;
                     std::cout << "Camera position: x=" << camPos.x << ", y=" << camPos.y << ", z=" << camPos.z << std::endl;
@@ -139,7 +139,7 @@ void Core::Run() {
         m_Renderer.BeginFrame();
         
         // Render the world
-        m_World.Render(camera);
+        m_World.Render(&camera);
         
         // End frame and swap buffers
         m_Renderer.EndFrame();
