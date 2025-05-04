@@ -161,8 +161,8 @@ private:
     Config() {
         // Set default values
         Set<std::string>("assetPath", "assets");
-        Set<int>("windowWidth", 1280);
-        Set<int>("windowHeight", 720);
+        Set<int>("windowWidth", 1920);
+        Set<int>("windowHeight", 1080);
         Set<std::string>("windowTitle", "Sylva");
         Set<bool>("fullscreen", false);
         Set<float>("mouseSensitivity", 0.1f);

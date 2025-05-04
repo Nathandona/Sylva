@@ -18,7 +18,7 @@ bool Core::Initialize() {
     std::cout << "Initializing Sylva Engine..." << std::endl;
     
     // Initialize platform (window and input)
-    if (!m_Platform.Initialize("Sylva", 1280, 720)) {
+    if (!m_Platform.Initialize("Sylva", 1920, 1080)) {
         std::cerr << "Failed to initialize platform!" << std::endl;
         return false;
     }
