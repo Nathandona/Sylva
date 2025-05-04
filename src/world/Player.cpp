@@ -185,27 +185,37 @@ void Player::HandleInput(float deltaTime, const Platform* platform) {
     glm::vec3 moveDirection(0.0f);
     float currentSpeed = m_WalkSpeed;
     
-    // --- Rotation ---
-    if (platform->IsKeyPressed(GLFW_KEY_A)) {
-        m_Yaw += m_TurnSpeed * deltaTime; // Turn Left
+    // --- Turning ---
+    if (platform->IsKeyPressed(GLFW_KEY_Q)) { // Turn left
+        m_Yaw -= m_TurnSpeed * deltaTime; 
     }
-    if (platform->IsKeyPressed(GLFW_KEY_D)) {
-        m_Yaw -= m_TurnSpeed * deltaTime; // Turn Right
+    if (platform->IsKeyPressed(GLFW_KEY_E)) { // Turn right
+        m_Yaw += m_TurnSpeed * deltaTime; 
     }
-    
+
     // Normalize Yaw to keep it within [0, 360) degrees
     m_Yaw = fmod(m_Yaw, 360.0f);
     if (m_Yaw < 0.0f) m_Yaw += 360.0f;
-    
-    // --- Forward/Backward Movement ---
+
+    // Convert yaw to radians for direction calculations
     float yawRad = glm::radians(m_Yaw);
-    glm::vec3 forward = glm::normalize(glm::vec3(sin(yawRad), 0.0f, cos(yawRad)));
     
+    // Calculate forward and right vectors based on player's orientation
+    glm::vec3 forward = glm::normalize(glm::vec3(sin(yawRad), 0.0f, cos(yawRad)));
+    glm::vec3 right = glm::normalize(glm::vec3(sin(yawRad + glm::radians(90.0f)), 0.0f, cos(yawRad + glm::radians(90.0f))));
+    
+    // Movement controls
     if (platform->IsKeyPressed(GLFW_KEY_W)) {
-        moveDirection += forward;
+        moveDirection += forward; // Move forward
     }
     if (platform->IsKeyPressed(GLFW_KEY_S)) {
-        moveDirection -= forward;
+        moveDirection -= forward; // Move backward
+    }
+    if (platform->IsKeyPressed(GLFW_KEY_A)) {
+        moveDirection -= right; // Strafe left
+    }
+    if (platform->IsKeyPressed(GLFW_KEY_D)) {
+        moveDirection += right; // Strafe right
     }
     
     // --- Running ---

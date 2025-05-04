@@ -123,6 +123,17 @@ void CameraController::HandleCameraInput(float deltaTime) {
         SetOrbitDistance(m_OrbitDistance + keyZoomAmount);
     }
     
+    // Camera left/right movement with Q and E keys
+    float cameraYawSpeed = 90.0f * deltaTime;
+    if (m_Platform->IsKeyPressed(GLFW_KEY_Q)) {
+        // Move camera left
+        m_CameraYawOffset += cameraYawSpeed;
+    }
+    if (m_Platform->IsKeyPressed(GLFW_KEY_E)) {
+        // Move camera right
+        m_CameraYawOffset -= cameraYawSpeed;
+    }
+    
     // Arrow keys for pitch control (independent of mouse)
     float pitchSpeed = 90.0f * deltaTime;
     if (m_Platform->IsKeyPressed(GLFW_KEY_UP)) {
