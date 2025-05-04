@@ -40,7 +40,6 @@ public:
     // Resource management (legacy methods that will use ResourceManager internally)
     // These are kept for backward compatibility but should be phased out
     Shader* LoadShader(const std::string& vertexPath, const std::string& fragmentPath);
-    Mesh* CreateMesh(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
     Texture* LoadTexture(const std::string& path);
     Model* LoadModel(const std::string& path);
     

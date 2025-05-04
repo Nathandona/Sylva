@@ -81,4 +81,12 @@ std::string ResourceManager::MakeShaderKey(const std::string& vertexPath, const 
     return vertexPath + ":" + fragmentPath;
 }
 
+std::unique_ptr<Mesh> ResourceManager::CreateDynamicMesh(const std::vector<float>& vertices, const std::vector<unsigned int>& indices) {
+    auto mesh = std::make_unique<Mesh>();
+    // Use the same vertex layout parameters as the original Renderer::CreateMesh
+    // stride: 6, posOffset: 0, normOffset: -1, texOffset: -1, colOffset: 3
+    mesh->SetVertexData(vertices, indices, 6, 0, -1, -1, 3);
+    return mesh;
+}
+
 } // namespace Sylva 

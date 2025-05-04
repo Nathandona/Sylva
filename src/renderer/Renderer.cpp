@@ -62,13 +62,6 @@ Shader* Renderer::LoadShader(const std::string& vertexPath, const std::string& f
     return shader.get();
 }
 
-Mesh* Renderer::CreateMesh(const std::vector<float>& vertices, const std::vector<unsigned int>& indices) {
-    // Create a new mesh directly (no caching for dynamically created meshes)
-    Mesh* mesh = new Mesh();
-    mesh->SetVertexData(vertices, indices, 6, 0, -1, -1, 3);
-    return mesh;
-}
-
 Texture* Renderer::LoadTexture(const std::string& path) {
     // Use ResourceManager to load the texture
     std::shared_ptr<Texture> texture = m_ResourceManager->GetTexture(path);

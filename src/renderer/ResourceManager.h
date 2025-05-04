@@ -3,9 +3,11 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <vector>
 #include "Shader.h"
 #include "Texture.h"
 #include "Model.h"
+#include "Mesh.h"
 
 namespace Sylva {
 
@@ -22,6 +24,9 @@ public:
     
     // Get or load a model
     std::shared_ptr<Model> GetModel(const std::string& path);
+    
+    // Create a mesh dynamically from vertex/index data
+    std::unique_ptr<Mesh> CreateDynamicMesh(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
     
     // Clear all resources (useful for reloading)
     void Clear();
