@@ -47,17 +47,17 @@ bool Core::Initialize() {
     
     // Configure camera controller for third-person view
     if (m_CameraController) {
-        // Set initial orbit distance (how far behind the player)
-        m_CameraController->SetOrbitDistance(4.0f);
+        // Set initial orbit distance (how far behind the player) - INCREASED
+        m_CameraController->SetOrbitDistance(7.0f); // Try 7.0f or 8.0f
         
-        // Set vertical offset (how far above the player) - ensure this is enough to see the player
-        m_CameraController->SetVerticalOffset(1.5f);
+        // Set vertical offset (how far above the player) - ADJUSTED
+        m_CameraController->SetVerticalOffset(1.8f); // Try 1.8f or 2.0f
         
         // Set smoothing factor (higher = faster camera movement)
-        m_CameraController->SetSmoothingFactor(5.0f);
+        m_CameraController->SetSmoothingFactor(5.0f); // Keep as is for now, or adjust later
         
         // Set collision buffer (distance from collision point to place camera)
-        m_CameraController->SetCollisionBuffer(0.2f);
+        m_CameraController->SetCollisionBuffer(0.2f); // Keep as is for now
         
         // Set the world reference for collision detection
         m_CameraController->SetWorld(&m_World);

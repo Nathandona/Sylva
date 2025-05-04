@@ -95,12 +95,6 @@ void CameraController::Update(float deltaTime) {
     
     // Set the camera position
     m_Camera->SetPosition(m_CurrentPosition);
-    
-    // Set what the camera looks at (after position/rotation is set)
-    m_Camera->SetTarget(focusPoint);
-    
-    // Update the camera's internal view matrix
-    m_Camera->UpdateCameraVectors();
 }
 
 void CameraController::OnWindowResize(int width, int height) {
