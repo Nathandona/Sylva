@@ -96,14 +96,9 @@ bool World::Initialize(Renderer* renderer, Platform* platform, InputManager* inp
 
 void World::Update(float deltaTime, Camera* camera) {
     // Update player
-    if (m_Platform && camera) {
-        if (m_InputManager) {
-            // Use the input manager for player updates
-            m_Player.Update(deltaTime, m_Platform, this, m_InputManager);
-        } else {
-            // Fallback to the old method without input manager
-            m_Player.Update(deltaTime, m_Platform, this);
-        }
+    if (m_Platform && camera && m_InputManager) {
+        // Use the input manager for player updates
+        m_Player.Update(deltaTime, m_Platform, this, m_InputManager);
     }
     
     // Future additions:

@@ -144,42 +144,6 @@ bool Player::Initialize(Renderer* renderer) {
     return true;
 }
 
-// Original Update method without InputManager
-void Player::Update(float deltaTime, const Platform* platform, World* world) {
-    // Validate inputs
-    if (!platform || !world) {
-        return;
-    }
-    
-    // Handle input (this now handles rotation and movement)
-    HandleInput(deltaTime, platform);
-    
-    // Apply gravity if not grounded
-    if (!m_IsGrounded) {
-        ApplyGravity(deltaTime);
-    } else {
-        // Prevent sliding down slopes when grounded but not moving vertically
-        if (m_Velocity.y < 0.0f) {
-            m_Velocity.y = 0.0f;
-        }
-    }
-    
-    // Update position based on velocity
-    m_Position += m_Velocity * deltaTime;
-    
-    // Reset horizontal velocity each frame (movement is applied instantly via input)
-    // Keep vertical velocity for gravity/jumping
-    m_Velocity.x = 0.0f;
-    m_Velocity.z = 0.0f;
-    
-    // Check for ground collision
-    CheckGroundCollision(world);
-    
-    // Ensure player stays within world bounds
-    m_Position.x = std::max(World::WORLD_MIN_X + 1.0f, std::min(m_Position.x, World::WORLD_MAX_X - 1.0f));
-    m_Position.z = std::max(World::WORLD_MIN_Z + 1.0f, std::min(m_Position.z, World::WORLD_MAX_Z - 1.0f));
-}
-
 // New Update method with InputManager
 void Player::Update(float deltaTime, const Platform* platform, World* world, InputManager* inputManager) {
     // Validate inputs

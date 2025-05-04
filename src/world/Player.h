@@ -28,9 +28,6 @@ public:
     // Initialize the player with a simple rectangular mesh
     bool Initialize(Renderer* renderer);
     
-    // Update player position and state based on input and physics (legacy method)
-    void Update(float deltaTime, const Platform* platform, World* world);
-    
     // Update with InputManager (new method)
     void Update(float deltaTime, const Platform* platform, World* world, InputManager* inputManager);
     
