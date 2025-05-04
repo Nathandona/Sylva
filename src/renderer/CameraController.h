@@ -35,7 +35,7 @@ public:
     static constexpr float SHOULDER_OFFSET_ANGLE = 90.0f; // Right is 90 degrees from forward (degrees)
     
     // Fixed camera constants (Cube World style)
-    static constexpr float FIXED_CAMERA_PITCH = -35.0f; // Downward angle for fixed camera mode
+    static constexpr float FIXED_CAMERA_PITCH = -15.0f; // Downward angle for fixed camera mode
     static constexpr float INITIAL_CAMERA_YAW = 0.0f;   // Initial fixed yaw (world +Z direction)
     
     // New constructor with InputManager (using references instead of pointers)
