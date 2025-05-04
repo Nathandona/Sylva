@@ -1,5 +1,4 @@
 #include "CameraController.h"
-#include "../world/World.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <iostream>
@@ -13,7 +12,6 @@ namespace Sylva {
 CameraController::CameraController(Camera* camera, Platform* platform)
     : m_Camera(camera)
     , m_Platform(platform)
-    , m_World(nullptr)
     , m_TargetPosition(glm::vec3(0.0f))
     , m_PlayerTarget(nullptr)
     , m_PlayerYaw(0.0f)  // Renamed from m_TargetYaw
@@ -28,8 +26,6 @@ CameraController::CameraController(Camera* camera, Platform* platform)
     , m_YawSmoothingFactor(8.0f)
     , m_PitchSmoothingFactor(8.0f)
     , m_SmoothingFactor(5.0f)
-    , m_CollisionBuffer(0.2f)
-    , m_CollisionRadius(0.3f)  // Radius for sphere casting
     , m_FirstMouse(true)
     , m_LastMouseX(0.0)
     , m_LastMouseY(0.0)
@@ -251,146 +247,7 @@ glm::vec3 CameraController::CalculateCameraPosition() {
     // Calculate final camera position
     glm::vec3 desiredPosition = focusPoint + cameraOffset;
     
-    // Collision Handling
-    glm::vec3 adjustedPosition = desiredPosition;
-    if (m_World) {
-        // Use sphere cast for better collision detection
-        if (SphereCastCollision(focusPoint, desiredPosition, m_CollisionRadius, adjustedPosition)) {
-            return adjustedPosition; // Use collision-adjusted position
-        }
-    }
-    
-    return desiredPosition; // Use original desired position if no collision
-}
-
-bool CameraController::HandleCameraCollision(const glm::vec3& from, const glm::vec3& to, glm::vec3& adjustedPosition) {
-    if (!m_World) {
-        return false;
-    }
-    
-    // Direction from target to camera
-    glm::vec3 direction = to - from;
-    float distance = glm::length(direction);
-    if (distance < 0.001f) return false; // Prevent division by zero
-    
-    // Normalize direction
-    direction /= distance;
-    
-    // Improved collision check with better precision and avoiding early collisions
-    const float stepSize = 0.25f; // Check every 0.25 units along the ray
-    const float startOffset = 0.1f; // Start checking 0.1 units away from player
-    float currentDist = startOffset;
-    
-    glm::vec3 currentPos = from + direction * startOffset;
-    
-    // Ray march from 'from' towards 'to'
-    while (currentDist < distance) {
-        float terrainHeight = m_World->GetTerrainHeightAt(currentPos.x, currentPos.z);
-        float checkBuffer = 0.1f; // Small buffer above terrain
-        
-        if (currentPos.y < terrainHeight + checkBuffer) {
-            // Collision! Position camera just before this point
-            adjustedPosition = currentPos - direction * m_CollisionBuffer;
-            
-            // Sanity check: ensure adjusted position isn't also below terrain
-            float adjustedTerrainHeight = m_World->GetTerrainHeightAt(adjustedPosition.x, adjustedPosition.z);
-            if (adjustedPosition.y < adjustedTerrainHeight + checkBuffer) {
-                adjustedPosition.y = adjustedTerrainHeight + checkBuffer;
-            }
-            
-            return true;
-        }
-        
-        currentPos += direction * stepSize;
-        currentDist += stepSize;
-    }
-    
-    // Check the final 'to' point as well
-    float finalTerrainHeight = m_World->GetTerrainHeightAt(to.x, to.z);
-    float checkBuffer = 0.1f;
-    if (to.y < finalTerrainHeight + checkBuffer) {
-        adjustedPosition = to - direction * m_CollisionBuffer;
-        float adjustedTerrainHeight = m_World->GetTerrainHeightAt(adjustedPosition.x, adjustedPosition.z);
-        if (adjustedPosition.y < adjustedTerrainHeight + checkBuffer) {
-            adjustedPosition.y = adjustedTerrainHeight + checkBuffer;
-        }
-        return true;
-    }
-    
-    return false; // No collision found
-}
-
-bool CameraController::SphereCastCollision(const glm::vec3& from, const glm::vec3& to, float radius, glm::vec3& hitPosition) {
-    if (!m_World) {
-        return false;
-    }
-    
-    // Direction and distance
-    glm::vec3 direction = to - from;
-    float distance = glm::length(direction);
-    if (distance < 0.001f) return false;
-    
-    // Normalize direction
-    direction /= distance;
-    
-    // Higher precision for sphere cast
-    const float stepSize = 0.2f;
-    const float startOffset = 0.1f;
-    float currentDist = startOffset;
-    
-    // Track closest point of collision to handle multiple collisions correctly
-    bool hasCollision = false;
-    float closestCollisionDistance = distance;
-    
-    // Ray march with sphere check at each point
-    while (currentDist < distance) {
-        glm::vec3 centerPos = from + direction * currentDist;
-        
-        // Check terrain height at multiple points around the sphere
-        // Center point
-        float terrainHeight = m_World->GetTerrainHeightAt(centerPos.x, centerPos.z);
-        if (centerPos.y - radius < terrainHeight) {
-            // Sphere intersects terrain at center point
-            float collisionDist = currentDist - stepSize;
-            if (collisionDist < closestCollisionDistance) {
-                closestCollisionDistance = collisionDist;
-                hasCollision = true;
-            }
-        }
-        
-        // Check points around the sphere for better coverage
-        for (int i = 0; i < 4; i++) {
-            float angle = glm::radians(i * 90.0f); // Check at 90-degree intervals
-            glm::vec3 offset(radius * cos(angle), 0.0f, radius * sin(angle));
-            glm::vec3 checkPos = centerPos + offset;
-            
-            float pointTerrainHeight = m_World->GetTerrainHeightAt(checkPos.x, checkPos.z);
-            if (checkPos.y - radius < pointTerrainHeight) {
-                float collisionDist = currentDist - stepSize;
-                if (collisionDist < closestCollisionDistance) {
-                    closestCollisionDistance = collisionDist;
-                    hasCollision = true;
-                }
-            }
-        }
-        
-        currentDist += stepSize;
-    }
-    
-    if (hasCollision) {
-        // Position the camera at the closest collision point with buffer
-        hitPosition = from + direction * std::max(0.1f, closestCollisionDistance - m_CollisionBuffer);
-        
-        // Verify the hit position is above terrain
-        float hitTerrainHeight = m_World->GetTerrainHeightAt(hitPosition.x, hitPosition.z);
-        if (hitPosition.y - radius < hitTerrainHeight) {
-            hitPosition.y = hitTerrainHeight + radius + 0.1f; // Ensure we're above terrain
-        }
-        
-        return true;
-    }
-    
-    return false;
+    return desiredPosition;
 }
 
 } // namespace Sylva 

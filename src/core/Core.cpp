@@ -60,12 +60,6 @@ bool Core::Initialize() {
         // Set smoothing factor (higher = faster camera movement)
         m_CameraController->SetSmoothingFactor(5.0f);
         
-        // Set collision buffer (distance from collision point to place camera)
-        m_CameraController->SetCollisionBuffer(0.2f);
-        
-        // Set the world reference for collision detection
-        m_CameraController->SetWorld(&m_World);
-        
         // Set the player as the target for the camera (Cube World style)
         m_CameraController->SetPlayerTarget(&m_World.GetPlayer());
         

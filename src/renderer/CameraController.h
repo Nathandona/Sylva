@@ -2,13 +2,10 @@
 
 #include "Camera.h"
 #include "../platform/Platform.h"
-#include "../world/Terrain.h"
 #include "../world/Player.h"
 #include <algorithm>
 
 namespace Sylva {
-
-class World;
 
 class CameraController {
 public:
@@ -43,9 +40,6 @@ public:
     // Get the camera
     Camera* GetCamera() const { return m_Camera; }
     
-    // Set the world reference for collision detection
-    void SetWorld(World* world) { m_World = world; }
-    
     // Get/Set smoothing factor
     float GetSmoothingFactor() const { return m_SmoothingFactor; }
     void SetSmoothingFactor(float factor) { m_SmoothingFactor = std::max(0.0f, std::min(factor, 1.0f)); }
@@ -53,10 +47,6 @@ public:
     // Get/Set vertical offset
     float GetVerticalOffset() const { return m_VerticalOffset; }
     void SetVerticalOffset(float offset) { m_VerticalOffset = offset; }
-    
-    // Get/Set collision buffer distance
-    float GetCollisionBuffer() const { return m_CollisionBuffer; }
-    void SetCollisionBuffer(float buffer) { m_CollisionBuffer = buffer; }
     
     // Get/Set shoulder offset
     float GetShoulderOffset() const { return m_ShoulderOffset; }
@@ -75,15 +65,8 @@ private:
     // Calculate desired camera position with collision handling
     glm::vec3 CalculateCameraPosition();
     
-    // Check for collisions with terrain and adjust camera position
-    bool HandleCameraCollision(const glm::vec3& from, const glm::vec3& to, glm::vec3& adjustedPosition);
-    
-    // Improved sphere cast collision for camera
-    bool SphereCastCollision(const glm::vec3& from, const glm::vec3& to, float radius, glm::vec3& hitPosition);
-    
     Camera* m_Camera;
     Platform* m_Platform;
-    World* m_World;
     
     // Target tracking
     glm::vec3 m_TargetPosition;
@@ -108,10 +91,6 @@ private:
     
     // Position smoothing
     float m_SmoothingFactor;
-    
-    // Collision handling
-    float m_CollisionBuffer;
-    float m_CollisionRadius;  // For sphere cast collision
     
     // Mouse state
     bool m_FirstMouse;
