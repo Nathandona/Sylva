@@ -3,6 +3,7 @@
 #include "Camera.h"
 #include "../platform/Platform.h"
 #include "../world/Terrain.h"
+#include "../world/Player.h"
 #include <algorithm>
 
 namespace Sylva {
@@ -16,8 +17,19 @@ public:
     
     // For third-person/orbit mode
     void SetTargetPosition(const glm::vec3& targetPosition);
+    
+    // Set player target (Cube World style camera)
+    void SetPlayerTarget(Player* player);
+    Player* GetPlayerTarget() const { return m_PlayerTarget; }
+    
     void SetOrbitDistance(float distance);
     float GetOrbitDistance() const { return m_OrbitDistance; }
+    
+    // Set min/max orbit distance for zoom constraints
+    void SetMinOrbitDistance(float distance) { m_MinOrbitDistance = std::max(0.1f, distance); }
+    void SetMaxOrbitDistance(float distance) { m_MaxOrbitDistance = std::max(m_MinOrbitDistance, distance); }
+    float GetMinOrbitDistance() const { return m_MinOrbitDistance; }
+    float GetMaxOrbitDistance() const { return m_MaxOrbitDistance; }
     
     // Set the target yaw (player's rotation)
     void SetTargetYaw(float yaw);
@@ -75,11 +87,14 @@ private:
     
     // Target tracking
     glm::vec3 m_TargetPosition;
+    Player* m_PlayerTarget;  // Pointer to the player (for Cube World style camera)
     float m_PlayerYaw;  // Renamed from m_TargetYaw for clarity
     
     // Camera position and state
     glm::vec3 m_CurrentPosition;
     float m_OrbitDistance;
+    float m_MinOrbitDistance;  // Minimum zoom distance
+    float m_MaxOrbitDistance;  // Maximum zoom distance
     float m_VerticalOffset;
     float m_ShoulderOffset;  // Horizontal offset from center (positive = right, negative = left)
     

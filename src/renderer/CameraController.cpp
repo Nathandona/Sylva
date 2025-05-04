@@ -15,9 +15,12 @@ CameraController::CameraController(Camera* camera, Platform* platform)
     , m_Platform(platform)
     , m_World(nullptr)
     , m_TargetPosition(glm::vec3(0.0f))
+    , m_PlayerTarget(nullptr)
     , m_PlayerYaw(0.0f)  // Renamed from m_TargetYaw
     , m_CurrentPosition(glm::vec3(0.0f, 2.0f, -5.0f))
     , m_OrbitDistance(6.0f)
+    , m_MinOrbitDistance(1.0f)
+    , m_MaxOrbitDistance(15.0f)
     , m_VerticalOffset(2.0f)
     , m_ShoulderOffset(0.5f)  // Default slight offset to the right
     , m_CameraPitch(-10.0f)   // Renamed from m_CurrentPitch
@@ -50,15 +53,25 @@ void CameraController::SetTargetPosition(const glm::vec3& targetPosition) {
     m_TargetPosition = targetPosition;
 }
 
+void CameraController::SetPlayerTarget(Player* player) {
+    m_PlayerTarget = player;
+}
+
 void CameraController::SetTargetYaw(float yaw) {
     m_PlayerYaw = yaw; // Updated variable name
 }
 
 void CameraController::SetOrbitDistance(float distance) {
-    m_OrbitDistance = std::max(0.1f, distance);
+    m_OrbitDistance = std::max(m_MinOrbitDistance, std::min(distance, m_MaxOrbitDistance));
 }
 
 void CameraController::Update(float deltaTime) {
+    // Update target position from player if available
+    if (m_PlayerTarget) {
+        m_TargetPosition = m_PlayerTarget->GetPosition();
+        m_PlayerYaw = m_PlayerTarget->GetYaw();
+    }
+
     // Process input for camera controls (zoom, optional pitch keys)
     HandleCameraInput(deltaTime);
     
