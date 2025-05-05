@@ -4,6 +4,7 @@
 #include "../platform/Platform.h"
 #include "../world/Player.h"
 #include "../input/InputManager.h"
+#include "../world/World.h"
 #include <algorithm>
 #include <memory>
 
@@ -11,11 +12,19 @@ namespace Sylva {
 
 class CameraController {
 public:
+    // Camera mode enum
+    enum class CameraMode {
+        Free,           // Free-flying camera
+        FixedFollow,    // Cube World style with fixed pitch and independent yaw
+        ThirdPersonOrbit // Third-person orbit camera as described in the plan
+    };
+
     // Default configuration constants
     static constexpr float DEFAULT_ORBIT_DISTANCE = 6.0f;
     static constexpr float DEFAULT_MIN_ORBIT_DISTANCE = 1.0f;
     static constexpr float DEFAULT_MAX_ORBIT_DISTANCE = 15.0f;
     static constexpr float DEFAULT_VERTICAL_OFFSET = 2.0f;
+    static constexpr float DEFAULT_LOOK_AT_OFFSET = 1.0f;  // Vertical offset for where to look at (e.g., torso instead of feet)
     static constexpr float DEFAULT_SHOULDER_OFFSET = 0.5f;
     static constexpr float DEFAULT_CAMERA_PITCH = -10.0f;
     static constexpr float DEFAULT_YAW_SMOOTHING = 8.0f;
@@ -33,6 +42,8 @@ public:
     // Additional camera position calculation constants
     static constexpr float CAMERA_BEHIND_ANGLE = 180.0f;  // Camera is 180 degrees behind player (degrees)
     static constexpr float SHOULDER_OFFSET_ANGLE = 90.0f; // Right is 90 degrees from forward (degrees)
+    // Collision detection constants
+    static constexpr float COLLISION_OFFSET = 0.3f;       // Distance to keep from surfaces
     
     // Fixed camera constants (Cube World style)
     static constexpr float FIXED_CAMERA_PITCH = -15.0f; // Downward angle for fixed camera mode
@@ -49,6 +60,9 @@ public:
     // Set player target (Cube World style camera)
     void SetPlayerTarget(Player* player);
     Player* GetPlayerTarget() const { return m_PlayerTarget; }
+    
+    // Set world reference for collision detection
+    void SetWorld(World* world) { m_World = world; }
     
     void SetOrbitDistance(float distance);
     float GetOrbitDistance() const { return m_OrbitDistance; }
@@ -83,12 +97,26 @@ public:
     float GetShoulderOffset() const { return m_ShoulderOffset; }
     void SetShoulderOffset(float offset) { m_ShoulderOffset = offset; }
     
+    // Get/Set look-at offset
+    float GetLookAtOffset() const { return m_LookAtOffset; }
+    void SetLookAtOffset(float offset) { m_LookAtOffset = offset; }
+    
     // Toggle shoulder side (left/right)
     void ToggleShoulderSide() { m_ShoulderOffset = -m_ShoulderOffset; }
     
-    // Enable/disable fixed camera mode (Cube World style)
-    void SetFixedCameraMode(bool enabled) { m_FixedCameraMode = enabled; }
-    bool IsFixedCameraMode() const { return m_FixedCameraMode; }
+    // Set camera mode
+    void SetCameraMode(CameraMode mode) { m_CameraMode = mode; }
+    CameraMode GetCameraMode() const { return m_CameraMode; }
+    
+    // Enable/disable fixed camera mode (Cube World style) - for backward compatibility
+    void SetFixedCameraMode(bool enabled) {
+        m_CameraMode = enabled ? CameraMode::FixedFollow : CameraMode::Free;
+    }
+    bool IsFixedCameraMode() const { return m_CameraMode == CameraMode::FixedFollow; }
+    
+    // Enable/disable collision detection
+    void SetCollisionDetection(bool enabled) { m_EnableCollisionDetection = enabled; }
+    bool IsCollisionDetectionEnabled() const { return m_EnableCollisionDetection; }
     
 private:
     // Handle input based on the current control mode
@@ -105,11 +133,21 @@ private:
     
     // Calculate desired camera position with collision handling
     glm::vec3 CalculateCameraPosition();
+
+    // Calculate desired third-person orbit camera position
+    glm::vec3 CalculateOrbitCameraPosition();
+    
+    // Perform ray cast to check for collisions and adjust camera position
+    glm::vec3 HandleCollisionDetection(const glm::vec3& from, const glm::vec3& to, float radius = COLLISION_OFFSET);
     
     // Non-owning references to external resources
     Camera& m_Camera;
     Platform& m_Platform;
     InputManager* m_InputManager;  // Optional reference (nullable)
+    World* m_World;               // Non-owning pointer for collision detection
+    
+    // Camera mode
+    CameraMode m_CameraMode;
     
     // Target tracking
     glm::vec3 m_TargetPosition;
@@ -122,14 +160,12 @@ private:
     float m_MinOrbitDistance;  // Minimum zoom distance
     float m_MaxOrbitDistance;  // Maximum zoom distance
     float m_VerticalOffset;
-    float m_ShoulderOffset;  // Horizontal offset from center (positive = right, negative = left)
+    float m_LookAtOffset;      // Where to point the camera (vertical offset from player position)
+    float m_ShoulderOffset;    // Horizontal offset from center (positive = right, negative = left)
     
     // Camera orientation state (controlled internally/by mouse)
     float m_CameraPitch;    // Renamed from m_CurrentPitch for clarity
     float m_CameraYawOffset; // Renamed from m_CurrentYawOffset for clarity
-    
-    // Fixed camera mode (Cube World style)
-    bool m_FixedCameraMode; // When true, camera uses fixed pitch and independent yaw
     
     // Rotation smoothing
     float m_YawSmoothingFactor;
@@ -148,6 +184,9 @@ private:
     float m_MovementSpeed;
     float m_MouseSensitivity;
     float m_ZoomSensitivity;
+    
+    // Collision detection
+    bool m_EnableCollisionDetection;
 };
 
 } // namespace Sylva 

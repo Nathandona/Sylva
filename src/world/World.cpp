@@ -139,4 +139,48 @@ float World::GetTerrainHeightAt(float x, float z) const {
     return m_Terrain.GetHeightAt(x, z);
 }
 
+bool World::RaycastTest(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, float& hitDistance) {
+    // Simple terrain collision detection
+    // This is a basic implementation that can be enhanced with more sophisticated collision detection
+    
+    // Parameters for ray traversal
+    const float step = 0.5f;  // Step size for ray traversal
+    const int maxSteps = static_cast<int>(maxDistance / step) + 1;
+    
+    // Current position along the ray
+    glm::vec3 currentPos = origin;
+    
+    for (int i = 0; i < maxSteps; i++) {
+        // Move along the ray by step distance
+        currentPos += direction * step;
+        
+        // Calculate distance from ray origin
+        float distance = glm::distance(origin, currentPos);
+        
+        // Stop if we've gone beyond the max distance
+        if (distance > maxDistance) {
+            return false;  // No collision found within max distance
+        }
+        
+        // Check if we're inside the world bounds
+        if (currentPos.x < WORLD_MIN_X || currentPos.x > WORLD_MAX_X || 
+            currentPos.z < WORLD_MIN_Z || currentPos.z > WORLD_MAX_Z) {
+            continue;  // Outside world bounds, continue traversal
+        }
+        
+        // Get terrain height at current position
+        float terrainHeight = GetTerrainHeightAt(currentPos.x, currentPos.z);
+        
+        // Check if we've gone below the terrain surface
+        if (currentPos.y <= terrainHeight) {
+            // Collision detected
+            hitDistance = distance;
+            return true;
+        }
+    }
+    
+    // No collision detected
+    return false;
+}
+
 } // namespace Sylva 

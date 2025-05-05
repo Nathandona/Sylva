@@ -13,6 +13,8 @@ CameraController::CameraController(Camera& camera, Platform& platform, InputMana
     : m_Camera(camera)
     , m_Platform(platform)
     , m_InputManager(&inputManager) // Store a pointer for backward compatibility with existing code
+    , m_World(nullptr)
+    , m_CameraMode(CameraMode::FixedFollow) // Default to fixed follow (was FixedCameraMode = true)
     , m_TargetPosition(glm::vec3(0.0f))
     , m_PlayerTarget(nullptr)
     , m_PlayerYaw(0.0f)
@@ -21,10 +23,10 @@ CameraController::CameraController(Camera& camera, Platform& platform, InputMana
     , m_MinOrbitDistance(DEFAULT_MIN_ORBIT_DISTANCE)
     , m_MaxOrbitDistance(DEFAULT_MAX_ORBIT_DISTANCE)
     , m_VerticalOffset(DEFAULT_VERTICAL_OFFSET)
+    , m_LookAtOffset(DEFAULT_LOOK_AT_OFFSET)
     , m_ShoulderOffset(0.0f) // Set to 0 for centered view in Cube World style
     , m_CameraPitch(FIXED_CAMERA_PITCH) // Use fixed pitch instead of default
     , m_CameraYawOffset(INITIAL_CAMERA_YAW)
-    , m_FixedCameraMode(true) // Enable fixed camera mode by default
     , m_YawSmoothingFactor(DEFAULT_YAW_SMOOTHING)
     , m_PitchSmoothingFactor(DEFAULT_PITCH_SMOOTHING)
     , m_SmoothingFactor(DEFAULT_POSITION_SMOOTHING)
@@ -35,6 +37,7 @@ CameraController::CameraController(Camera& camera, Platform& platform, InputMana
     , m_MovementSpeed(DEFAULT_MOVEMENT_SPEED)
     , m_MouseSensitivity(DEFAULT_MOUSE_SENSITIVITY)
     , m_ZoomSensitivity(DEFAULT_ZOOM_SENSITIVITY)
+    , m_EnableCollisionDetection(true) // Enable collision detection by default
 {
     // Initial camera setup
     
@@ -43,8 +46,8 @@ CameraController::CameraController(Camera& camera, Platform& platform, InputMana
     m_LastMouseX = mouseX;
     m_LastMouseY = mouseY;
     
-    // Set initial rotation to fixed yaw in fixed camera mode
-    if (m_FixedCameraMode) {
+    // Set initial rotation based on camera mode
+    if (m_CameraMode == CameraMode::FixedFollow) {
         m_Camera.SetRotation(m_CameraPitch, m_CameraYawOffset);
     } else {
         // Original behavior: set rotation based on player yaw + offset
@@ -95,47 +98,78 @@ void CameraController::Update(float deltaTime) {
     lastYawOffset = glm::mix(lastYawOffset, m_CameraYawOffset, std::min(m_YawSmoothingFactor * deltaTime, 1.0f));
     lastPitch = glm::mix(lastPitch, m_CameraPitch, std::min(m_PitchSmoothingFactor * deltaTime, 1.0f));
     
-    // Determine the final yaw for the camera this frame
-    float effectiveYaw;
-    
-    if (m_FixedCameraMode) {
+    // Calculate final camera values based on the current mode
+    if (m_CameraMode == CameraMode::ThirdPersonOrbit) {
+        // Third-person orbit camera (align with player yaw)
+        
+        // Calculate orbit camera position
+        glm::vec3 desiredPosition = CalculateOrbitCameraPosition();
+        
+        // Smoothly interpolate camera position
+        m_CurrentPosition = glm::mix(m_CurrentPosition, desiredPosition, std::min(m_SmoothingFactor * deltaTime, 1.0f));
+        
+        // Set camera position
+        m_Camera.SetPosition(m_CurrentPosition);
+        
+        // Always look at the target (player) + vertical offset
+        glm::vec3 lookAtTarget = m_TargetPosition + glm::vec3(0.0f, m_LookAtOffset, 0.0f);
+        m_Camera.SetTarget(lookAtTarget);
+    }
+    else if (m_CameraMode == CameraMode::FixedFollow) {
+        // Fixed camera mode (Cube World style)
+        
         // In fixed camera mode, use camera's own yaw independent of player
-        effectiveYaw = m_CameraYawOffset;
+        float effectiveYaw = m_CameraYawOffset;
         
         // Force fixed pitch in this mode
         lastPitch = FIXED_CAMERA_PITCH;
-    } else {
-        // Original behavior: link camera to player yaw + offset
-        effectiveYaw = m_PlayerYaw + lastYawOffset;
+        
+        // Apply rotation to the actual camera object
+        m_Camera.SetRotation(lastPitch, effectiveYaw);
+        
+        // Calculate focus point with vertical offset
+        glm::vec3 focusPoint = m_TargetPosition + glm::vec3(0.0f, m_VerticalOffset, 0.0f);
+        
+        // Add shoulder offset to focus point based on camera orientation
+        float offsetYawRadians = glm::radians(effectiveYaw + SHOULDER_OFFSET_ANGLE);
+        glm::vec3 rightVector(sin(offsetYawRadians), 0.0f, cos(offsetYawRadians));
+        focusPoint += rightVector * m_ShoulderOffset;
+        
+        // Calculate desired camera position
+        glm::vec3 desiredPosition = CalculateCameraPosition();
+        
+        // Smoothly interpolate camera position
+        m_CurrentPosition = glm::mix(m_CurrentPosition, desiredPosition, std::min(m_SmoothingFactor * deltaTime, 1.0f));
+        
+        // Set the camera position
+        m_Camera.SetPosition(m_CurrentPosition);
     }
-    
-    // Apply rotation to the actual camera object
-    m_Camera.SetRotation(lastPitch, effectiveYaw);
-    
-    // Calculate focus point with vertical offset
-    glm::vec3 focusPoint = m_TargetPosition + glm::vec3(0.0f, m_VerticalOffset, 0.0f);
-    
-    // Add shoulder offset to focus point
-    // In fixed camera mode, apply the shoulder offset based on camera orientation, not player
-    float offsetYawRadians;
-    
-    if (m_FixedCameraMode) {
-        offsetYawRadians = glm::radians(effectiveYaw + SHOULDER_OFFSET_ANGLE);
-    } else {
-        offsetYawRadians = glm::radians(m_PlayerYaw + SHOULDER_OFFSET_ANGLE);
+    else {
+        // Free camera mode (original behavior)
+        
+        // Link camera to player yaw + offset
+        float effectiveYaw = m_PlayerYaw + lastYawOffset;
+        
+        // Apply rotation to the actual camera object
+        m_Camera.SetRotation(lastPitch, effectiveYaw);
+        
+        // Calculate focus point with vertical offset
+        glm::vec3 focusPoint = m_TargetPosition + glm::vec3(0.0f, m_VerticalOffset, 0.0f);
+        
+        // Add shoulder offset to focus point based on player orientation
+        float offsetYawRadians = glm::radians(m_PlayerYaw + SHOULDER_OFFSET_ANGLE);
+        glm::vec3 rightVector(sin(offsetYawRadians), 0.0f, cos(offsetYawRadians));
+        focusPoint += rightVector * m_ShoulderOffset;
+        
+        // Calculate desired camera position
+        glm::vec3 desiredPosition = CalculateCameraPosition();
+        
+        // Smoothly interpolate camera position
+        m_CurrentPosition = glm::mix(m_CurrentPosition, desiredPosition, std::min(m_SmoothingFactor * deltaTime, 1.0f));
+        
+        // Set the camera position
+        m_Camera.SetPosition(m_CurrentPosition);
     }
-    
-    glm::vec3 rightVector(sin(offsetYawRadians), 0.0f, cos(offsetYawRadians));
-    focusPoint += rightVector * m_ShoulderOffset;
-    
-    // Calculate desired camera position
-    glm::vec3 desiredPosition = CalculateCameraPosition();
-    
-    // Smoothly interpolate camera position
-    m_CurrentPosition = glm::mix(m_CurrentPosition, desiredPosition, std::min(m_SmoothingFactor * deltaTime, 1.0f));
-    
-    // Set the camera position
-    m_Camera.SetPosition(m_CurrentPosition);
 }
 
 void CameraController::OnWindowResize(int width, int height) {
@@ -246,7 +280,7 @@ void CameraController::HandleMouseMovement() {
 }
 
 void CameraController::HandleCameraInputWithManager(float deltaTime) {
-    // Mouse wheel zooming
+    // Mouse wheel zooming (used in all camera modes)
     float scrollOffset = m_InputManager->GetScrollDelta();
     if (scrollOffset != 0.0f) {
         // Scale the scroll sensitivity
@@ -254,7 +288,7 @@ void CameraController::HandleCameraInputWithManager(float deltaTime) {
         SetOrbitDistance(m_OrbitDistance - zoomAmount);
     }
     
-    // Zoom with action keys
+    // Zoom with action keys (used in all camera modes)
     float keyZoomAmount = m_ZoomSensitivity * deltaTime * ZOOM_KEY_MULTIPLIER;
     if (m_InputManager->IsActionPressed("ZoomIn")) {
         SetOrbitDistance(m_OrbitDistance - keyZoomAmount);
@@ -263,13 +297,44 @@ void CameraController::HandleCameraInputWithManager(float deltaTime) {
         SetOrbitDistance(m_OrbitDistance + keyZoomAmount);
     }
     
-    // Skip camera rotation inputs in fixed camera mode
-    if (m_FixedCameraMode) {
-        // In future, could implement manual camera rotation here (Q/E keys)
+    // Handle camera mode switching (toggle between modes)
+    static bool modeKeyPressed = false;
+    if (m_InputManager->IsActionPressed("SwitchCameraMode")) {
+        if (!modeKeyPressed) {
+            // Cycle through camera modes
+            if (m_CameraMode == CameraMode::FixedFollow) {
+                m_CameraMode = CameraMode::ThirdPersonOrbit;
+                LOG_INFO("Camera mode: Third-Person Orbit");
+            } else if (m_CameraMode == CameraMode::ThirdPersonOrbit) {
+                m_CameraMode = CameraMode::Free;
+                LOG_INFO("Camera mode: Free Camera");
+            } else {
+                m_CameraMode = CameraMode::FixedFollow;
+                LOG_INFO("Camera mode: Fixed Follow");
+            }
+            modeKeyPressed = true;
+        }
+    } else {
+        modeKeyPressed = false;
+    }
+    
+    // Handle shoulder offset toggle (used in both Fixed and Orbit modes)
+    static bool shoulderTogglePressed = false;
+    if (m_InputManager->IsActionPressed("ToggleShoulder")) {
+        if (!shoulderTogglePressed) {
+            ToggleShoulderSide();
+            shoulderTogglePressed = true;
+        }
+    } else {
+        shoulderTogglePressed = false;
+    }
+    
+    // Skip additional camera rotation inputs in Fixed Follow mode
+    if (m_CameraMode == CameraMode::FixedFollow) {
         return;
     }
     
-    // Original camera rotation behavior (only used when not in fixed mode)
+    // Handle camera controls for Free and ThirdPersonOrbit modes
     float cameraYawSpeed = CAMERA_YAW_SPEED * deltaTime;
     if (m_InputManager->IsActionPressed("TurnLeft")) {
         // Move camera left
@@ -291,8 +356,8 @@ void CameraController::HandleCameraInputWithManager(float deltaTime) {
 }
 
 void CameraController::HandleMouseMovementWithManager() {
-    // Skip mouse movement handling in fixed camera mode
-    if (m_FixedCameraMode) {
+    // Skip mouse movement handling in Fixed Follow mode
+    if (m_CameraMode == CameraMode::FixedFollow) {
         return;
     }
     
@@ -311,12 +376,25 @@ void CameraController::HandleMouseMovementWithManager() {
         deltaX *= m_MouseSensitivity;
         deltaY *= m_MouseSensitivity;
         
-        // Update pitch (vertical mouse movement)
-        m_CameraPitch += deltaY;
-        m_CameraPitch = std::max(MIN_PITCH, std::min(m_CameraPitch, MAX_PITCH)); // Clamp
-        
-        // Update yaw offset (horizontal mouse movement)
-        m_CameraYawOffset -= deltaX;
+        // For ThirdPersonOrbit mode, right mouse button temporarily enables free orbit
+        if (m_CameraMode == CameraMode::ThirdPersonOrbit) {
+            // Update pitch (vertical mouse movement)
+            m_CameraPitch += deltaY;
+            m_CameraPitch = std::max(MIN_PITCH, std::min(m_CameraPitch, MAX_PITCH)); // Clamp
+            
+            // Update camera yaw offset (horizontal mouse movement)
+            // This is a temporary offset during manual orbit control
+            m_CameraYawOffset -= deltaX;
+        }
+        else {
+            // Free camera mode - standard behavior
+            // Update pitch (vertical mouse movement)
+            m_CameraPitch += deltaY;
+            m_CameraPitch = std::max(MIN_PITCH, std::min(m_CameraPitch, MAX_PITCH)); // Clamp
+            
+            // Update yaw offset (horizontal mouse movement)
+            m_CameraYawOffset -= deltaX;
+        }
     } 
     else {
         if (m_IsMouseOrbiting) {
@@ -360,6 +438,96 @@ glm::vec3 CameraController::CalculateCameraPosition() {
     glm::vec3 desiredPosition = focusPoint + cameraOffset;
     
     return desiredPosition;
+}
+
+glm::vec3 CameraController::CalculateOrbitCameraPosition() {
+    // Based on the orbit camera plan implementation
+    
+    // 1. Convert player yaw to radians
+    float yawRadians = glm::radians(m_PlayerYaw);
+    
+    // 2. Calculate the horizontal offset vector based on the player yaw and orbit distance
+    // For a standard coordinate system where:
+    // Yaw = 0 means facing positive Z
+    // Yaw = 90 means facing positive X
+    // Yaw = 180 means facing negative Z
+    // Yaw = 270 means facing negative X
+    
+    // The camera should be positioned directly behind the player (opposite to facing direction)
+    // So we need to add 180 degrees (π radians) to the player's yaw
+    float cameraYawRadians = yawRadians + glm::radians(180.0f);
+    
+    // Calculate the direction vector for the camera position
+    // Using standard spherical-to-cartesian conversion for the horizontal plane
+    glm::vec3 horizontalDir = glm::vec3(
+        sin(cameraYawRadians),  // X component
+        0.0f,                   // Y component (horizontal plane)
+        cos(cameraYawRadians)   // Z component
+    );
+    
+    // Scale by orbit distance
+    glm::vec3 horizontalOffset = horizontalDir * m_OrbitDistance;
+    
+    // 3. Calculate the vertical offset
+    glm::vec3 verticalOffset = glm::vec3(0.0f, m_VerticalOffset, 0.0f);
+    
+    // 4. Combine offsets with the player's position to find the target camera position
+    glm::vec3 targetCameraPosition = m_TargetPosition + horizontalOffset + verticalOffset;
+    
+    // 5. Handle collision detection if enabled and world is available
+    if (m_EnableCollisionDetection && m_World) {
+        // Define the look-at point (where we want the camera to aim)
+        glm::vec3 lookAtPoint = m_TargetPosition + glm::vec3(0.0f, m_LookAtOffset, 0.0f);
+        
+        // Apply collision detection between look-at point and target camera position
+        targetCameraPosition = HandleCollisionDetection(lookAtPoint, targetCameraPosition);
+    }
+    
+    return targetCameraPosition;
+}
+
+glm::vec3 CameraController::HandleCollisionDetection(const glm::vec3& from, const glm::vec3& to, float radius) {
+    // Skip if no world is available
+    if (!m_World) {
+        return to;
+    }
+    
+    // Calculate the direction and distance for the ray
+    glm::vec3 direction = to - from;
+    float totalDistance = glm::length(direction);
+    
+    // Normalize the direction for the ray
+    if (totalDistance > 0.0f) {
+        direction = direction / totalDistance;
+    } else {
+        return to; // No direction, return original target
+    }
+    
+    // Simple ray-casting implementation based on World::CheckCollision
+    // (this assumes that World has a function like this or can be modified to support it)
+    float hitDistance = totalDistance; // Default to full distance
+    bool collision = false;
+    
+    // Check if we can actually test for collision
+    if (m_World->HasCollisionData()) {
+        // Perform the raycast (simplified - actual implementation will depend on your physics system)
+        // This is a pseudocode placeholder that should be replaced with your actual collision testing
+        collision = m_World->RaycastTest(from, direction, totalDistance, hitDistance);
+    }
+    
+    if (collision) {
+        // If there was a collision, place the camera at the hit point minus a small offset
+        // to prevent the camera from intersecting with the geometry
+        float adjustedDistance = hitDistance - radius;
+        if (adjustedDistance < 0.0f) {
+            adjustedDistance = 0.0f; // Don't go negative
+        }
+        
+        return from + (direction * adjustedDistance);
+    }
+    
+    // No collision, return the original target position
+    return to;
 }
 
 } // namespace Sylva 

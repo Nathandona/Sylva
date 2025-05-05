@@ -1,37 +1,40 @@
 #include "InputManager.h"
 #include <GLFW/glfw3.h>
+#include "../core/Logger.h"
 
 namespace Sylva {
 
 InputManager::InputManager(Platform* platform)
     : m_Platform(platform)
-    , m_FirstMouse(true)
     , m_LastMouseX(0.0)
     , m_LastMouseY(0.0)
-    , m_MouseSensitivity(0.1f)
+    , m_FirstMouse(true)
+    , m_MouseSensitivity(0.2f)
 {
 }
 
 void InputManager::Initialize() {
-    // Player movement
-    RegisterAction("MoveForward", GLFW_KEY_W);
-    RegisterAction("MoveBackward", GLFW_KEY_S);
-    RegisterAction("MoveLeft", GLFW_KEY_A);
-    RegisterAction("MoveRight", GLFW_KEY_D);
-    RegisterAction("Jump", GLFW_KEY_SPACE);
-    RegisterAction("Run", GLFW_KEY_LEFT_SHIFT);
+    // Register default movement actions
+    RegisterAction("MoveForward", GLFW_KEY_W, -1, -1);
+    RegisterAction("MoveBackward", GLFW_KEY_S, -1, -1);
+    RegisterAction("MoveLeft", GLFW_KEY_A, -1, -1);
+    RegisterAction("MoveRight", GLFW_KEY_D, -1, -1);
+    RegisterAction("Jump", GLFW_KEY_SPACE, -1, -1);
+    RegisterAction("Run", GLFW_KEY_LEFT_SHIFT, -1, -1);
     
-    // Player rotation
-    RegisterAction("TurnLeft", GLFW_KEY_Q);
-    RegisterAction("TurnRight", GLFW_KEY_E);
+    // Register camera control actions
+    RegisterAction("TurnLeft", GLFW_KEY_Q, GLFW_KEY_LEFT, -1);
+    RegisterAction("TurnRight", GLFW_KEY_E, GLFW_KEY_RIGHT, -1);
+    RegisterAction("LookUp", GLFW_KEY_UP, -1, -1);
+    RegisterAction("LookDown", GLFW_KEY_DOWN, -1, -1);
+    RegisterAction("ZoomIn", GLFW_KEY_PAGE_UP, -1, -1);
+    RegisterAction("ZoomOut", GLFW_KEY_PAGE_DOWN, -1, -1);
     
-    // Camera controls
-    RegisterAction("CameraPitchUp", GLFW_KEY_UP);
-    RegisterAction("CameraPitchDown", GLFW_KEY_DOWN);
-    RegisterAction("ZoomIn", GLFW_KEY_PAGE_UP);
-    RegisterAction("ZoomOut", GLFW_KEY_PAGE_DOWN);
-    RegisterAction("ToggleShoulder", GLFW_KEY_TAB);
-    RegisterAction("CameraOrbit", -1, -1, GLFW_MOUSE_BUTTON_RIGHT);
+    // New actions for camera features from plan
+    RegisterAction("SwitchCameraMode", GLFW_KEY_C, -1, -1);
+    RegisterAction("ToggleShoulder", GLFW_KEY_TAB, -1, -1);
+    
+    LOG_INFO("InputManager initialized with default mappings");
 }
 
 bool InputManager::IsActionPressed(const std::string& actionName) const {

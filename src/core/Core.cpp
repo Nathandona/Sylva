@@ -49,12 +49,12 @@ bool Core::Initialize() {
     // Create camera controller with references instead of pointers
     m_CameraController = std::make_unique<CameraController>(*camera, m_Platform, m_InputManager);
     
-    // Configure camera controller for Cube World style camera
+    // Configure camera controller
     if (m_CameraController) {
-        // Enable fixed camera mode (Cube World style)
-        m_CameraController->SetFixedCameraMode(true);
+        // Set the camera mode to ThirdPersonOrbit
+        m_CameraController->SetCameraMode(CameraController::CameraMode::ThirdPersonOrbit);
         
-        // Set initial orbit distance (how far behind the player)
+        // Set orbit distance (how far behind the player)
         m_CameraController->SetOrbitDistance(7.0f);
         
         // Set min and max zoom distances
@@ -62,15 +62,24 @@ bool Core::Initialize() {
         m_CameraController->SetMaxOrbitDistance(15.0f);
         
         // Set vertical offset (how far above the player)
-        m_CameraController->SetVerticalOffset(1.8f);
+        m_CameraController->SetVerticalOffset(2.0f);
         
-        // Set shoulder offset to 0 for centered camera
+        // Set look-at offset (vertical offset for camera target)
+        m_CameraController->SetLookAtOffset(1.0f);
+        
+        // Set shoulder offset (0.0f for centered camera)
         m_CameraController->SetShoulderOffset(0.0f);
         
-        // Set smoothing factor (higher = faster camera movement)
+        // Set smoothing factors
         m_CameraController->SetSmoothingFactor(5.0f);
         
-        // Set the player as the target for the camera (Cube World style)
+        // Connect world for collision detection
+        m_CameraController->SetWorld(&m_World);
+        
+        // Enable collision detection
+        m_CameraController->SetCollisionDetection(true);
+        
+        // Set the player as the target for the camera
         m_CameraController->SetPlayerTarget(&m_World.GetPlayer());
         
         // Set the CameraController's camera as the active camera in the renderer
@@ -86,6 +95,8 @@ bool Core::Initialize() {
         // Log initial camera position after setup
         glm::vec3 camPos = camera->GetPosition();
         std::cout << "Initial camera position: x=" << camPos.x << ", y=" << camPos.y << ", z=" << camPos.z << std::endl;
+        std::cout << "Camera mode: Third-Person Orbit Camera" << std::endl;
+        std::cout << "Press C to toggle between camera modes." << std::endl;
     }
     
     // Set up running state

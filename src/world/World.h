@@ -27,6 +27,13 @@ public:
     // Get the height at a specific world position
     float GetTerrainHeightAt(float x, float z) const;
     
+    // Check if world has collision data available
+    bool HasCollisionData() const { return true; } // Always true for now, can be enhanced later
+    
+    // Perform a raycast test against the world geometry
+    // Returns true if a collision was found, and stores the hit distance
+    bool RaycastTest(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, float& hitDistance);
+    
     // Get player reference
     const Player& GetPlayer() const { return m_Player; }
     Player& GetPlayer() { return m_Player; }

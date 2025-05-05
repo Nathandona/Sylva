@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <sstream>
 #include <mutex>
 #include <ctime>
 #include <iomanip>
