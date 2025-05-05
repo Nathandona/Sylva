@@ -13,6 +13,7 @@
 #include "Mesh.h"
 #include "Model.h"
 #include "ResourceManager.h"
+#include "DebugDrawing.h"
 
 namespace Sylva {
 
@@ -21,6 +22,7 @@ class Platform;
 class Camera;
 class ResourceManager;
 class CameraController;
+class CameraDebug;
 
 // Main renderer class
 class Renderer {
@@ -53,6 +55,20 @@ public:
     // Get the resource manager
     ResourceManager* GetResourceManager() const { return m_ResourceManager.get(); }
     
+    // Debug drawing methods
+    void DrawDebugLine(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color = glm::vec3(1.0f, 1.0f, 1.0f));
+    void DrawDebugCircle(const glm::vec3& center, float radius, const glm::vec3& color = glm::vec3(1.0f, 1.0f, 1.0f), int segments = 36);
+    void DrawDebugSphere(const glm::vec3& center, float radius, const glm::vec3& color = glm::vec3(1.0f, 1.0f, 1.0f), int segments = 36);
+    void DrawDebugBox(const glm::vec3& center, const glm::vec3& size, const glm::vec3& color = glm::vec3(1.0f, 1.0f, 1.0f));
+    void DrawDebugCoordinateAxes(const glm::vec3& position, float scale = 1.0f);
+    
+    // Enable/disable debug drawing
+    void SetDebugDrawingEnabled(bool enabled) { m_DebugDrawingEnabled = enabled; }
+    bool IsDebugDrawingEnabled() const { return m_DebugDrawingEnabled; }
+    
+    // Register a CameraDebug instance
+    void RegisterCameraDebug(CameraDebug* cameraDebug) { m_CameraDebug = cameraDebug; }
+    
 private:
     // Renderer state
     glm::vec4 m_ClearColor;
@@ -65,6 +81,13 @@ private:
     
     // Active camera (non-owning pointer, may point to camera owned by CameraController)
     Camera* m_ActiveCamera;
+    
+    // Debug drawing
+    std::unique_ptr<DebugDrawing> m_DebugDrawing;
+    bool m_DebugDrawingEnabled;
+    
+    // Camera debug (non-owning pointer, owned by Core)
+    CameraDebug* m_CameraDebug;
 };
 
 } 

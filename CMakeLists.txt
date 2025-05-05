@@ -26,6 +26,8 @@ set(SOURCES
     src/renderer/Renderer.cpp
     src/renderer/Camera.cpp
     src/renderer/CameraController.cpp
+    src/renderer/CameraDebug.cpp
+    src/renderer/DebugDrawing.cpp
     src/renderer/Shader.cpp
     src/renderer/Texture.cpp
     src/renderer/Mesh.cpp
@@ -47,6 +49,8 @@ set(HEADERS
     src/renderer/Renderer.h
     src/renderer/Camera.h
     src/renderer/CameraController.h
+    src/renderer/CameraDebug.h
+    src/renderer/DebugDrawing.h
     src/renderer/Shader.h
     src/renderer/Texture.h
     src/renderer/Mesh.h
