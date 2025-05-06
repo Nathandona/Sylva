@@ -37,6 +37,7 @@ public:
     bool IsKeyPressed(int keyCode) const;
     bool IsMouseButtonPressed(int button) const;
     void GetMousePosition(double& x, double& y) const;
+    void GetMouseDelta(double& dx, double& dy) const;
     float GetMouseScrollOffset(); // Get and reset scroll offset
     
     // New function to set the window icon
@@ -51,11 +52,16 @@ private:
     int m_Width;
     int m_Height;
     
-    // Mouse scroll tracking
+    // Mouse tracking
+    double m_LastMouseX;
+    double m_LastMouseY;
+    double m_MouseDeltaX;
+    double m_MouseDeltaY;
     float m_ScrollYOffset;
     
-    // Static callback for scroll events
+    // Static callbacks
     static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+    static void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 };
 
 } 

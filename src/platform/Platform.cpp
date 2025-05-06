@@ -19,10 +19,28 @@ void Platform::ScrollCallback(GLFWwindow* window, double xoffset, double yoffset
     }
 }
 
+// Static method to handle cursor position callback
+void Platform::CursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
+    Platform* platform = static_cast<Platform*>(glfwGetWindowUserPointer(window));
+    if (platform) {
+        // Calculate delta from last position
+        platform->m_MouseDeltaX = xpos - platform->m_LastMouseX;
+        platform->m_MouseDeltaY = ypos - platform->m_LastMouseY;
+        
+        // Update last position
+        platform->m_LastMouseX = xpos;
+        platform->m_LastMouseY = ypos;
+    }
+}
+
 Platform::Platform()
     : m_Window(nullptr)
     , m_Width(0)
     , m_Height(0)
+    , m_LastMouseX(0.0)
+    , m_LastMouseY(0.0)
+    , m_MouseDeltaX(0.0)
+    , m_MouseDeltaY(0.0)
     , m_ScrollYOffset(0.0f)
 {
 }
@@ -63,8 +81,9 @@ bool Platform::Initialize(const std::string& title, int width, int height) {
     // Store this instance in window user pointer for callbacks
     glfwSetWindowUserPointer(m_Window, this);
     
-    // Set up scroll callback
+    // Set up callbacks
     glfwSetScrollCallback(m_Window, ScrollCallback);
+    glfwSetCursorPosCallback(m_Window, CursorPosCallback);
     
     // Make OpenGL context current
     glfwMakeContextCurrent(m_Window);
@@ -121,6 +140,11 @@ bool Platform::IsMouseButtonPressed(int button) const {
 
 void Platform::GetMousePosition(double& x, double& y) const {
     glfwGetCursorPos(m_Window, &x, &y);
+}
+
+void Platform::GetMouseDelta(double& dx, double& dy) const {
+    dx = m_MouseDeltaX;
+    dy = m_MouseDeltaY;
 }
 
 bool Platform::SetWindowIcon(const char* iconPath) {
