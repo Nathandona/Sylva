@@ -139,6 +139,9 @@ int main() {
         return 1;
     }
     
+    // TODO: Replace with ShaderManager later
+    Shader playerShader("assets/shaders/colored.vert", "assets/shaders/colored.frag");
+    
     // Enable collision debug visualization if specified in config
     bool collisionDebug = Config::getBool("Debug.collision_visualization", false);
     voxelWorld.setCollisionDebugEnabled(collisionDebug);
@@ -266,7 +269,7 @@ int main() {
         }
         
         // Render player
-        player.renderPlayer(viewMatrix, projectionMatrix);
+        player.renderPlayer(playerShader, viewMatrix, projectionMatrix);
         
         // Render UI
         UI::renderCrosshair(camera);

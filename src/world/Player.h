@@ -72,10 +72,11 @@ public:
 
     /**
      * @brief Render the player
+     * @param shader The shader to use for rendering
      * @param viewMatrix The view matrix from the camera
      * @param projectionMatrix The projection matrix
      */
-    void renderPlayer(const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix);
+    void renderPlayer(Shader& shader, const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix);
 
     /**
      * @brief Set the player's move speed
@@ -154,12 +155,12 @@ private:
     Vec3 m_velocity;     // Current velocity
     
     // Graphics objects
-    unsigned int m_vao;  // Vertex Array Object
-    unsigned int m_vbo;  // Vertex Buffer Object
-    Shader* m_shader;    // Player shader
+    // unsigned int m_vao;  // Vertex Array Object - To be replaced by a Mesh component
+    // unsigned int m_vbo;  // Vertex Buffer Object - To be replaced by a Mesh component
+    // Shader* m_shader;    // Player shader - To be provided by a ShaderManager
     
     // Cleanup graphics objects
-    void cleanupGraphics();
+    // void cleanupGraphics(); // Handled by Mesh component and ShaderManager
 };
 
 } // namespace Sylva 

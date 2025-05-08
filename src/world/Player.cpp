@@ -13,10 +13,11 @@ namespace Sylva {
 Player::Player() 
     : m_rotation(0.0f), 
       m_position(0.0f, 0.0f, 0.0f), 
-      m_velocity(0.0f, 0.0f, 0.0f),
-      m_vao(0),
-      m_vbo(0),
-      m_shader(nullptr) {
+      m_velocity(0.0f, 0.0f, 0.0f)
+      // m_vao(0), // Managed by Mesh component
+      // m_vbo(0), // Managed by Mesh component
+      // m_shader(nullptr) // Provided by ShaderManager
+{
     // Load player parameters from config if available
     m_params.moveSpeed = Config::getFloat("Player.move_speed", m_params.moveSpeed);
     m_params.rotationSpeed = Config::getFloat("Player.rotation_speed", m_params.rotationSpeed);
@@ -38,139 +39,48 @@ Player::Player(const PlayerParams& params)
     : m_params(params), 
       m_rotation(0.0f), 
       m_position(0.0f, 0.0f, 0.0f), 
-      m_velocity(0.0f, 0.0f, 0.0f),
-      m_vao(0),
-      m_vbo(0),
-      m_shader(nullptr) {
+      m_velocity(0.0f, 0.0f, 0.0f)
+      // m_vao(0), // Managed by Mesh component
+      // m_vbo(0), // Managed by Mesh component
+      // m_shader(nullptr) // Provided by ShaderManager
+{
     Logger::logDebug("Player initialized with custom parameters");
 }
 
 Player::~Player() {
-    cleanupGraphics();
+    // cleanupGraphics(); // Handled by Mesh component and ShaderManager
 }
 
 bool Player::initializeGraphics() {
-    Logger::logInfo("Initializing player graphics");
+    Logger::logInfo("Initializing player graphics (conceptual setup)");
     
-    // Create shader - use the new colored shader
-    try {
-        m_shader = new Shader("assets/shaders/colored.vert", "assets/shaders/colored.frag");
-    } catch (const std::exception& e) {
-        Logger::logError("Failed to load player shader: " + std::string(e.what()));
-        return false;
-    }
-    
-    // Generate and bind VAO/VBO
-    glGenVertexArrays(1, &m_vao);
-    glGenBuffers(1, &m_vbo);
-    
-    // Create a simple rectangular prism for the player
-    float halfWidth = m_params.width / 2.0f;
-    float halfDepth = m_params.depth / 2.0f;
-    float height = m_params.height;
-    
-    // Define colors for each face
-    // RGB values - the alpha will be handled in the shader
-    const float frontColor[3] = {0.0f, 1.0f, 0.0f};   // Green (front)
-    const float backColor[3] = {1.0f, 0.0f, 0.0f};    // Red (back)
-    const float leftColor[3] = {0.0f, 0.0f, 1.0f};    // Blue (left)
-    const float rightColor[3] = {1.0f, 1.0f, 0.0f};   // Yellow (right)
-    const float bottomColor[3] = {0.0f, 1.0f, 1.0f};  // Cyan (bottom)
-    const float topColor[3] = {1.0f, 0.0f, 1.0f};     // Magenta (top)
-    
-    // Vertices for a rectangular prism (12 triangles, 36 vertices with positions, colors, and tex coords)
-    float vertices[] = {
-        // Positions                // Colors              // Texture Coords
-        // Front face (Green)
-        -halfWidth, 0.0f, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  0.0f, 0.0f,
-         halfWidth, 0.0f, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  1.0f, 0.0f,
-         halfWidth, height, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  1.0f, 1.0f,
-        -halfWidth, 0.0f, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  0.0f, 0.0f,
-         halfWidth, height, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  1.0f, 1.0f,
-        -halfWidth, height, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  0.0f, 1.0f,
+    // Shader creation is now handled by a ShaderManager
+    // VAO/VBO and vertex data are now handled by a Mesh component
 
-        // Back face (Red)
-        -halfWidth, 0.0f, halfDepth,   backColor[0], backColor[1], backColor[2],  0.0f, 0.0f,
-         halfWidth, 0.0f, halfDepth,   backColor[0], backColor[1], backColor[2],  1.0f, 0.0f,
-         halfWidth, height, halfDepth,   backColor[0], backColor[1], backColor[2],  1.0f, 1.0f,
-        -halfWidth, 0.0f, halfDepth,   backColor[0], backColor[1], backColor[2],  0.0f, 0.0f,
-         halfWidth, height, halfDepth,   backColor[0], backColor[1], backColor[2],  1.0f, 1.0f,
-        -halfWidth, height, halfDepth,   backColor[0], backColor[1], backColor[2],  0.0f, 1.0f,
+    // Example: Define player's visual properties if needed for a procedural mesh later
+    // m_playerVisual.setColor(Vec4(0.2f, 0.5f, 1.0f, 1.0f));
+    // m_playerVisual.setDimensions(m_params.width, m_params.height, m_params.depth);
 
-        // Left face (Blue)
-        -halfWidth, 0.0f, -halfDepth,  leftColor[0], leftColor[1], leftColor[2],  0.0f, 0.0f,
-        -halfWidth, 0.0f, halfDepth,   leftColor[0], leftColor[1], leftColor[2],  1.0f, 0.0f,
-        -halfWidth, height, halfDepth,   leftColor[0], leftColor[1], leftColor[2],  1.0f, 1.0f,
-        -halfWidth, 0.0f, -halfDepth,  leftColor[0], leftColor[1], leftColor[2],  0.0f, 0.0f,
-        -halfWidth, height, halfDepth,   leftColor[0], leftColor[1], leftColor[2],  1.0f, 1.0f,
-        -halfWidth, height, -halfDepth,  leftColor[0], leftColor[1], leftColor[2],  0.0f, 1.0f,
-
-        // Right face (Yellow)
-        halfWidth, 0.0f, -halfDepth,   rightColor[0], rightColor[1], rightColor[2],  0.0f, 0.0f,
-        halfWidth, 0.0f, halfDepth,    rightColor[0], rightColor[1], rightColor[2],  1.0f, 0.0f,
-        halfWidth, height, halfDepth,    rightColor[0], rightColor[1], rightColor[2],  1.0f, 1.0f,
-        halfWidth, 0.0f, -halfDepth,   rightColor[0], rightColor[1], rightColor[2],  0.0f, 0.0f,
-        halfWidth, height, halfDepth,    rightColor[0], rightColor[1], rightColor[2],  1.0f, 1.0f,
-        halfWidth, height, -halfDepth,   rightColor[0], rightColor[1], rightColor[2],  0.0f, 1.0f,
-
-        // Bottom face (Cyan)
-        -halfWidth, 0.0f, -halfDepth,  bottomColor[0], bottomColor[1], bottomColor[2],  0.0f, 0.0f,
-         halfWidth, 0.0f, -halfDepth,  bottomColor[0], bottomColor[1], bottomColor[2],  1.0f, 0.0f,
-         halfWidth, 0.0f, halfDepth,   bottomColor[0], bottomColor[1], bottomColor[2],  1.0f, 1.0f,
-        -halfWidth, 0.0f, -halfDepth,  bottomColor[0], bottomColor[1], bottomColor[2],  0.0f, 0.0f,
-         halfWidth, 0.0f, halfDepth,   bottomColor[0], bottomColor[1], bottomColor[2],  1.0f, 1.0f,
-        -halfWidth, 0.0f, halfDepth,   bottomColor[0], bottomColor[1], bottomColor[2],  0.0f, 1.0f,
-
-        // Top face (Magenta)
-        -halfWidth, height, -halfDepth,  topColor[0], topColor[1], topColor[2],  0.0f, 0.0f,
-         halfWidth, height, -halfDepth,  topColor[0], topColor[1], topColor[2],  1.0f, 0.0f,
-         halfWidth, height, halfDepth,   topColor[0], topColor[1], topColor[2],  1.0f, 1.0f,
-        -halfWidth, height, -halfDepth,  topColor[0], topColor[1], topColor[2],  0.0f, 0.0f,
-         halfWidth, height, halfDepth,   topColor[0], topColor[1], topColor[2],  1.0f, 1.0f,
-        -halfWidth, height, halfDepth,   topColor[0], topColor[1], topColor[2],  0.0f, 1.0f
-    };
-    
-    // Bind and upload data
-    glBindVertexArray(m_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    
-    // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    
-    // Color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    
-    // Texture coord attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-    
-    // Unbind
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-    
-    Logger::logInfo("Player graphics initialized with colored faces");
+    Logger::logInfo("Player graphics conceptually initialized. Mesh and Shader to be managed externally.");
     return true;
 }
 
-void Player::cleanupGraphics() {
-    if (m_vao != 0) {
-        glDeleteVertexArrays(1, &m_vao);
-        m_vao = 0;
-    }
-    
-    if (m_vbo != 0) {
-        glDeleteBuffers(1, &m_vbo);
-        m_vbo = 0;
-    }
-    
-    if (m_shader != nullptr) {
-        delete m_shader;
-        m_shader = nullptr;
-    }
-}
+// void Player::cleanupGraphics() { // Handled by Mesh component and ShaderManager
+//     if (m_vao != 0) {
+//         glDeleteVertexArrays(1, &m_vao);
+//         m_vao = 0;
+//     }
+//     
+//     if (m_vbo != 0) {
+//         glDeleteBuffers(1, &m_vbo);
+//         m_vbo = 0;
+//     }
+//     
+//     if (m_shader != nullptr) {
+//         delete m_shader;
+//         m_shader = nullptr;
+//     }
+// }
 
 void Player::updateMovement(float deltaTime, const InputState& input, const VoxelWorld& world, const Camera& camera) {
     // Get camera forward and right vectors (for camera-relative movement)
@@ -337,45 +247,25 @@ bool Player::checkCollision(const VoxelWorld& world) {
     return world.checkCollision(*this);
 }
 
-void Player::renderPlayer(const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix) {
-    if (m_shader == nullptr || m_vao == 0) {
-        Logger::logWarning("Cannot render player, graphics not initialized");
-        return;
-    }
+void Player::renderPlayer(Shader& shader, const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix) {
+    shader.use();
     
-    // Use player shader
-    m_shader->use();
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, m_position);
+    model = glm::rotate(model, m_rotation, glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate around Y axis
     
-    // Set matrices
-    glm::mat4 modelMatrix = glm::mat4(1.0f);
-    modelMatrix = glm::translate(modelMatrix, glm::vec3(m_position.x, m_position.y, m_position.z));
-    modelMatrix = glm::rotate(modelMatrix, m_rotation, glm::vec3(0.0f, 1.0f, 0.0f));
+    shader.setMat4("model", model);
+    shader.setMat4("view", viewMatrix);
+    shader.setMat4("projection", projectionMatrix);
+    // shader.setVec4("color", m_params.color); // Assuming color is part of PlayerParams or a visual component
+
+    // TODO: Draw player mesh here using the provided shader and a Mesh component.
+    // Example: if (m_mesh) m_mesh->draw(shader);
     
-    m_shader->setMat4("model", modelMatrix);
-    m_shader->setMat4("view", viewMatrix);
-    m_shader->setMat4("projection", projectionMatrix);
-    
-    // Store current face culling state
-    GLboolean cullFace;
-    glGetBooleanv(GL_CULL_FACE, &cullFace);
-    
-    // Disable face culling for player rendering
-    glDisable(GL_CULL_FACE);
-    
-    // Draw player
-    glBindVertexArray(m_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 36); // 12 triangles, 36 vertices
-    glBindVertexArray(0);
-    
-    // Restore previous face culling state
-    if (cullFace) {
-        glEnable(GL_CULL_FACE);
-    }
-    
-    Logger::logDebug("Player rendered at position: " + 
-                    std::to_string(m_position.x) + ", " +
-                    std::to_string(m_position.y) + ", " +
-                    std::to_string(m_position.z));
+    // Removed direct OpenGL draw calls:
+    // glBindVertexArray(m_vao);
+    // glDrawArrays(GL_TRIANGLES, 0, 36); // 36 vertices for a cube (12 triangles * 3 vertices)
+    // glBindVertexArray(0);
 }
 
 void Player::setMoveSpeed(float speed) {
