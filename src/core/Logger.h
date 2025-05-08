@@ -1,137 +1,99 @@
 #pragma once
 
-#include <iostream>
 #include <string>
 #include <fstream>
-#include <sstream>
 #include <mutex>
-#include <ctime>
-#include <iomanip>
+#include <memory>
 
+namespace Sylva {
+
+/**
+ * @brief Log level enumeration for controlling log verbosity
+ */
 enum class LogLevel {
-    DEBUG,
-    INFO,
-    WARNING,
-    ERROR,
-    FATAL
+    DEBUG,   // Detailed information for debugging
+    INFO,    // General information about program execution
+    WARNING, // Potentially harmful situations
+    ERROR    // Error events that might still allow the program to continue
 };
 
+/**
+ * @brief Logger class for centralized logging throughout the engine
+ * 
+ * Thread-safe singleton logger that supports multiple log levels and
+ * can output to console and optionally to a file.
+ */
 class Logger {
 public:
-    static Logger& GetInstance() {
-        static Logger instance;
-        return instance;
-    }
+    /**
+     * @brief Get the Logger instance
+     * @return Reference to the Logger singleton
+     */
+    static Logger& getInstance();
 
-    // Delete copy/move constructors and assign operators
+    /**
+     * @brief Log debug information
+     * @param message The message to log
+     */
+    static void logDebug(const std::string& message);
+
+    /**
+     * @brief Log general information
+     * @param message The message to log
+     */
+    static void logInfo(const std::string& message);
+
+    /**
+     * @brief Log warnings
+     * @param message The message to log
+     */
+    static void logWarning(const std::string& message);
+
+    /**
+     * @brief Log errors
+     * @param message The message to log
+     */
+    static void logError(const std::string& message);
+
+    /**
+     * @brief Set the minimum log level
+     * @param level The minimum log level to display
+     */
+    static void setLogLevel(LogLevel level);
+
+    /**
+     * @brief Set the output log file
+     * @param filePath Path to the log file
+     * @return true if file was opened successfully, false otherwise
+     */
+    static bool setLogFile(const std::string& filePath);
+
+    // Delete copy constructor and assignment operator
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
-    Logger(Logger&&) = delete;
-    Logger& operator=(Logger&&) = delete;
-
-    void SetLogLevel(LogLevel level) {
-        m_LogLevel = level;
-    }
-
-    void SetLogToFile(bool logToFile, const std::string& filename = "sylva.log") {
-        m_LogToFile = logToFile;
-        if (m_LogToFile && !m_LogFile.is_open()) {
-            m_LogFile.open(filename, std::ios::out | std::ios::app);
-        } else if (!m_LogToFile && m_LogFile.is_open()) {
-            m_LogFile.close();
-        }
-    }
-
-    template<typename... Args>
-    void Debug(Args... args) {
-        Log(LogLevel::DEBUG, args...);
-    }
-
-    template<typename... Args>
-    void Info(Args... args) {
-        Log(LogLevel::INFO, args...);
-    }
-
-    template<typename... Args>
-    void Warning(Args... args) {
-        Log(LogLevel::WARNING, args...);
-    }
-
-    template<typename... Args>
-    void Error(Args... args) {
-        Log(LogLevel::ERROR, args...);
-    }
-
-    template<typename... Args>
-    void Fatal(Args... args) {
-        Log(LogLevel::FATAL, args...);
-    }
 
 private:
-    Logger() : m_LogLevel(LogLevel::INFO), m_LogToFile(false) {}
-    ~Logger() {
-        if (m_LogFile.is_open()) {
-            m_LogFile.close();
-        }
-    }
+    // Private constructor for singleton pattern
+    Logger();
+    ~Logger();
+    
+    // Log a message with a specific level
+    void log(LogLevel level, const std::string& message);
 
-    template<typename T>
-    void LogItem(std::ostream& stream, T value) {
-        stream << value;
-    }
-
-    template<typename T, typename... Args>
-    void LogItem(std::ostream& stream, T value, Args... args) {
-        stream << value;
-        LogItem(stream, args...);
-    }
-
-    template<typename... Args>
-    void Log(LogLevel level, Args... args) {
-        if (level < m_LogLevel) return;
-
-        const std::lock_guard<std::mutex> lock(m_Mutex);
-
-        std::string levelStr;
-        std::ostream* consoleStream = &std::cout;
-
-        switch (level) {
-            case LogLevel::DEBUG:   levelStr = "DEBUG"; break;
-            case LogLevel::INFO:    levelStr = "INFO"; break;
-            case LogLevel::WARNING: levelStr = "WARNING"; consoleStream = &std::cerr; break;
-            case LogLevel::ERROR:   levelStr = "ERROR"; consoleStream = &std::cerr; break;
-            case LogLevel::FATAL:   levelStr = "FATAL"; consoleStream = &std::cerr; break;
-        }
-
-        // Get current time
-        auto now = std::time(nullptr);
-        auto tm = std::localtime(&now);
-
-        // Format: [LEVEL] [YYYY-MM-DD HH:MM:SS] Message
-        std::stringstream messageStream;
-        messageStream << "[" << levelStr << "] "
-                     << "[" << std::put_time(tm, "%Y-%m-%d %H:%M:%S") << "] ";
-        LogItem(messageStream, args...);
-        messageStream << std::endl;
-
-        std::string message = messageStream.str();
-        *consoleStream << message;
-        
-        if (m_LogToFile && m_LogFile.is_open()) {
-            m_LogFile << message;
-            m_LogFile.flush();
-        }
-    }
-
-    LogLevel m_LogLevel;
-    bool m_LogToFile;
-    std::ofstream m_LogFile;
-    std::mutex m_Mutex;
+    // Current minimum log level
+    LogLevel m_currentLevel = LogLevel::INFO;
+    
+    // File output stream
+    std::ofstream m_fileStream;
+    
+    // Flag to indicate if file logging is enabled
+    bool m_fileLoggingEnabled = false;
+    
+    // Mutex for thread safety
+    std::mutex m_mutex;
+    
+    // Convert LogLevel to string
+    std::string logLevelToString(LogLevel level);
 };
 
-// Convenience macros
-#define LOG_DEBUG(...) Logger::GetInstance().Debug(__VA_ARGS__)
-#define LOG_INFO(...) Logger::GetInstance().Info(__VA_ARGS__)
-#define LOG_WARNING(...) Logger::GetInstance().Warning(__VA_ARGS__)
-#define LOG_ERROR(...) Logger::GetInstance().Error(__VA_ARGS__)
-#define LOG_FATAL(...) Logger::GetInstance().Fatal(__VA_ARGS__) 
+} // namespace Sylva 

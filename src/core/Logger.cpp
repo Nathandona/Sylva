@@ -1,40 +1,106 @@
-#include "Logger.h"
-#include "Config.h"
+#include "logger.h"
+#include <iostream>
+#include <iomanip>
+#include <chrono>
+#include <ctime>
+#include <sstream>
 
-// This file is mostly a placeholder since Logger is implemented as a header-only class.
-// It's included here for completeness and to allow for future expansion.
+namespace Sylva {
 
-// Initialize the logger with settings from config if available
-void InitializeLogger() {
-    // Get singleton instance
-    Logger& logger = Logger::GetInstance();
+Logger::Logger() {
+    // Initialize logger
+}
 
-    // Set log level from config if available
-    std::string configLogLevel = CONFIG.Get<std::string>("logLevel", "INFO");
-    LogLevel level = LogLevel::INFO;
-
-    if (configLogLevel == "DEBUG") {
-        level = LogLevel::DEBUG;
-    } else if (configLogLevel == "INFO") {
-        level = LogLevel::INFO;
-    } else if (configLogLevel == "WARNING") {
-        level = LogLevel::WARNING;
-    } else if (configLogLevel == "ERROR") {
-        level = LogLevel::ERROR;
-    } else if (configLogLevel == "FATAL") {
-        level = LogLevel::FATAL;
+Logger::~Logger() {
+    // Close file if open
+    if (m_fileStream.is_open()) {
+        m_fileStream.close();
     }
+}
 
-    logger.SetLogLevel(level);
+Logger& Logger::getInstance() {
+    static Logger instance;
+    return instance;
+}
 
-    // Set log file if enabled in config
-    bool logToFile = CONFIG.Get<bool>("logToFile", false);
-    std::string logFilename = CONFIG.Get<std::string>("logFilename", "sylva.log");
+void Logger::logDebug(const std::string& message) {
+    getInstance().log(LogLevel::DEBUG, message);
+}
+
+void Logger::logInfo(const std::string& message) {
+    getInstance().log(LogLevel::INFO, message);
+}
+
+void Logger::logWarning(const std::string& message) {
+    getInstance().log(LogLevel::WARNING, message);
+}
+
+void Logger::logError(const std::string& message) {
+    getInstance().log(LogLevel::ERROR, message);
+}
+
+void Logger::setLogLevel(LogLevel level) {
+    getInstance().m_currentLevel = level;
+}
+
+bool Logger::setLogFile(const std::string& filePath) {
+    std::lock_guard<std::mutex> lock(getInstance().m_mutex);
     
-    if (logToFile) {
-        logger.SetLogToFile(true, logFilename);
+    // Close existing file if open
+    if (getInstance().m_fileStream.is_open()) {
+        getInstance().m_fileStream.close();
+        getInstance().m_fileLoggingEnabled = false;
     }
+    
+    // Open new file
+    getInstance().m_fileStream.open(filePath, std::ios::out | std::ios::app);
+    
+    if (getInstance().m_fileStream.is_open()) {
+        getInstance().m_fileLoggingEnabled = true;
+        return true;
+    }
+    
+    return false;
+}
 
-    // Log an initialization message
-    LOG_INFO("Logger initialized with level: ", configLogLevel);
-} 
+void Logger::log(LogLevel level, const std::string& message) {
+    // Skip if level is below current log level
+    if (level < m_currentLevel) {
+        return;
+    }
+    
+    // Get current time
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    
+    std::stringstream timeStr;
+    timeStr << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S");
+    
+    // Format message
+    std::stringstream formattedMessage;
+    formattedMessage << "[" << timeStr.str() << "] [" << logLevelToString(level) << "] " << message;
+    
+    // Lock for thread safety
+    std::lock_guard<std::mutex> lock(m_mutex);
+    
+    // Output to console
+    std::cout << formattedMessage.str() << std::endl;
+    
+    // Output to file if enabled
+    if (m_fileLoggingEnabled && m_fileStream.is_open()) {
+        m_fileStream << formattedMessage.str() << std::endl;
+        m_fileStream.flush();
+    }
+}
+
+std::string Logger::logLevelToString(LogLevel level) {
+    switch (level) {
+        case LogLevel::DEBUG:   return "DEBUG";
+        case LogLevel::INFO:    return "INFO";
+        case LogLevel::WARNING: return "WARNING";
+        case LogLevel::ERROR:   return "ERROR";
+        default:                return "UNKNOWN";
+    }
+}
+
+} // namespace Sylva 

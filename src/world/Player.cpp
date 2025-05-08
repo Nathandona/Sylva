@@ -1,397 +1,433 @@
-#include "Player.h"
-#include "World.h"
-#include "../renderer/Renderer.h"
-#include "../renderer/Mesh.h"
-#include "../renderer/Shader.h"
-#include "../renderer/ResourceManager.h"
-#include <iostream>
+#include "player.h"
+#include "voxel_world.h"
+#include "core/logger.h"
+#include "core/config.h"
+#include "renderer/shader.h"
+#include "renderer/camera.h"
+#include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/rotate_vector.hpp>
-#include <algorithm>
+#include <cmath>
 
 namespace Sylva {
 
-Player::Player()
-    : m_Position(0.0f, 10.0f, 0.0f)
-    , m_Velocity(0.0f)
-    , m_Yaw(0.0f) // Initialize Yaw (facing positive Z initially)
-    , m_WalkSpeed(3.0f)
-    , m_RunSpeed(6.0f)
-    , m_TurnSpeed(180.0f) // 180 degrees per second
-    , m_JumpForce(8.0f)
-    , m_Gravity(20.0f)
-    , m_IsGrounded(false)
-    , m_GroundCheckDistance(0.2f)
-    , m_Renderer(nullptr)
-    , m_Mesh(nullptr)
-    , m_Shader(nullptr)
-    , m_Color(1.0f, 1.0f, 1.0f)
-{
+Player::Player() 
+    : m_rotation(0.0f), 
+      m_position(0.0f, 0.0f, 0.0f), 
+      m_velocity(0.0f, 0.0f, 0.0f),
+      m_vao(0),
+      m_vbo(0),
+      m_shader(nullptr) {
+    // Load player parameters from config if available
+    m_params.moveSpeed = Config::getFloat("Player.move_speed", m_params.moveSpeed);
+    m_params.rotationSpeed = Config::getFloat("Player.rotation_speed", m_params.rotationSpeed);
+    m_params.collisionRadius = Config::getFloat("Player.collision_radius", m_params.collisionRadius);
+    m_params.height = Config::getFloat("Player.height", m_params.height);
+    m_params.width = Config::getFloat("Player.width", m_params.width);
+    m_params.depth = Config::getFloat("Player.depth", m_params.depth);
+    m_params.jumpHeight = Config::getFloat("Player.jump_height", m_params.jumpHeight);
+    m_params.jumpForce = Config::getFloat("Player.jump_force", m_params.jumpForce);
+    m_params.gravity = Config::getFloat("Player.gravity", m_params.gravity);
+    
+    Logger::logDebug("Player initialized at position: " + 
+                    std::to_string(m_position.x) + ", " +
+                    std::to_string(m_position.y) + ", " +
+                    std::to_string(m_position.z));
+}
+
+Player::Player(const PlayerParams& params) 
+    : m_params(params), 
+      m_rotation(0.0f), 
+      m_position(0.0f, 0.0f, 0.0f), 
+      m_velocity(0.0f, 0.0f, 0.0f),
+      m_vao(0),
+      m_vbo(0),
+      m_shader(nullptr) {
+    Logger::logDebug("Player initialized with custom parameters");
 }
 
 Player::~Player() {
-    // Resources handled by smart pointers
+    cleanupGraphics();
 }
 
-bool Player::Initialize(Renderer* renderer) {
-    if (!renderer) {
-        std::cerr << "Cannot initialize Player without a valid Renderer!" << std::endl;
+bool Player::initializeGraphics() {
+    Logger::logInfo("Initializing player graphics");
+    
+    // Create shader - use the new colored shader
+    try {
+        m_shader = new Shader("assets/shaders/colored.vert", "assets/shaders/colored.frag");
+    } catch (const std::exception& e) {
+        Logger::logError("Failed to load player shader: " + std::string(e.what()));
         return false;
     }
     
-    m_Renderer = renderer;
+    // Generate and bind VAO/VBO
+    glGenVertexArrays(1, &m_vao);
+    glGenBuffers(1, &m_vbo);
     
-    // Get resource manager from renderer
-    ResourceManager* resourceManager = m_Renderer->GetResourceManager();
-    if (!resourceManager) {
-        std::cerr << "Error: Renderer does not have a ResourceManager!" << std::endl;
-        return false;
-    }
+    // Create a simple rectangular prism for the player
+    float halfWidth = m_params.width / 2.0f;
+    float halfDepth = m_params.depth / 2.0f;
+    float height = m_params.height;
     
-    // Load shader
-    m_Shader = resourceManager->GetShader("assets/shaders/basic.vert", 
-                                        "assets/shaders/basic.frag");
-    if (!m_Shader) {
-        std::cerr << "Failed to load player shader!" << std::endl;
-        return false;
-    }
+    // Define colors for each face
+    // RGB values - the alpha will be handled in the shader
+    const float frontColor[3] = {0.0f, 1.0f, 0.0f};   // Green (front)
+    const float backColor[3] = {1.0f, 0.0f, 0.0f};    // Red (back)
+    const float leftColor[3] = {0.0f, 0.0f, 1.0f};    // Blue (left)
+    const float rightColor[3] = {1.0f, 1.0f, 0.0f};   // Yellow (right)
+    const float bottomColor[3] = {0.0f, 1.0f, 1.0f};  // Cyan (bottom)
+    const float topColor[3] = {1.0f, 0.0f, 1.0f};     // Magenta (top)
     
-    // Create a simple rectangular mesh for the player (box shape)
-    const float width = 1.0f;
-    const float height = 2.0f;
-    const float depth = 1.0f;
-    
-    // Define the 8 corners of a cube
-    glm::vec3 p0(-width/2, 0.0f, -depth/2);
-    glm::vec3 p1( width/2, 0.0f, -depth/2);
-    glm::vec3 p2( width/2, 0.0f,  depth/2);
-    glm::vec3 p3(-width/2, 0.0f,  depth/2);
-    glm::vec3 p4(-width/2, height, -depth/2);
-    glm::vec3 p5( width/2, height, -depth/2);
-    glm::vec3 p6( width/2, height,  depth/2);
-    glm::vec3 p7(-width/2, height,  depth/2);
-    
-    std::vector<float> vertices = {
-        // Positions (XYZ)           Colors (RGB)
-        // Bottom face
-        p0.x, p0.y, p0.z,           m_Color.r, m_Color.g, m_Color.b,
-        p1.x, p1.y, p1.z,           m_Color.r, m_Color.g, m_Color.b,
-        p2.x, p2.y, p2.z,           m_Color.r, m_Color.g, m_Color.b,
-        p3.x, p3.y, p3.z,           m_Color.r, m_Color.g, m_Color.b,
-        
-        // Top face
-        p4.x, p4.y, p4.z,           m_Color.r, m_Color.g, m_Color.b,
-        p5.x, p5.y, p5.z,           m_Color.r, m_Color.g, m_Color.b,
-        p6.x, p6.y, p6.z,           m_Color.r, m_Color.g, m_Color.b,
-        p7.x, p7.y, p7.z,           m_Color.r, m_Color.g, m_Color.b,
-        
-        // Front face
-        p3.x, p3.y, p3.z,           m_Color.r, m_Color.g, m_Color.b,
-        p2.x, p2.y, p2.z,           m_Color.r, m_Color.g, m_Color.b,
-        p6.x, p6.y, p6.z,           m_Color.r, m_Color.g, m_Color.b,
-        p7.x, p7.y, p7.z,           m_Color.r, m_Color.g, m_Color.b,
-        
-        // Back face
-        p0.x, p0.y, p0.z,           m_Color.r, m_Color.g, m_Color.b,
-        p4.x, p4.y, p4.z,           m_Color.r, m_Color.g, m_Color.b,
-        p5.x, p5.y, p5.z,           m_Color.r, m_Color.g, m_Color.b,
-        p1.x, p1.y, p1.z,           m_Color.r, m_Color.g, m_Color.b,
-        
-        // Left face
-        p0.x, p0.y, p0.z,           m_Color.r, m_Color.g, m_Color.b,
-        p3.x, p3.y, p3.z,           m_Color.r, m_Color.g, m_Color.b,
-        p7.x, p7.y, p7.z,           m_Color.r, m_Color.g, m_Color.b,
-        p4.x, p4.y, p4.z,           m_Color.r, m_Color.g, m_Color.b,
-        
-        // Right face
-        p1.x, p1.y, p1.z,           m_Color.r, m_Color.g, m_Color.b,
-        p5.x, p5.y, p5.z,           m_Color.r, m_Color.g, m_Color.b,
-        p6.x, p6.y, p6.z,           m_Color.r, m_Color.g, m_Color.b,
-        p2.x, p2.y, p2.z,           m_Color.r, m_Color.g, m_Color.b
+    // Vertices for a rectangular prism (12 triangles, 36 vertices with positions, colors, and tex coords)
+    float vertices[] = {
+        // Positions                // Colors              // Texture Coords
+        // Front face (Green)
+        -halfWidth, 0.0f, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  0.0f, 0.0f,
+         halfWidth, 0.0f, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  1.0f, 0.0f,
+         halfWidth, height, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  1.0f, 1.0f,
+        -halfWidth, 0.0f, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  0.0f, 0.0f,
+         halfWidth, height, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  1.0f, 1.0f,
+        -halfWidth, height, -halfDepth,  frontColor[0], frontColor[1], frontColor[2],  0.0f, 1.0f,
+
+        // Back face (Red)
+        -halfWidth, 0.0f, halfDepth,   backColor[0], backColor[1], backColor[2],  0.0f, 0.0f,
+         halfWidth, 0.0f, halfDepth,   backColor[0], backColor[1], backColor[2],  1.0f, 0.0f,
+         halfWidth, height, halfDepth,   backColor[0], backColor[1], backColor[2],  1.0f, 1.0f,
+        -halfWidth, 0.0f, halfDepth,   backColor[0], backColor[1], backColor[2],  0.0f, 0.0f,
+         halfWidth, height, halfDepth,   backColor[0], backColor[1], backColor[2],  1.0f, 1.0f,
+        -halfWidth, height, halfDepth,   backColor[0], backColor[1], backColor[2],  0.0f, 1.0f,
+
+        // Left face (Blue)
+        -halfWidth, 0.0f, -halfDepth,  leftColor[0], leftColor[1], leftColor[2],  0.0f, 0.0f,
+        -halfWidth, 0.0f, halfDepth,   leftColor[0], leftColor[1], leftColor[2],  1.0f, 0.0f,
+        -halfWidth, height, halfDepth,   leftColor[0], leftColor[1], leftColor[2],  1.0f, 1.0f,
+        -halfWidth, 0.0f, -halfDepth,  leftColor[0], leftColor[1], leftColor[2],  0.0f, 0.0f,
+        -halfWidth, height, halfDepth,   leftColor[0], leftColor[1], leftColor[2],  1.0f, 1.0f,
+        -halfWidth, height, -halfDepth,  leftColor[0], leftColor[1], leftColor[2],  0.0f, 1.0f,
+
+        // Right face (Yellow)
+        halfWidth, 0.0f, -halfDepth,   rightColor[0], rightColor[1], rightColor[2],  0.0f, 0.0f,
+        halfWidth, 0.0f, halfDepth,    rightColor[0], rightColor[1], rightColor[2],  1.0f, 0.0f,
+        halfWidth, height, halfDepth,    rightColor[0], rightColor[1], rightColor[2],  1.0f, 1.0f,
+        halfWidth, 0.0f, -halfDepth,   rightColor[0], rightColor[1], rightColor[2],  0.0f, 0.0f,
+        halfWidth, height, halfDepth,    rightColor[0], rightColor[1], rightColor[2],  1.0f, 1.0f,
+        halfWidth, height, -halfDepth,   rightColor[0], rightColor[1], rightColor[2],  0.0f, 1.0f,
+
+        // Bottom face (Cyan)
+        -halfWidth, 0.0f, -halfDepth,  bottomColor[0], bottomColor[1], bottomColor[2],  0.0f, 0.0f,
+         halfWidth, 0.0f, -halfDepth,  bottomColor[0], bottomColor[1], bottomColor[2],  1.0f, 0.0f,
+         halfWidth, 0.0f, halfDepth,   bottomColor[0], bottomColor[1], bottomColor[2],  1.0f, 1.0f,
+        -halfWidth, 0.0f, -halfDepth,  bottomColor[0], bottomColor[1], bottomColor[2],  0.0f, 0.0f,
+         halfWidth, 0.0f, halfDepth,   bottomColor[0], bottomColor[1], bottomColor[2],  1.0f, 1.0f,
+        -halfWidth, 0.0f, halfDepth,   bottomColor[0], bottomColor[1], bottomColor[2],  0.0f, 1.0f,
+
+        // Top face (Magenta)
+        -halfWidth, height, -halfDepth,  topColor[0], topColor[1], topColor[2],  0.0f, 0.0f,
+         halfWidth, height, -halfDepth,  topColor[0], topColor[1], topColor[2],  1.0f, 0.0f,
+         halfWidth, height, halfDepth,   topColor[0], topColor[1], topColor[2],  1.0f, 1.0f,
+        -halfWidth, height, -halfDepth,  topColor[0], topColor[1], topColor[2],  0.0f, 0.0f,
+         halfWidth, height, halfDepth,   topColor[0], topColor[1], topColor[2],  1.0f, 1.0f,
+        -halfWidth, height, halfDepth,   topColor[0], topColor[1], topColor[2],  0.0f, 1.0f
     };
     
-    std::vector<unsigned int> indices = {
-        // Bottom face
-        0, 1, 2,
-        2, 3, 0,
-        
-        // Top face
-        4, 7, 6,
-        6, 5, 4,
-        
-        // Front face
-        8, 9, 10,
-        10, 11, 8,
-        
-        // Back face
-        12, 13, 14,
-        14, 15, 12,
-        
-        // Left face
-        16, 17, 18,
-        18, 19, 16,
-        
-        // Right face
-        20, 21, 22,
-        22, 23, 20
-    };
+    // Bind and upload data
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     
-    // Create the mesh
-    m_Mesh = std::make_unique<Mesh>();
-    m_Mesh->SetVertexData(vertices, indices, 6, 0, -1, -1, 3);
+    // Position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
     
+    // Color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    
+    // Texture coord attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    
+    // Unbind
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    
+    Logger::logInfo("Player graphics initialized with colored faces");
     return true;
 }
 
-// New Update method with InputManager
-void Player::Update(float deltaTime, const Platform* platform, World* world, InputManager* inputManager) {
-    // Validate inputs
-    if (!platform || !world || !inputManager) {
-        return;
+void Player::cleanupGraphics() {
+    if (m_vao != 0) {
+        glDeleteVertexArrays(1, &m_vao);
+        m_vao = 0;
     }
     
-    // Handle input using the input manager
-    HandleInputWithManager(deltaTime, inputManager);
-    
-    // Apply gravity if not grounded
-    if (!m_IsGrounded) {
-        ApplyGravity(deltaTime);
-    } else {
-        // Prevent sliding down slopes when grounded but not moving vertically
-        if (m_Velocity.y < 0.0f) {
-            m_Velocity.y = 0.0f;
-        }
+    if (m_vbo != 0) {
+        glDeleteBuffers(1, &m_vbo);
+        m_vbo = 0;
     }
     
-    // Update position based on velocity
-    m_Position += m_Velocity * deltaTime;
-    
-    // Reset horizontal velocity each frame (movement is applied instantly via input)
-    // Keep vertical velocity for gravity/jumping
-    m_Velocity.x = 0.0f;
-    m_Velocity.z = 0.0f;
-    
-    // Check for ground collision
-    CheckGroundCollision(world);
-    
-    // Ensure player stays within world bounds
-    m_Position.x = std::max(World::WORLD_MIN_X + 1.0f, std::min(m_Position.x, World::WORLD_MAX_X - 1.0f));
-    m_Position.z = std::max(World::WORLD_MIN_Z + 1.0f, std::min(m_Position.z, World::WORLD_MAX_Z - 1.0f));
+    if (m_shader != nullptr) {
+        delete m_shader;
+        m_shader = nullptr;
+    }
 }
 
-void Player::HandleInput(float deltaTime, const Platform* platform) {
-    if (!platform) return;
+void Player::updateMovement(float deltaTime, const InputState& input, const VoxelWorld& world, const Camera& camera) {
+    // Get camera forward and right vectors (for camera-relative movement)
+    Vec3 forward = camera.getForward();
+    Vec3 right = camera.getRight();
     
-    glm::vec3 moveDirection(0.0f);
-    float currentSpeed = m_WalkSpeed;
+    // We only want horizontal movement, so zero out the Y component
+    forward.y = 0.0f;
+    right.y = 0.0f;
     
-    // --- Turning ---
-    if (platform->IsKeyPressed(GLFW_KEY_Q)) { // Turn left
-        m_Yaw -= m_TurnSpeed * deltaTime; 
+    // Normalize the vectors after zeroing out Y
+    if (glm::length(forward) > 0.0f) {
+        forward = glm::normalize(forward);
     }
-    if (platform->IsKeyPressed(GLFW_KEY_E)) { // Turn right
-        m_Yaw += m_TurnSpeed * deltaTime; 
-    }
-
-    // Normalize Yaw to keep it within [0, 360) degrees
-    m_Yaw = fmod(m_Yaw, 360.0f);
-    if (m_Yaw < 0.0f) m_Yaw += 360.0f;
-
-    // Convert yaw to radians for direction calculations
-    float yawRad = glm::radians(m_Yaw);
-    
-    // Calculate forward and right vectors based on player's orientation
-    glm::vec3 forward = glm::normalize(glm::vec3(sin(yawRad), 0.0f, cos(yawRad)));
-    glm::vec3 right = glm::normalize(glm::vec3(sin(yawRad + glm::radians(90.0f)), 0.0f, cos(yawRad + glm::radians(90.0f))));
-    
-    // Movement controls
-    if (platform->IsKeyPressed(GLFW_KEY_W)) {
-        moveDirection += forward; // Move forward
-    }
-    if (platform->IsKeyPressed(GLFW_KEY_S)) {
-        moveDirection -= forward; // Move backward
-    }
-    if (platform->IsKeyPressed(GLFW_KEY_A)) {
-        moveDirection -= right; // Strafe left
-    }
-    if (platform->IsKeyPressed(GLFW_KEY_D)) {
-        moveDirection += right; // Strafe right
+    if (glm::length(right) > 0.0f) {
+        right = glm::normalize(right);
     }
     
-    // --- Running ---
-    if (platform->IsKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
-        currentSpeed = m_RunSpeed;
+    // Calculate movement direction relative to camera orientation
+    Vec3 moveDirection(0.0f, 0.0f, 0.0f);
+    
+    if (input.moveForward) {
+        moveDirection += forward;
+    }
+    if (input.moveBackward) {
+        moveDirection -= forward;
+    }
+    if (input.moveLeft) {
+        moveDirection -= right;
+    }
+    if (input.moveRight) {
+        moveDirection += right;
     }
     
-    // Apply movement velocity
-    if (glm::length(moveDirection) > 0.01f) {
+    // Store original move direction for rotation
+    Vec3 originalMoveDir = moveDirection;
+    
+    // Normalize movement vector if not zero
+    if (glm::length(moveDirection) > 0.0f) {
         moveDirection = glm::normalize(moveDirection);
-        m_Velocity.x = moveDirection.x * currentSpeed;
-        m_Velocity.z = moveDirection.z * currentSpeed;
     }
     
-    // --- Jumping ---
-    if (m_IsGrounded && platform->IsKeyPressed(GLFW_KEY_SPACE)) {
-        m_Velocity.y = m_JumpForce;
-        m_IsGrounded = false;
-    }
-}
-
-void Player::HandleInputWithManager(float deltaTime, InputManager* inputManager) {
-    if (!inputManager) return;
+    // Apply movement speed
+    moveDirection *= m_params.moveSpeed * deltaTime;
     
-    glm::vec3 moveDirection(0.0f);
-    float currentSpeed = m_WalkSpeed;
+    // Update horizontal position
+    Vec3 newPosition = m_position;
+    newPosition.x += moveDirection.x;
+    newPosition.z += moveDirection.z;
     
-    // If camera is available, get its orientation for movement direction
-    Camera* camera = nullptr;
-    if (m_Renderer) {
-        camera = m_Renderer->GetActiveCamera();
+    // Handle jumping and vertical movement
+    float terrainHeight = world.getHeightAt(newPosition.x, newPosition.z);
+    
+    // Apply gravity and vertical velocity
+    if (!m_params.isGrounded) {
+        // Apply gravity to vertical velocity
+        m_velocity.y -= m_params.gravity * deltaTime;
     }
     
-    // Calculate movement vectors
-    glm::vec3 forward, right;
+    // Handle jump input
+    if (input.jump && m_params.isGrounded) {
+        // Apply jump force
+        m_velocity.y = m_params.jumpForce;
+        m_params.isGrounded = false;
+        Logger::logDebug("Player jumped");
+    }
     
-    if (camera) {
-        // Camera-relative movement (Cube World style)
-        // Get camera vectors and project them onto the XZ plane
-        forward = camera->GetFront();
-        right = camera->GetRight();
-        
-        // Project onto XZ plane by zeroing Y component and renormalizing
-        forward.y = 0.0f;
-        right.y = 0.0f;
-        
-        if (glm::length(forward) > 0.01f) forward = glm::normalize(forward);
-        if (glm::length(right) > 0.01f) right = glm::normalize(right);
+    // Update vertical position with velocity
+    newPosition.y += m_velocity.y * deltaTime;
+    
+    // Check if player is on or below ground
+    if (newPosition.y <= terrainHeight) {
+        newPosition.y = terrainHeight;
+        m_velocity.y = 0.0f;
+        m_params.isGrounded = true;
     } else {
-        // Fallback to player-relative movement if no camera
-        // Convert yaw to radians for direction calculations
-        float yawRad = glm::radians(m_Yaw);
+        m_params.isGrounded = false;
+    }
+    
+    // Check horizontal collision
+    bool collision = false;
+    if (moveDirection.x != 0.0f || moveDirection.z != 0.0f) {
+        // Create a test position that only includes horizontal movement
+        Vec3 testPosition = m_position;
+        testPosition.x = newPosition.x;
+        testPosition.z = newPosition.z;
         
-        // Calculate forward and right vectors based on player's orientation
-        forward = glm::normalize(glm::vec3(sin(yawRad), 0.0f, cos(yawRad)));
-        right = glm::normalize(glm::vec3(sin(yawRad + glm::radians(90.0f)), 0.0f, cos(yawRad + glm::radians(90.0f))));
+        // Temporarily update position for collision check
+        Vec3 oldPosition = m_position;
+        m_position = testPosition;
+        collision = checkCollision(world);
+        m_position = oldPosition;  // Restore position
     }
     
-    // WASD movement inputs (now relative to camera direction, not player orientation)
-    if (inputManager->IsActionPressed("MoveForward")) {
-        moveDirection += forward; // Move in camera's forward direction
-    }
-    if (inputManager->IsActionPressed("MoveBackward")) {
-        moveDirection -= forward; // Move opposite to camera's forward
-    }
-    if (inputManager->IsActionPressed("MoveLeft")) {
-        moveDirection -= right; // Move to camera's left
-    }
-    if (inputManager->IsActionPressed("MoveRight")) {
-        moveDirection += right; // Move to camera's right
+    // If no horizontal collision, apply movement
+    if (!collision) {
+        m_position = newPosition;
+    } else {
+        // Just update the vertical position if horizontal collision occurred
+        m_position.y = newPosition.y;
     }
     
-    // Only update player rotation for player-relative controls
-    // For camera-relative, skip this as Q/E will be used for camera yaw in future
-    if (!camera) {
-        // --- Turning (only if we're using player-relative controls) ---
-        if (inputManager->IsActionPressed("TurnLeft")) {
-            m_Yaw -= m_TurnSpeed * deltaTime;
+    // Rotate to face movement direction if moving horizontally
+    if (glm::length(originalMoveDir) > 0.0f) {
+        rotateToMovementDirection(originalMoveDir, deltaTime);
+    }
+    
+    Logger::logDebug("Player moved to: " + 
+                    std::to_string(m_position.x) + ", " +
+                    std::to_string(m_position.y) + ", " +
+                    std::to_string(m_position.z) +
+                    (m_params.isGrounded ? " (grounded)" : " (in air)"));
+}
+
+void Player::rotateToMovementDirection() {
+    // This is the old method signature, kept for compatibility
+    // The actual implementation is in the overloaded method below
+    Logger::logDebug("Player rotated to movement direction");
+}
+
+void Player::rotateToMovementDirection(const Vec3& moveDirection, float deltaTime) {
+    // Calculate the target yaw angle based on movement direction
+    if (glm::length(moveDirection) > 0.0f) {
+        // Calculate the angle in radians using atan2
+        // Add PI to make the front face (-Z in local coords) point in the movement direction
+        float targetRotation = atan2(moveDirection.x, moveDirection.z) + glm::pi<float>();
+        
+        // Smoothly interpolate to the target rotation
+        float rotationDelta = m_params.rotationSpeed * deltaTime;
+        
+        // Find the shortest path to the target angle
+        float angleDifference = targetRotation - m_rotation;
+        
+        // Normalize angle to -PI to PI
+        while (angleDifference > glm::pi<float>()) {
+            angleDifference -= 2.0f * glm::pi<float>();
         }
-        if (inputManager->IsActionPressed("TurnRight")) {
-            m_Yaw += m_TurnSpeed * deltaTime;
+        while (angleDifference < -glm::pi<float>()) {
+            angleDifference += 2.0f * glm::pi<float>();
         }
-    }
-    
-    // Normalize Yaw to keep it within [0, 360) degrees
-    m_Yaw = fmod(m_Yaw, 360.0f);
-    if (m_Yaw < 0.0f) m_Yaw += 360.0f;
-    
-    // --- Running ---
-    if (inputManager->IsActionPressed("Run")) {
-        currentSpeed = m_RunSpeed;
-    }
-    
-    // Apply movement velocity
-    if (glm::length(moveDirection) > 0.01f) {
-        moveDirection = glm::normalize(moveDirection);
         
-        // Set player velocity based on movement direction
-        m_Velocity.x = moveDirection.x * currentSpeed;
-        m_Velocity.z = moveDirection.z * currentSpeed;
+        // Apply smooth rotation with speed limit
+        if (abs(angleDifference) < rotationDelta) {
+            m_rotation = targetRotation; // Close enough, snap to target
+        } else {
+            // Move towards the target at limited speed
+            m_rotation += (angleDifference > 0.0f) ? rotationDelta : -rotationDelta;
+        }
         
-        // Update player orientation to face the direction of movement
-        m_Yaw = glm::degrees(atan2(moveDirection.x, moveDirection.z));
-    }
-    
-    // --- Jumping ---
-    if (m_IsGrounded && inputManager->IsActionPressed("Jump")) {
-        m_Velocity.y = m_JumpForce;
-        m_IsGrounded = false;
+        // Keep rotation in range [0, 2π]
+        while (m_rotation < 0.0f) {
+            m_rotation += 2.0f * glm::pi<float>();
+        }
+        while (m_rotation >= 2.0f * glm::pi<float>()) {
+            m_rotation -= 2.0f * glm::pi<float>();
+        }
+        
+        Logger::logDebug("Player rotated to " + std::to_string(m_rotation) + " radians");
     }
 }
 
-void Player::ApplyGravity(float deltaTime) {
-    m_Velocity.y -= m_Gravity * deltaTime;
-    // Optional: Clamp to terminal velocity
-    m_Velocity.y = std::max(m_Velocity.y, -30.0f);
+bool Player::checkCollision(const VoxelWorld& world) {
+    // Delegate to voxel world's collision checking
+    return world.checkCollision(*this);
 }
 
-void Player::CheckGroundCollision(World* world) {
-    if (!world) {
-        m_IsGrounded = false;
+void Player::renderPlayer(const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix) {
+    if (m_shader == nullptr || m_vao == 0) {
+        Logger::logWarning("Cannot render player, graphics not initialized");
         return;
     }
     
-    float terrainHeight = world->GetTerrainHeightAt(m_Position.x, m_Position.z);
+    // Use player shader
+    m_shader->use();
     
-    // Adjust for player height - feet are at the bottom of the model
-    float playerFeetY = m_Position.y;
+    // Set matrices
+    glm::mat4 modelMatrix = glm::mat4(1.0f);
+    modelMatrix = glm::translate(modelMatrix, glm::vec3(m_position.x, m_position.y, m_position.z));
+    modelMatrix = glm::rotate(modelMatrix, m_rotation, glm::vec3(0.0f, 1.0f, 0.0f));
     
-    if (playerFeetY <= terrainHeight + m_GroundCheckDistance && m_Velocity.y <= 0.0f) {
-        // Snap position to ground and reset vertical velocity
-        m_Position.y = terrainHeight;
-        m_Velocity.y = 0.0f;
-        m_IsGrounded = true;
-    } else {
-        m_IsGrounded = false;
+    m_shader->setMat4("model", modelMatrix);
+    m_shader->setMat4("view", viewMatrix);
+    m_shader->setMat4("projection", projectionMatrix);
+    
+    // Store current face culling state
+    GLboolean cullFace;
+    glGetBooleanv(GL_CULL_FACE, &cullFace);
+    
+    // Disable face culling for player rendering
+    glDisable(GL_CULL_FACE);
+    
+    // Draw player
+    glBindVertexArray(m_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 36); // 12 triangles, 36 vertices
+    glBindVertexArray(0);
+    
+    // Restore previous face culling state
+    if (cullFace) {
+        glEnable(GL_CULL_FACE);
     }
+    
+    Logger::logDebug("Player rendered at position: " + 
+                    std::to_string(m_position.x) + ", " +
+                    std::to_string(m_position.y) + ", " +
+                    std::to_string(m_position.z));
 }
 
-float Player::GetYaw() const {
-    return m_Yaw;
+void Player::setMoveSpeed(float speed) {
+    m_params.moveSpeed = speed;
 }
 
-void Player::SetPosition(const glm::vec3& position) {
-    m_Position = position;
-    m_Velocity = glm::vec3(0.0f); // Reset velocity on position change
-    m_IsGrounded = false; // Force recheck of ground status
+void Player::setSize(float width, float depth) {
+    m_params.width = width;
+    m_params.depth = depth;
 }
 
-void Player::Render(Camera* camera) {
-    if (!m_Mesh || !m_Shader || !camera) {
-        return;
-    }
+void Player::setColor(const Vec4& color) {
+    m_params.color = color;
+}
+
+Vec3 Player::getPosition() const {
+    return m_position;
+}
+
+float Player::getRotation() const {
+    return m_rotation;
+}
+
+float Player::getHeight() const {
+    return m_params.height;
+}
+
+void Player::setJumpHeight(float height) {
+    m_params.jumpHeight = height;
     
-    // Use the shader
-    m_Shader->Use();
+    // Recalculate jump force based on jumpHeight and gravity
+    // Using physics formula: v = sqrt(2 * g * h)
+    m_params.jumpForce = sqrt(2.0f * m_params.gravity * m_params.jumpHeight);
+}
+
+void Player::setJumpForce(float force) {
+    m_params.jumpForce = force;
     
-    // Set view and projection matrices from camera
-    m_Shader->SetMat4("view", camera->GetViewMatrix());
-    m_Shader->SetMat4("projection", camera->GetProjectionMatrix());
+    // Update jump height to match the new force
+    // Using physics formula: h = v^2 / (2 * g)
+    m_params.jumpHeight = (m_params.jumpForce * m_params.jumpForce) / (2.0f * m_params.gravity);
+}
+
+void Player::setGravity(float gravity) {
+    m_params.gravity = gravity;
     
-    // Create model matrix
-    glm::mat4 model = glm::mat4(1.0f);
-    
-    // Apply translation
-    model = glm::translate(model, m_Position);
-    
-    // Apply rotation around Y axis (now using m_Yaw in degrees)
-    model = glm::rotate(model, glm::radians(m_Yaw), glm::vec3(0.0f, 1.0f, 0.0f));
-    
-    // Set the model matrix in the shader
-    m_Shader->SetMat4("model", model);
-    
-    // Draw the mesh
-    m_Mesh->Draw();
+    // Recalculate jump force to maintain the same jump height
+    m_params.jumpForce = sqrt(2.0f * m_params.gravity * m_params.jumpHeight);
+}
+
+bool Player::isGrounded() const {
+    return m_params.isGrounded;
 }
 
 } // namespace Sylva 

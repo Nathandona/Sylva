@@ -1,30 +1,110 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <glm/glm.hpp>
 #include <string>
+#include <glm/glm.hpp>
+#include <glad/glad.h>
 
 namespace Sylva {
 
-// Simple shader class
+/**
+ * @brief Shader management class
+ * 
+ * Handles loading, compiling, and using OpenGL shaders.
+ * Allows setting uniform variables for shaders.
+ */
 class Shader {
 public:
-    Shader();
-    ~Shader();
-    
-    bool LoadFromFiles(const std::string& vertexPath, const std::string& fragmentPath);
-    void Use() const;
-    void SetBool(const std::string& name, bool value) const;
-    void SetInt(const std::string& name, int value) const;
-    void SetFloat(const std::string& name, float value) const;
-    void SetVec2(const std::string& name, const glm::vec2& value) const;
-    void SetVec3(const std::string& name, const glm::vec3& value) const;
-    void SetVec4(const std::string& name, const glm::vec4& value) const;
-    void SetMat4(const std::string& name, const glm::mat4& value) const;
-    
+    /**
+     * @brief Constructor to load and compile shaders from files
+     * @param vertexPath Path to vertex shader file
+     * @param fragmentPath Path to fragment shader file
+     */
+    Shader(const char* vertexPath, const char* fragmentPath);
+
+    /**
+     * @brief Get the program ID
+     * @return The OpenGL shader program ID
+     */
+    unsigned int getID() const { return m_ID; }
+
+    /**
+     * @brief Activate the shader program
+     */
+    void use() const;
+
+    /**
+     * @brief Set a boolean uniform variable
+     * @param name Name of the uniform variable
+     * @param value Value to set
+     */
+    void setBool(const std::string& name, bool value) const;
+
+    /**
+     * @brief Set an integer uniform variable
+     * @param name Name of the uniform variable
+     * @param value Value to set
+     */
+    void setInt(const std::string& name, int value) const;
+
+    /**
+     * @brief Set a float uniform variable
+     * @param name Name of the uniform variable
+     * @param value Value to set
+     */
+    void setFloat(const std::string& name, float value) const;
+
+    /**
+     * @brief Set a vec2 uniform variable
+     * @param name Name of the uniform variable
+     * @param value Value to set
+     */
+    void setVec2(const std::string& name, const glm::vec2& value) const;
+
+    /**
+     * @brief Set a vec3 uniform variable
+     * @param name Name of the uniform variable
+     * @param value Value to set
+     */
+    void setVec3(const std::string& name, const glm::vec3& value) const;
+
+    /**
+     * @brief Set a vec4 uniform variable
+     * @param name Name of the uniform variable
+     * @param value Value to set
+     */
+    void setVec4(const std::string& name, const glm::vec4& value) const;
+
+    /**
+     * @brief Set a mat2 uniform variable
+     * @param name Name of the uniform variable
+     * @param value Value to set
+     */
+    void setMat2(const std::string& name, const glm::mat2& value) const;
+
+    /**
+     * @brief Set a mat3 uniform variable
+     * @param name Name of the uniform variable
+     * @param value Value to set
+     */
+    void setMat3(const std::string& name, const glm::mat3& value) const;
+
+    /**
+     * @brief Set a mat4 uniform variable
+     * @param name Name of the uniform variable
+     * @param value Value to set
+     */
+    void setMat4(const std::string& name, const glm::mat4& value) const;
+
 private:
-    GLuint m_ID;
-    bool CheckCompileErrors(GLuint shader, const std::string& type);
+    /**
+     * @brief Check for compilation or linking errors
+     * @param shader The shader or program ID
+     * @param type The type of check ("VERTEX", "FRAGMENT", or "PROGRAM")
+     */
+    void checkCompileErrors(unsigned int shader, const std::string& type);
+
+    // OpenGL program ID
+    unsigned int m_ID;
 };
 
 } // namespace Sylva 

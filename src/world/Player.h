@@ -1,74 +1,165 @@
 #pragma once
 
+#include "core/types.h"
 #include <glm/glm.hpp>
-#include <memory>
-#include "../renderer/Renderer.h"
-#include "../renderer/Camera.h"
-#include "../platform/Platform.h"
-#include "../input/InputManager.h"
+
+namespace Sylva {
 
 // Forward declarations
-namespace Sylva {
-    class Renderer;
-    class Platform;
-    class Camera;
-    class World; // Forward declare World
-    class Mesh;
-    class Shader;
-    class InputManager;
-}
+class World;
+struct InputState;
+class Shader;
+class Camera;
+class VoxelWorld;
 
-namespace Sylva {
-
+/**
+ * @brief Player system
+ * 
+ * Handles player movement, collision, and rendering.
+ * Player model uses larger voxel blocks to create visual contrast with the micro-voxel environment.
+ */
 class Player {
 public:
+    /**
+     * @brief Constructor
+     */
     Player();
+
+    /**
+     * @brief Constructor with parameters
+     * @param params Player parameters to use
+     */
+    Player(const PlayerParams& params);
+    
+    /**
+     * @brief Destructor
+     */
     ~Player();
 
-    // Initialize the player with a simple rectangular mesh
-    bool Initialize(Renderer* renderer);
+    /**
+     * @brief Initialize player graphics
+     * @return true if initialization successful
+     */
+    bool initializeGraphics();
+
+    /**
+     * @brief Update player movement with VoxelWorld
+     * @param deltaTime Time since last update
+     * @param input Input state
+     * @param world VoxelWorld to check collisions against
+     * @param camera Camera to use for relative movement
+     */
+    void updateMovement(float deltaTime, const InputState& input, const VoxelWorld& world, const Camera& camera);
+
+    /**
+     * @brief Rotate to face movement direction
+     */
+    void rotateToMovementDirection();
+
+    /**
+     * @brief Rotate to face a specific movement direction
+     * @param moveDirection The movement direction to face
+     * @param deltaTime Time since last frame for smooth rotation
+     */
+    void rotateToMovementDirection(const Vec3& moveDirection, float deltaTime);
+
+    /**
+     * @brief Check collision with the voxel world
+     * @param world VoxelWorld to check collision against
+     * @return true if collision detected
+     */
+    bool checkCollision(const VoxelWorld& world);
+
+    /**
+     * @brief Render the player
+     * @param viewMatrix The view matrix from the camera
+     * @param projectionMatrix The projection matrix
+     */
+    void renderPlayer(const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix);
+
+    /**
+     * @brief Set the player's move speed
+     * @param speed The new move speed
+     */
+    void setMoveSpeed(float speed);
+
+    /**
+     * @brief Set the player's size
+     * @param width The new width
+     * @param depth The new depth
+     */
+    void setSize(float width, float depth);
+
+    /**
+     * @brief Set the player's color
+     * @param color The new color (RGBA)
+     */
+    void setColor(const Vec4& color);
+
+    /**
+     * @brief Get the player's position
+     * @return The player's position in world space
+     */
+    Vec3 getPosition() const;
+
+    /**
+     * @brief Get the player's rotation
+     * @return The player's rotation in radians
+     */
+    float getRotation() const;
+
+    /**
+     * @brief Get the player's height
+     * @return The player's height
+     */
+    float getHeight() const;
+
+    /**
+     * @brief Get the player's collision radius
+     * @return The player's collision radius
+     */
+    float getCollisionRadius() const { return m_params.collisionRadius; }
+
+    /**
+     * @brief Set the player's jump height
+     * @param height The maximum height of jumps
+     */
+    void setJumpHeight(float height);
     
-    // Update with InputManager (new method)
-    void Update(float deltaTime, const Platform* platform, World* world, InputManager* inputManager);
+    /**
+     * @brief Set the player's jump force
+     * @param force The initial vertical velocity applied when jumping
+     */
+    void setJumpForce(float force);
     
-    // Render the player
-    void Render(Camera* camera);
+    /**
+     * @brief Set the gravity strength
+     * @param gravity The gravity acceleration value
+     */
+    void setGravity(float gravity);
     
-    // Get the player's position
-    glm::vec3 GetPosition() const { return m_Position; }
-    
-    // Set the player's position
-    void SetPosition(const glm::vec3& position);
-    
-    // Get the player's yaw (horizontal rotation)
-    float GetYaw() const;
+    /**
+     * @brief Check if the player is on the ground
+     * @return True if the player is on the ground, false if in the air
+     */
+    bool isGrounded() const;
 
 private:
+    // Player parameters
+    PlayerParams m_params;
+    
     // Player state
-    glm::vec3 m_Position;        // Current position
-    glm::vec3 m_Velocity;        // Current velocity
-    float m_Yaw;                 // Rotation around Y axis (in degrees)
+    Vec3 m_position;     // Position in world space
+    float m_rotation;    // Rotation in radians
+    Vec3 m_velocity;     // Current velocity
     
-    // Physics parameters
-    float m_WalkSpeed;           // Normal movement speed
-    float m_RunSpeed;            // Running speed
-    float m_TurnSpeed;           // Speed for turning (degrees per second)
-    float m_JumpForce;           // Force applied when jumping
-    float m_Gravity;             // Downward acceleration
-    bool m_IsGrounded;           // Whether player is on ground
-    float m_GroundCheckDistance; // Distance for ground check
+    // Graphics objects
+    unsigned int m_vao;  // Vertex Array Object
+    unsigned int m_vbo;  // Vertex Buffer Object
+    Shader* m_shader;    // Player shader
     
-    // Methods for handling different aspects of player behavior
-    void HandleInput(float deltaTime, const Platform* platform);
-    void HandleInputWithManager(float deltaTime, InputManager* inputManager);
-    void ApplyGravity(float deltaTime);
-    void CheckGroundCollision(World* world);
-    
-    // Rendering resources
-    Renderer* m_Renderer;        // Pointer to renderer (not owned)
-    std::unique_ptr<Mesh> m_Mesh; // Player mesh (now using unique_ptr)
-    std::shared_ptr<Shader> m_Shader; // Player shader
-    glm::vec3 m_Color;           // Player color
+    // Cleanup graphics objects
+    void cleanupGraphics();
 };
 
 } // namespace Sylva 

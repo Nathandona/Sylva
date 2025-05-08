@@ -1,119 +1,79 @@
-# Sylva: Low-Poly Open-World RPG
+# Sylva Engine
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) <!-- Optional: Add a license badge if applicable -->
+A modular 3D game engine with a focus on clean architecture and extensibility.
 
-**Sylva** is an in-development open-world RPG inspired by the cozy aesthetics of **Pelican Harbor** and the exploration-driven gameplay of **Cube World**. It's being built from the ground up using C++ and OpenGL.
+## Core Systems Implemented
 
-![Visual Inspiration Placeholder](https://via.placeholder.com/600x300.png?text=Sylva+Visual+Inspiration+%28Low-Poly%2C+Cozy%29)
-*(Imagine a blend of Pelican Harbor's soft shading and Cube World's exploration)*
+### 1. Logger System
+- Centralized logging utility for the engine
+- Supports log levels (DEBUG, INFO, WARNING, ERROR)
+- Outputs to console and optionally to a file
+- Configurable via config file
 
-## Concept
+### 2. Config System
+- Loads engine and game settings from .ini files
+- Supports default and user-specific overrides
+- Provides access to configuration values throughout the engine
 
--   **Visuals:** Low-poly, cozy 3D art style with simple shaders and colorful OpenGL rendering.
--   **Technology:** C++17 and OpenGL 3.3+, powered by a custom lightweight engine (no Unity/Unreal).
--   **Gameplay:** Open-world RPG focusing on exploration, leveling, loot, and combat.
+### 3. Camera System
+- Third-person orbit camera that follows the player
+- Configurable parameters for distance, height, and sensitivity
+- Exposes camera vectors for gameplay and UI
 
-## MVP (Minimum Viable Product) Scope
+### 4. Player System
+- WASD world-space movement (placeholder implementation)
+- Simple white rectangle representation
+- Rotation to face movement direction
 
-The current goal is to build an MVP demonstrating the core concepts:
+### 5. World System
+- Simple terrain generation
+- Height-based rendering (placeholder)
+- Collision detection (placeholder)
 
--   **Rendering:** Basic low-poly models (terrain, characters, simple props), simple directional lighting, third-person camera.
--   **World:** Procedural, chunk-based terrain generation (smooth hills, forests).
--   **Character:** Basic player model, WASD movement, jump, simple attack.
--   **Progression:** Experience points from defeating enemies, simple leveling (health/damage increase).
--   **Enemies:** Simple AI (move towards player, attack when close).
--   **UI:** Health bar, XP bar.
--   **Sound:** Basic background music and sound effects.
+### 6. UI System
+- Screen-centered crosshair aligned with camera's forward vector
+- Extendable for additional HUD elements
 
-## Technical Stack
-
-| Component       | Choice                                  | Notes                                     |
-| :-------------- | :-------------------------------------- | :---------------------------------------- |
-| Language        | C++17                                   |                                           |
-| Graphics API    | OpenGL 3.3+ (Core Profile)              | Using GLFW for windowing/input, GLEW/GLAD |
-| Math Library    | GLM                                     | OpenGL Mathematics Library                |
-| Build System    | CMake                                   |                                           |
-| Package Manager | `vcpkg`                                 | For managing external libraries           |
-| Asset Format    | `.obj`                                  | For simple static meshes from Blender     |
-| Texture Loading | `stb_image.h`                           | Simple single-header image loader         |
-| Audio Library   | OpenAL Soft / SDL2_mixer (TBD)          | Decision pending further research         |
-| Input/Windowing | GLFW                                    | Cross-platform window and input handling  |
-
-## Getting Started
+## Building the Project
 
 ### Prerequisites
+- CMake 3.15 or higher
+- C++17 compatible compiler
+- vcpkg package manager
 
-*   C++17 compatible compiler (GCC, Clang, MSVC)
-*   CMake (version 3.15 or higher)
-*   vcpkg (for dependency management)
-*   Git
+### Dependencies
+- GLFW3 - Window management and input handling
+- GLAD - OpenGL loader
+- GLM - Mathematics library for graphics
+- tinyobjloader - Wavefront .obj file loader
 
-### Clone the Repository
+### Build Instructions
+1. Clone the repository
+2. Install dependencies using vcpkg
+   ```
+   vcpkg install glfw3 glad glm tinyobjloader
+   ```
+3. Configure with CMake
+   ```
+   cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=[path to vcpkg]/scripts/buildsystems/vcpkg.cmake
+   ```
+4. Build the project
+   ```
+   cmake --build build
+   ```
 
-```bash
-git clone https://github.com/nathandona/Sylva.git
-cd Sylva
-```
+## Configuration
 
-### Install Dependencies Using vcpkg
+The engine uses two configuration files:
+- `config/default_config.ini` - Default settings
+- `config/user_config.ini` - User-specific overrides
 
-```bash
-# If you haven't set up vcpkg yet:
-git clone https://github.com/Microsoft/vcpkg.git
-cd vcpkg
-./bootstrap-vcpkg.sh  # For Linux/macOS
-# OR
-bootstrap-vcpkg.bat   # For Windows
+## Future Improvements
 
-# Install dependencies
-./vcpkg install glfw3 glad glm
-
-# Set VCPKG_ROOT environment variable (optional but recommended)
-# For Windows (PowerShell):
-# $env:VCPKG_ROOT = "C:\path\to\vcpkg"
-# For Linux/macOS:
-# export VCPKG_ROOT=/path/to/vcpkg
-```
-
-### Configure and Build with CMake
-
-```bash
-# Configure (pointing to vcpkg toolchain file)
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=[path-to-vcpkg]/scripts/buildsystems/vcpkg.cmake
-
-# Build
-cmake --build build --config Release
-```
-
-### Run the Game
-
-```bash
-# On Windows:
-.\build\Release\Sylva.exe
-
-# On Linux/macOS:
-./build/Sylva
-```
-
-## Development Roadmap (MVP - Rough Estimate)
-
-| Week | Focus                                               | Status      |
-| :--- | :-------------------------------------------------- | :---------- |
-| 1    | OpenGL Window Setup, Render Basic Triangle          | To Do       |
-| 2    | Model Loading (.obj), Render Static Meshes          | To Do       |
-| 3    | Third-Person Camera Implementation (Mouse/Keyboard) | To Do       |
-| 4    | Basic Static Terrain System                         | To Do       |
-| 5    | Player Movement, Gravity, Simple Collision          | To Do       |
-| 6    | Basic Enemy Implementation (Simple AI)              | To Do       |
-| 7    | XP & Leveling System                                | To Do       |
-| 8    | Basic UI (Health/XP), Sound Integration, Polish     | To Do       |
-
-*(This roadmap is tentative and subject to change)*
-
-## Contributing
-
-*(Contribution guidelines will be added here later)*
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details (assuming MIT, create this file if needed).
+- Window and input handling (currently stubbed)
+- Rendering system with shaders
+- Physics integration
+- Advanced terrain generation
+- Animation system
+- Asset management
+- Audio system 

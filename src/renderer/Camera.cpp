@@ -1,110 +1,135 @@
-#include "Camera.h"
+#include "camera.h"
+#include "core/logger.h"
+#include "core/config.h"
+#include "world/player.h"
+#include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
 #include <algorithm>
-#include <iostream>
+#include <cmath>
 
 namespace Sylva {
 
-// Default camera values
-constexpr float YAW = -90.0f;
-constexpr float PITCH = 0.0f;
-constexpr float ZOOM = 60.0f;
-
-Camera::Camera(float fov, float aspectRatio, float nearClip, float farClip)
-    : m_Position(glm::vec3(0.0f, 0.0f, 3.0f))
-    , m_Front(glm::vec3(0.0f, 0.0f, -1.0f))
-    , m_Up(glm::vec3(0.0f, 1.0f, 0.0f))
-    , m_Right(glm::vec3(1.0f, 0.0f, 0.0f))
-    , m_WorldUp(glm::vec3(0.0f, 1.0f, 0.0f))
-    , m_Yaw(YAW)
-    , m_Pitch(PITCH)
-    , m_Zoom(ZOOM)
-    , m_ProjectionType(ProjectionType::Perspective)
-    , m_FOV(fov)
-    , m_AspectRatio(aspectRatio)
-    , m_NearClip(nearClip)
-    , m_FarClip(farClip)
-    , m_OrthoLeft(-1.0f)
-    , m_OrthoRight(1.0f)
-    , m_OrthoBottom(-1.0f)
-    , m_OrthoTop(1.0f)
-{
-    UpdateCameraVectors();
+Camera::Camera() : m_yaw(0.0f), m_pitch(0.0f) {
+    // Load camera parameters from config if available
+    m_params.orbitDistance = Config::getFloat("Camera.orbit_distance", m_params.orbitDistance);
+    m_params.minDistance = Config::getFloat("Camera.min_distance", m_params.minDistance);
+    m_params.maxDistance = Config::getFloat("Camera.max_distance", m_params.maxDistance);
+    m_params.targetHeight = Config::getFloat("Camera.target_height", m_params.targetHeight);
+    m_params.rotationSpeed = Config::getFloat("Camera.rotation_speed", m_params.rotationSpeed);
+    m_params.zoomSpeed = Config::getFloat("Camera.zoom_speed", m_params.zoomSpeed);
+    
+    // Initialize vectors
+    m_forward = Vec3(0.0f, 0.0f, -1.0f);
+    m_up = Vec3(0.0f, 1.0f, 0.0f);
+    m_right = Vec3(1.0f, 0.0f, 0.0f);
+    
+    // Set initial position
+    m_position = Vec3(0.0f, 5.0f, 5.0f);
+    m_target = Vec3(0.0f, 0.0f, 0.0f);
+    
+    Logger::logDebug("Camera initialized with orbit distance: " + 
+                    std::to_string(m_params.orbitDistance));
 }
 
-void Camera::SetPosition(const glm::vec3& position) {
-    m_Position = position;
+Camera::Camera(const CameraParams& params) : m_params(params), m_yaw(0.0f), m_pitch(0.0f) {
+    // Initialize vectors
+    m_forward = Vec3(0.0f, 0.0f, -1.0f);
+    m_up = Vec3(0.0f, 1.0f, 0.0f);
+    m_right = Vec3(1.0f, 0.0f, 0.0f);
+    
+    // Set initial position
+    m_position = Vec3(0.0f, 5.0f, 5.0f);
+    m_target = Vec3(0.0f, 0.0f, 0.0f);
+    
+    Logger::logDebug("Camera initialized with custom parameters");
 }
 
-void Camera::SetRotation(float pitch, float yaw) {
-    m_Pitch = pitch;
-    m_Yaw = yaw;
-    UpdateCameraVectors();
-}
-
-void Camera::SetTarget(const glm::vec3& target) {
-    // Look at a specific point
-    if (target == m_Position) {
-        // Can't look at own position
-        return;
+void Camera::updateOrbit(float deltaTime, const Player& player, const InputState& input) {
+    // Get player position
+    Vec3 playerPos = player.getPosition();
+    
+    // Update target position (player position + target height)
+    m_target = playerPos + Vec3(0.0f, m_params.targetHeight, 0.0f);
+    
+    // Get the mouse sensitivity from config if available
+    float mouseSensitivity = Config::getFloat("Input.mouse_sensitivity", 0.1f);
+    
+    // Process mouse rotation - Cube World style camera movement
+    // Scale by sensitivity and make rotation speed consistent regardless of frame rate
+    m_yaw += input.mouseDeltaX * mouseSensitivity * 0.01f;
+    m_pitch += input.mouseDeltaY * mouseSensitivity * 0.01f;
+    
+    // Clamp pitch to avoid flipping (limit to slightly less than 90 degrees up/down)
+    m_pitch = std::clamp(m_pitch, -1.5f, 1.5f); // About 85 degrees
+    
+    // Process zoom using both mouse wheel and right mouse button
+    // Mouse wheel zooming
+    m_params.orbitDistance -= input.mouseWheelDelta * m_params.zoomSpeed;
+    
+    // Right mouse button + vertical mouse movement for zooming
+    if (input.mouseRightButton) {
+        m_params.orbitDistance -= input.mouseDeltaY * m_params.zoomSpeed * 0.05f;
     }
     
-    glm::vec3 direction = glm::normalize(target - m_Position);
-    m_Pitch = glm::degrees(asin(direction.y));
-    m_Yaw = glm::degrees(atan2(direction.z, direction.x)) + 90.0f;
+    // Clamp orbit distance
+    m_params.orbitDistance = std::clamp(m_params.orbitDistance, 
+                                       m_params.minDistance, 
+                                       m_params.maxDistance);
     
-    UpdateCameraVectors();
-}
-
-void Camera::SetAspectRatio(float aspectRatio) {
-    m_AspectRatio = aspectRatio;
-}
-
-void Camera::SetProjectionType(ProjectionType type) {
-    m_ProjectionType = type;
-}
-
-void Camera::SetPerspectiveProjection(float fov, float aspectRatio, float nearClip, float farClip) {
-    m_ProjectionType = ProjectionType::Perspective;
-    m_FOV = fov;
-    m_AspectRatio = aspectRatio;
-    m_NearClip = nearClip;
-    m_FarClip = farClip;
-}
-
-void Camera::SetOrthographicProjection(float left, float right, float bottom, float top, float nearClip, float farClip) {
-    m_ProjectionType = ProjectionType::Orthographic;
-    m_OrthoLeft = left;
-    m_OrthoRight = right;
-    m_OrthoBottom = bottom;
-    m_OrthoTop = top;
-    m_NearClip = nearClip;
-    m_FarClip = farClip;
-}
-
-glm::mat4 Camera::GetViewMatrix() const {
-    return glm::lookAt(m_Position, m_Position + m_Front, m_Up);
-}
-
-glm::mat4 Camera::GetProjectionMatrix() const {
-    if (m_ProjectionType == ProjectionType::Perspective) {
-        return glm::perspective(glm::radians(m_Zoom), m_AspectRatio, m_NearClip, m_FarClip);
-    } else {
-        return glm::ortho(m_OrthoLeft, m_OrthoRight, m_OrthoBottom, m_OrthoTop, m_NearClip, m_FarClip);
-    }
-}
-
-void Camera::UpdateCameraVectors() {
-    // Calculate the new front vector
-    glm::vec3 front;
-    front.x = cos(glm::radians(m_Yaw)) * cos(glm::radians(m_Pitch));
-    front.y = sin(glm::radians(m_Pitch));
-    front.z = sin(glm::radians(m_Yaw)) * cos(glm::radians(m_Pitch));
+    // Calculate camera position based on orbit parameters (spherical coordinates)
+    float x = m_params.orbitDistance * std::sin(m_yaw) * std::cos(m_pitch);
+    float y = m_params.orbitDistance * std::sin(m_pitch);
+    float z = m_params.orbitDistance * std::cos(m_yaw) * std::cos(m_pitch);
     
-    m_Front = glm::normalize(front);
+    // Set camera position relative to target
+    m_position = m_target + Vec3(x, y, z);
     
-    // Recalculate the right and up vectors
-    m_Right = glm::normalize(glm::cross(m_Front, m_WorldUp));
-    m_Up    = glm::normalize(glm::cross(m_Right, m_Front));
+    // Update camera vectors
+    m_forward = glm::normalize(m_target - m_position);
+    m_right = glm::normalize(glm::cross(m_forward, Vec3(0.0f, 1.0f, 0.0f)));
+    m_up = glm::normalize(glm::cross(m_right, m_forward));
+    
+    // Log camera position for debugging (uncomment if needed)
+    // Logger::logDebug("Camera: yaw=" + std::to_string(m_yaw) + 
+    //                 ", pitch=" + std::to_string(m_pitch) + 
+    //                 ", distance=" + std::to_string(m_params.orbitDistance));
+}
+
+void Camera::setTargetHeight(float height) {
+    m_params.targetHeight = height;
+}
+
+void Camera::setDistance(float distance) {
+    m_params.orbitDistance = std::clamp(distance, m_params.minDistance, m_params.maxDistance);
+}
+
+void Camera::setParams(const CameraParams& params) {
+    m_params = params;
+}
+
+Vec3 Camera::getPosition() const {
+    return m_position;
+}
+
+Vec3 Camera::getForward() const {
+    return m_forward;
+}
+
+Vec3 Camera::getUp() const {
+    return m_up;
+}
+
+Vec3 Camera::getRight() const {
+    return m_right;
+}
+
+Mat4 Camera::getViewMatrix() const {
+    return glm::lookAt(m_position, m_target, Vec3(0.0f, 1.0f, 0.0f));
+}
+
+Mat4 Camera::getProjectionMatrix(float aspectRatio) const {
+    return glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 1000.0f);
 }
 
 } // namespace Sylva 

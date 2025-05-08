@@ -1,71 +1,111 @@
 #pragma once
 
+#include "core/types.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace Sylva {
 
+// Forward declarations
+class Player;
+struct InputState;
+
+/**
+ * @brief Third-person orbit camera system
+ * 
+ * A camera that orbits around the player character at a fixed distance,
+ * always looking at the player. Supports zooming in/out and rotation.
+ */
 class Camera {
 public:
-    enum class ProjectionType {
-        Perspective,
-        Orthographic
-    };
+    /**
+     * @brief Constructor
+     */
+    Camera();
 
-    Camera(float fov = 45.0f, float aspectRatio = 16.0f / 9.0f, float nearClip = 0.1f, float farClip = 100.0f);
-    ~Camera() = default;
+    /**
+     * @brief Constructor with parameters
+     * @param params Camera parameters to use
+     */
+    Camera(const CameraParams& params);
 
-    // Set camera properties
-    void SetPosition(const glm::vec3& position);
-    void SetRotation(float pitch, float yaw);
-    void SetTarget(const glm::vec3& target); // Look at a specific point
-    void SetAspectRatio(float aspectRatio);
-    void SetProjectionType(ProjectionType type);
-    void SetPerspectiveProjection(float fov, float aspectRatio, float nearClip, float farClip);
-    void SetOrthographicProjection(float left, float right, float bottom, float top, float nearClip, float farClip);
+    /**
+     * @brief Update the camera based on player position and input
+     * @param deltaTime Time since last frame
+     * @param player The player object to track
+     * @param input Current input state
+     */
+    void updateOrbit(float deltaTime, const Player& player, const InputState& input);
 
-    // Get camera properties
-    glm::vec3 GetPosition() const { return m_Position; }
-    glm::vec3 GetFront() const { return m_Front; }
-    glm::vec3 GetRight() const { return m_Right; }
-    glm::vec3 GetUp() const { return m_Up; }
-    float GetYaw() const { return m_Yaw; }
-    float GetPitch() const { return m_Pitch; }
+    /**
+     * @brief Set the target height (the height at which the camera looks at the player)
+     * @param height The new target height
+     */
+    void setTargetHeight(float height);
 
-    // Get view and projection matrices
-    glm::mat4 GetViewMatrix() const;
-    glm::mat4 GetProjectionMatrix() const;
+    /**
+     * @brief Set the distance from the camera to the player
+     * @param distance The new distance
+     */
+    void setDistance(float distance);
 
-    // Update camera vectors based on rotation
-    void UpdateCameraVectors();
+    /**
+     * @brief Set the camera parameters
+     * @param params The new parameters
+     */
+    void setParams(const CameraParams& params);
+
+    /**
+     * @brief Get the camera position
+     * @return The camera position in world space
+     */
+    Vec3 getPosition() const;
+
+    /**
+     * @brief Get the camera forward vector
+     * @return The camera forward vector (normalized)
+     */
+    Vec3 getForward() const;
+
+    /**
+     * @brief Get the camera up vector
+     * @return The camera up vector (normalized)
+     */
+    Vec3 getUp() const;
+
+    /**
+     * @brief Get the camera right vector
+     * @return The camera right vector (normalized)
+     */
+    Vec3 getRight() const;
+
+    /**
+     * @brief Get the view matrix
+     * @return The view matrix for rendering
+     */
+    Mat4 getViewMatrix() const;
+
+    /**
+     * @brief Get the projection matrix
+     * @param aspectRatio The aspect ratio (width/height)
+     * @return The projection matrix for rendering
+     */
+    Mat4 getProjectionMatrix(float aspectRatio) const;
 
 private:
-    // Camera position and orientation
-    glm::vec3 m_Position;
-    glm::vec3 m_Front;
-    glm::vec3 m_Up;
-    glm::vec3 m_Right;
-    glm::vec3 m_WorldUp;
-
-    // Euler angles (in degrees)
-    float m_Yaw;
-    float m_Pitch;
-
-    // Removed: Camera options (movement speed, mouse sensitivity)
-    float m_Zoom; // Field of view (kept for projection calculation)
-
-    // Projection settings
-    ProjectionType m_ProjectionType;
-    float m_FOV;
-    float m_AspectRatio;
-    float m_NearClip;
-    float m_FarClip;
-
-    // For orthographic projection
-    float m_OrthoLeft;
-    float m_OrthoRight;
-    float m_OrthoBottom;
-    float m_OrthoTop;
+    // Camera parameters
+    CameraParams m_params;
+    
+    // Camera state
+    Vec3 m_position;     // Position in world space
+    Vec3 m_target;       // Look-at target
+    float m_yaw;         // Horizontal rotation in radians
+    float m_pitch;       // Vertical rotation in radians
+    
+    // Camera vectors
+    Vec3 m_forward;      // Forward vector
+    Vec3 m_up;           // Up vector
+    Vec3 m_right;        // Right vector
 };
 
 } // namespace Sylva 

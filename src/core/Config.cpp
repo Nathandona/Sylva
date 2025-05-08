@@ -1,58 +1,228 @@
-#include "Config.h"
-#include "Logger.h"
-#include <filesystem>
+#include "config.h"
+#include "logger.h"
+#include <fstream>
+#include <sstream>
+#include <algorithm>
 
-// Most functionality is implemented as templates in the header,
-// this file provides additional utility functions
+namespace Sylva {
 
-// Initialize default configuration
-void InitializeConfig(int argc, char* argv[]) {
-    Config& config = CONFIG;
-    
-    // Try to load config file from default location
-    std::string configPath = "config.ini";
-    
-    // Check if there's a command-line override for config file
-    for (int i = 1; i < argc - 1; i++) {
-        std::string arg = argv[i];
-        if (arg == "--config" || arg == "-c") {
-            configPath = argv[i + 1];
-            break;
-        }
+Config::Config() {
+    // Initialize config system
+}
+
+Config& Config::getInstance() {
+    static Config instance;
+    return instance;
+}
+
+bool Config::load(const std::string& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        Logger::logError("Failed to open config file: " + path);
+        return false;
     }
     
-    // Load configuration from file if it exists
-    if (std::filesystem::exists(configPath)) {
-        if (config.LoadFromFile(configPath)) {
-            std::cout << "Loaded configuration from: " << configPath << std::endl;
-        } else {
-            std::cerr << "Failed to load configuration from: " << configPath << std::endl;
-        }
-    } else {
-        // Create a default configuration file
-        config.SaveToFile(configPath);
-        std::cout << "Created default configuration file: " << configPath << std::endl;
-    }
+    Logger::logInfo("Loading configuration from: " + path);
     
-    // Process command line arguments to override config
-    for (int i = 1; i < argc; i++) {
-        std::string arg = argv[i];
+    std::string line;
+    std::string currentSection;
+    
+    while (std::getline(file, line)) {
+        // Trim whitespace
+        line.erase(0, line.find_first_not_of(" \t"));
+        line.erase(line.find_last_not_of(" \t") + 1);
         
-        // Skip the config file argument which we already processed
-        if ((arg == "--config" || arg == "-c") && i < argc - 1) {
-            i++; // Skip the next argument (config path)
+        // Skip empty lines and comments
+        if (line.empty() || line[0] == ';' || line[0] == '#') {
             continue;
         }
         
-        // Check for key=value pairs
-        size_t equalsPos = arg.find('=');
-        if (equalsPos != std::string::npos && equalsPos > 0) {
-            std::string key = arg.substr(0, equalsPos);
-            std::string value = arg.substr(equalsPos + 1);
+        // Section header
+        if (line[0] == '[' && line.back() == ']') {
+            currentSection = line.substr(1, line.size() - 2);
+            continue;
+        }
+        
+        // Key-value pairs
+        size_t delimiterPos = line.find('=');
+        if (delimiterPos != std::string::npos) {
+            std::string key = line.substr(0, delimiterPos);
+            std::string value = line.substr(delimiterPos + 1);
             
-            // Store in the string settings map
-            config.Set<std::string>(key, value);
-            std::cout << "Set configuration " << key << " = " << value << " from command line" << std::endl;
+            // Trim key and value
+            key.erase(0, key.find_first_not_of(" \t"));
+            key.erase(key.find_last_not_of(" \t") + 1);
+            value.erase(0, value.find_first_not_of(" \t"));
+            value.erase(value.find_last_not_of(" \t") + 1);
+            
+            // Remove quotes from value if present
+            if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
+                value = value.substr(1, value.size() - 2);
+            }
+            
+            // Store with section prefix
+            std::string fullKey = currentSection.empty() ? key : currentSection + "." + key;
+            
+            // Try to determine the type
+            if (value == "true" || value == "false") {
+                // Boolean value
+                bool boolValue = (value == "true");
+                getInstance().m_values[fullKey] = boolValue;
+                Logger::logDebug("Config: " + fullKey + " = " + (boolValue ? "true" : "false"));
+            } else if (value.find('.') != std::string::npos) {
+                // Likely float value
+                try {
+                    float floatValue = std::stof(value);
+                    getInstance().m_values[fullKey] = floatValue;
+                    Logger::logDebug("Config: " + fullKey + " = " + std::to_string(floatValue));
+                } catch (...) {
+                    // If conversion fails, store as string
+                    getInstance().m_values[fullKey] = value;
+                    Logger::logDebug("Config: " + fullKey + " = " + value);
+                }
+            } else {
+                // Try to parse as integer
+                try {
+                    int intValue = std::stoi(value);
+                    getInstance().m_values[fullKey] = intValue;
+                    Logger::logDebug("Config: " + fullKey + " = " + std::to_string(intValue));
+                } catch (...) {
+                    // If conversion fails, store as string
+                    getInstance().m_values[fullKey] = value;
+                    Logger::logDebug("Config: " + fullKey + " = " + value);
+                }
+            }
         }
     }
-} 
+    
+    Logger::logInfo("Configuration file loaded: " + path);
+    return true;
+}
+
+std::string Config::getString(const std::string& key, const std::string& defaultValue) {
+    std::lock_guard<std::mutex> lock(getInstance().m_mutex);
+    
+    auto it = getInstance().m_values.find(key);
+    if (it != getInstance().m_values.end()) {
+        if (std::holds_alternative<std::string>(it->second)) {
+            return std::get<std::string>(it->second);
+        }
+        
+        // Try to convert other types to string
+        try {
+            if (std::holds_alternative<int>(it->second)) {
+                return std::to_string(std::get<int>(it->second));
+            } else if (std::holds_alternative<float>(it->second)) {
+                return std::to_string(std::get<float>(it->second));
+            } else if (std::holds_alternative<bool>(it->second)) {
+                return std::get<bool>(it->second) ? "true" : "false";
+            }
+        } catch (...) {
+            Logger::logWarning("Failed to convert config value to string: " + key);
+        }
+    }
+    
+    return defaultValue;
+}
+
+int Config::getInt(const std::string& key, int defaultValue) {
+    std::lock_guard<std::mutex> lock(getInstance().m_mutex);
+    
+    auto it = getInstance().m_values.find(key);
+    if (it != getInstance().m_values.end()) {
+        if (std::holds_alternative<int>(it->second)) {
+            return std::get<int>(it->second);
+        }
+        
+        // Try to convert other types to int
+        try {
+            if (std::holds_alternative<std::string>(it->second)) {
+                return std::stoi(std::get<std::string>(it->second));
+            } else if (std::holds_alternative<float>(it->second)) {
+                return static_cast<int>(std::get<float>(it->second));
+            } else if (std::holds_alternative<bool>(it->second)) {
+                return std::get<bool>(it->second) ? 1 : 0;
+            }
+        } catch (...) {
+            Logger::logWarning("Failed to convert config value to int: " + key);
+        }
+    }
+    
+    return defaultValue;
+}
+
+float Config::getFloat(const std::string& key, float defaultValue) {
+    std::lock_guard<std::mutex> lock(getInstance().m_mutex);
+    
+    auto it = getInstance().m_values.find(key);
+    if (it != getInstance().m_values.end()) {
+        if (std::holds_alternative<float>(it->second)) {
+            return std::get<float>(it->second);
+        }
+        
+        // Try to convert other types to float
+        try {
+            if (std::holds_alternative<std::string>(it->second)) {
+                return std::stof(std::get<std::string>(it->second));
+            } else if (std::holds_alternative<int>(it->second)) {
+                return static_cast<float>(std::get<int>(it->second));
+            } else if (std::holds_alternative<bool>(it->second)) {
+                return std::get<bool>(it->second) ? 1.0f : 0.0f;
+            }
+        } catch (...) {
+            Logger::logWarning("Failed to convert config value to float: " + key);
+        }
+    }
+    
+    return defaultValue;
+}
+
+bool Config::getBool(const std::string& key, bool defaultValue) {
+    std::lock_guard<std::mutex> lock(getInstance().m_mutex);
+    
+    auto it = getInstance().m_values.find(key);
+    if (it != getInstance().m_values.end()) {
+        if (std::holds_alternative<bool>(it->second)) {
+            return std::get<bool>(it->second);
+        }
+        
+        // Try to convert other types to bool
+        try {
+            if (std::holds_alternative<std::string>(it->second)) {
+                std::string value = std::get<std::string>(it->second);
+                std::transform(value.begin(), value.end(), value.begin(), ::tolower);
+                return value == "true" || value == "1" || value == "yes";
+            } else if (std::holds_alternative<int>(it->second)) {
+                return std::get<int>(it->second) != 0;
+            } else if (std::holds_alternative<float>(it->second)) {
+                return std::get<float>(it->second) != 0.0f;
+            }
+        } catch (...) {
+            Logger::logWarning("Failed to convert config value to bool: " + key);
+        }
+    }
+    
+    return defaultValue;
+}
+
+template<typename T>
+void Config::set(const std::string& key, const T& value) {
+    std::lock_guard<std::mutex> lock(getInstance().m_mutex);
+    getInstance().m_values[key] = value;
+}
+
+// Explicit template instantiations
+template void Config::set<std::string>(const std::string& key, const std::string& value);
+template void Config::set<int>(const std::string& key, const int& value);
+template void Config::set<float>(const std::string& key, const float& value);
+template void Config::set<bool>(const std::string& key, const bool& value);
+
+std::pair<std::string, std::string> Config::parseKey(const std::string& key) {
+    size_t dotPos = key.find('.');
+    if (dotPos != std::string::npos) {
+        return {key.substr(0, dotPos), key.substr(dotPos + 1)};
+    }
+    return {"", key};
+}
+
+} // namespace Sylva 
