@@ -159,6 +159,9 @@ private:
      */
     void cleanupGraphics();
     
+    // Added private static helper for AO calculation
+    static float calculateVertexAO(const Chunk* chunk, int vpX, int vpY, int vpZ, const Chunk* surroundingChunks[6]);
+    
     // The position of this chunk in chunk coordinates
     glm::ivec3 m_position;
     

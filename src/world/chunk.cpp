@@ -46,63 +46,9 @@ const float FACE_NORMALS[6][3] = {
     { 0.0f,  0.0f, -1.0f}  // -Z face
 };
 
-// (Helper function to be placed preferably in an accessible scope or as a static member if appropriate)
-// For simplicity here, we define it before its first use or assume it's declared in the header if it were a member.
-// This simple version calculates AO based on 8 neighbors of a vertex point.
-float calculateVertexAO(const Chunk* chunk, int vpX, int vpY, int vpZ, const Chunk* surroundingChunks[6]) {
-    int solidNeighbors = 0;
-    int totalChecks = 0; // Should be 8
-
-    // Check the 8 voxels that meet at the vertex point (vpX, vpY, vpZ)
-    // These are voxels whose corner *is* this vertex point.
-    // Example: vertex (5,5,5) is a corner for voxels (4,4,4) through (5,5,5) in local chunk coords
-    for (int dz_offset = -1; dz_offset <= 0; ++dz_offset) {
-        for (int dy_offset = -1; dy_offset <= 0; ++dy_offset) {
-            for (int dx_offset = -1; dx_offset <= 0; ++dx_offset) {
-                int neighborX = vpX + dx_offset;
-                int neighborY = vpY + dy_offset;
-                int neighborZ = vpZ + dz_offset;
-                BlockType neighborBlockType = BlockType::AIR;
-
-                if (chunk->isInBounds(neighborX, neighborY, neighborZ)) {
-                    neighborBlockType = chunk->getBlock(neighborX, neighborY, neighborZ);
-                } else {
-                    // Vertex is at the edge of the chunk, need to check surrounding chunks
-                    glm::ivec3 worldVoxelPos = chunk->getPosition() * CHUNK_SIZE + glm::ivec3(neighborX, neighborY, neighborZ);
-                    
-                    // Determine which neighbor chunk to check based on out-of-bounds coordinates
-                    // This logic is simplified and might need refinement for all corner/edge cases
-                    if (neighborX < 0 && surroundingChunks[1]) { // -X neighbor
-                        neighborBlockType = surroundingChunks[1]->getBlock(CHUNK_SIZE + neighborX, neighborY, neighborZ);
-                    } else if (neighborX >= CHUNK_SIZE && surroundingChunks[0]) { // +X neighbor
-                        neighborBlockType = surroundingChunks[0]->getBlock(neighborX - CHUNK_SIZE, neighborY, neighborZ);
-                    } else if (neighborY < 0 && surroundingChunks[3]) { // -Y neighbor
-                         neighborBlockType = surroundingChunks[3]->getBlock(neighborX, CHUNK_SIZE + neighborY, neighborZ);
-                    } else if (neighborY >= CHUNK_SIZE && surroundingChunks[2]) { // +Y neighbor
-                        neighborBlockType = surroundingChunks[2]->getBlock(neighborX, neighborY - CHUNK_SIZE, neighborZ);
-                    } else if (neighborZ < 0 && surroundingChunks[5]) { // -Z neighbor
-                        neighborBlockType = surroundingChunks[5]->getBlock(neighborX, neighborY, CHUNK_SIZE + neighborZ);
-                    } else if (neighborZ >= CHUNK_SIZE && surroundingChunks[4]) { // +Z neighbor
-                        neighborBlockType = surroundingChunks[4]->getBlock(neighborX, neighborY, neighborZ - CHUNK_SIZE);
-                    }
-                    // Diagonal/corner out-of-bounds checks are more complex and omitted for brevity here
-                    // A more robust solution would convert to world coordinates and check the appropriate neighbor.
-                }
-                
-                if (neighborBlockType != BlockType::AIR && BlockData::isSolid(neighborBlockType)) {
-                    solidNeighbors++;
-                }
-                totalChecks++;
-            }
-        }
-    }
-    // If totalChecks is not 8, it means some neighbors were outside the current chunk AND no corresponding surrounding chunk was provided/checked properly.
-    // This can happen at world edges or if neighbor chunks aren't loaded.
-    // A simple approach: if we couldn't check all 8, assume less occlusion.
-    // A more robust approach would ensure all 8 are checked using surroundingChunks.
-
-    return 1.0f - (static_cast<float>(solidNeighbors) / 8.0f); // Normalize by 8 potential occluders
-}
+// The calculateVertexAO function is now a static member of Chunk.
+// Its definition will be moved below, within the Chunk class scope if not already picked up by the tool.
+// For now, assuming the tool will handle moving the definition if it sees the declaration in the header.
 
 Chunk::Chunk(const glm::ivec3& position)
     : m_position(position),
@@ -162,6 +108,123 @@ void Chunk::setBlock(int x, int y, int z, BlockType type) {
             }
         }
     }
+}
+
+// Definition of the static method
+float Chunk::calculateVertexAO(const Chunk* chunk, int vpX, int vpY, int vpZ, const Chunk* surroundingChunks[6]) {
+    int solidNeighbors = 0;
+    // int totalChecks = 0; // Not strictly needed if we assume 8 checks unless bounded
+
+    for (int dz_offset = -1; dz_offset <= 0; ++dz_offset) {
+        for (int dy_offset = -1; dy_offset <= 0; ++dy_offset) {
+            for (int dx_offset = -1; dx_offset <= 0; ++dx_offset) {
+                int neighborX = vpX + dx_offset;
+                int neighborY = vpY + dy_offset;
+                int neighborZ = vpZ + dz_offset;
+                BlockType neighborBlockType = BlockType::AIR;
+
+                // Determine which chunk to check based on voxel coordinates relative to current chunk origin (vpX,vpY,vpZ)
+                // The 'chunk' parameter to calculateVertexAO is the chunk *owning the vertex* for which AO is being calculated.
+                // However, the voxels contributing to AO can be in this chunk or neighbors.
+                // The logic needs to correctly determine if (neighborX, neighborY, neighborZ) falls into 'chunk' or one of 'surroundingChunks'.
+
+                const Chunk* queryChunk = chunk; // Start by assuming the voxel is in the current chunk.
+                int queryX = neighborX;
+                int queryY = neighborY;
+                int queryZ = neighborZ;
+
+                if (neighborX < 0) {
+                    queryChunk = surroundingChunks[1]; // -X neighbor
+                    if(queryChunk) queryX = CHUNK_SIZE + neighborX;
+                } else if (neighborX >= CHUNK_SIZE) {
+                    queryChunk = surroundingChunks[0]; // +X neighbor
+                    if(queryChunk) queryX = neighborX - CHUNK_SIZE;
+                }
+                // After potential X adjustment, check Y
+                if (neighborY < 0) {
+                    // If already shifted to a neighbor by X, use that neighbor's context for Y check
+                    // This is tricky. Simplest is to re-evaluate based on original relative position from vertex.
+                    // For now, let original surroundingChunks logic handle this by passing the original chunk the vertex belongs to.
+                    // The original free function passed `chunk` which was the chunk being meshed.
+                    // The vertex (vpX,vpY,vpZ) is on the boundary of that chunk.
+                    // So, if vpX is 0, then neighborX = -1 IS in the -X chunk.
+
+                    // Re-evaluating logic for clarity:
+                    // (neighborX, neighborY, neighborZ) are local to the *chunk being meshed*.
+                    // If they go out of bounds, we use surroundingChunks.
+
+                    queryChunk = chunk; // Reset to current chunk for this check stream
+                    queryX = neighborX; queryY = neighborY; queryZ = neighborZ; // Reset local coords too
+
+                    if (neighborX < 0) { if (surroundingChunks[1]) { queryChunk = surroundingChunks[1]; queryX = CHUNK_SIZE + neighborX; } else { queryChunk = nullptr; } }
+                    else if (neighborX >= CHUNK_SIZE) { if (surroundingChunks[0]) { queryChunk = surroundingChunks[0]; queryX = neighborX - CHUNK_SIZE; } else { queryChunk = nullptr; } }
+                    // Now check Y based on potentially updated queryChunk and queryX
+                    if (queryChunk && neighborY < 0) { if (surroundingChunks[3]) { queryChunk = surroundingChunks[3]; queryY = CHUNK_SIZE + neighborY; /* queryX might need to be re-relativized if original queryChunk changed */ } else { queryChunk = nullptr; } }
+                    else if (queryChunk && neighborY >= CHUNK_SIZE) { if (surroundingChunks[2]) { queryChunk = surroundingChunks[2]; queryY = neighborY - CHUNK_SIZE; } else { queryChunk = nullptr; } }
+                    // And Z
+                    if (queryChunk && neighborZ < 0) { if (surroundingChunks[5]) { queryChunk = surroundingChunks[5]; queryZ = CHUNK_SIZE + neighborZ; } else { queryChunk = nullptr; } }
+                    else if (queryChunk && neighborZ >= CHUNK_SIZE) { if (surroundingChunks[4]) { queryChunk = surroundingChunks[4]; queryZ = neighborZ - CHUNK_SIZE; } else { queryChunk = nullptr; } }
+                    
+                    // Fallback to simpler direct indexing if not out of bounds for initial chunk
+                    if (chunk->isInBounds(neighborX, neighborY, neighborZ)) {
+                         queryChunk = chunk;
+                         queryX = neighborX; queryY = neighborY; queryZ = neighborZ;
+                    }
+
+                } else if (chunk->isInBounds(neighborX, neighborY, neighborZ)) {
+                    // voxel is within the current chunk, no need to change queryChunk
+                } else { // Out of bounds, determine which neighbor
+                    // This logic is complex for corners where it could be in one of 3 neighbors.
+                    // The original free function had a simplified version. Let's try to make it more robust.
+                    glm::ivec3 localVoxelPos(neighborX, neighborY, neighborZ);
+                    glm::ivec3 targetChunkOffset(0,0,0);
+                    
+                    if(localVoxelPos.x < 0) targetChunkOffset.x = -1; else if (localVoxelPos.x >= CHUNK_SIZE) targetChunkOffset.x = 1;
+                    if(localVoxelPos.y < 0) targetChunkOffset.y = -1; else if (localVoxelPos.y >= CHUNK_SIZE) targetChunkOffset.y = 1;
+                    if(localVoxelPos.z < 0) targetChunkOffset.z = -1; else if (localVoxelPos.z >= CHUNK_SIZE) targetChunkOffset.z = 1;
+
+                    queryChunk = nullptr; // Assume no chunk found unless we identify one
+                    // This needs a mapping from offset to surroundingChunks index or direct use of VoxelWorld::getChunk
+                    // The surroundingChunks array is indexed: +X [0], -X [1], +Y [2], -Y [3], +Z [4], -Z [5]
+                    if(targetChunkOffset.x == 1 && surroundingChunks[0]) { queryChunk = surroundingChunks[0]; queryX = localVoxelPos.x - CHUNK_SIZE; }
+                    else if(targetChunkOffset.x == -1 && surroundingChunks[1]) { queryChunk = surroundingChunks[1]; queryX = localVoxelPos.x + CHUNK_SIZE; }
+                    // ... and so on for Y and Z, and combinations for corners. This is getting too complex for a simple port.
+                    // The original code was simpler and probably had issues at chunk corners/edges for AO.
+                    // For now, stick to the original free function's level of complexity for neighbor checking.
+                    
+                    // Reverting to simpler neighbor check from original free function for AO calculation:
+                    queryChunk = chunk; // The chunk the vertex *belongs* to.
+                    queryX = neighborX; queryY = neighborY; queryZ = neighborZ;
+
+                    bool isInCurrentChunk = chunk->isInBounds(queryX, queryY, queryZ);
+                    if (isInCurrentChunk) {
+                        neighborBlockType = queryChunk->getBlock(queryX, queryY, queryZ);
+                    } else { // Voxel for AO is outside the current chunk. Check neighbors.
+                        if (queryX < 0 && surroundingChunks[1]) { neighborBlockType = surroundingChunks[1]->getBlock(CHUNK_SIZE + queryX, queryY, queryZ); }
+                        else if (queryX >= CHUNK_SIZE && surroundingChunks[0]) { neighborBlockType = surroundingChunks[0]->getBlock(queryX - CHUNK_SIZE, queryY, queryZ); }
+                        else if (queryY < 0 && surroundingChunks[3]) { neighborBlockType = surroundingChunks[3]->getBlock(queryX, CHUNK_SIZE + queryY, queryZ); }
+                        else if (queryY >= CHUNK_SIZE && surroundingChunks[2]) { neighborBlockType = surroundingChunks[2]->getBlock(queryX, queryY - CHUNK_SIZE, queryZ); }
+                        else if (queryZ < 0 && surroundingChunks[5]) { neighborBlockType = surroundingChunks[5]->getBlock(queryX, queryY, CHUNK_SIZE + queryZ); }
+                        else if (queryZ >= CHUNK_SIZE && surroundingChunks[4]) { neighborBlockType = surroundingChunks[4]->getBlock(queryX, queryY, queryZ - CHUNK_SIZE); }
+                        // This simplified check doesn't handle voxels that are diagonal to the current chunk for AO.
+                        // e.g. if vpX=0, vpY=0, then neighborX=-1, neighborY=-1 needs to check the chunk at (-1,-1,0) relative.
+                        // The surroundingChunks only gives direct face neighbors.
+                        // True corner AO needs access to more neighbors or a VoxelWorld reference.
+                        // For now, this will produce AO artifacts at chunk edges/corners.
+                    }
+                }
+
+                if (queryChunk && queryChunk->isInBounds(queryX, queryY, queryZ)) {
+                     neighborBlockType = queryChunk->getBlock(queryX, queryY, queryZ);
+                } // else: it remains AIR if no valid chunk/coords found.
+
+                if (neighborBlockType != BlockType::AIR && BlockData::isSolid(neighborBlockType)) {
+                    solidNeighbors++;
+                }
+            }
+        }
+    }
+    return 1.0f - (static_cast<float>(solidNeighbors) / 8.0f);
 }
 
 void Chunk::generateMesh(const Chunk* surroundingChunks[6]) {

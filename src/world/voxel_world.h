@@ -2,6 +2,7 @@
 
 #include "chunk.h"
 #include "core/types.h"
+#include "world/terrain_generator.h"
 #include <unordered_map>
 #include <memory>
 #include <glm/glm.hpp>
@@ -142,18 +143,6 @@ private:
     Chunk* createChunk(const glm::ivec3& chunkPos);
     
     /**
-     * @brief Generate terrain for a chunk
-     * @param chunk The chunk to generate terrain for
-     */
-    void generateTerrain(Chunk* chunk);
-    
-    /**
-     * @brief Generate trees and other features
-     * @param chunk The chunk to add features to
-     */
-    void generateFeatures(Chunk* chunk);
-    
-    /**
      * @brief Update chunk meshes around a position
      * @param centerPos Center position for mesh updates
      */
@@ -183,6 +172,8 @@ private:
     mutable bool m_collisionDebugEnabled = false;
     unsigned int m_debugVAO = 0;
     unsigned int m_debugVBO = 0;
+    
+    std::unique_ptr<TerrainGenerator> m_terrainGenerator;
 };
 
 } // namespace Sylva 
