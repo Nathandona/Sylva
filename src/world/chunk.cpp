@@ -4,7 +4,6 @@
 #include "renderer/shader.h"
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
-#include <cstddef> // Required for offsetof
 
 namespace Sylva {
 
@@ -233,80 +232,98 @@ void Chunk::generateMesh(const Chunk* surroundingChunks[6]) {
         return; // Skip if the mesh is up to date
     }
     
+    // Clean up old mesh if it exists
     cleanupGraphics();
     
+    // Skip empty chunks (just set as not modified)
     if (m_isEmpty) {
         m_isModified = false;
         return;
     }
     
-    std::vector<ChunkVertex> vertices; // Changed from std::vector<float>
+    // Prepare vertex and index buffers
+    std::vector<float> vertices;
     std::vector<unsigned int> indices;
     
-    vertices.reserve(CHUNK_VOLUME * 4); // Approximation: 4 vertices per visible block face on average
-    indices.reserve(CHUNK_VOLUME * 6);  // Approximation: 6 indices per visible block face on average
-
-    for (int y = 0; y < CHUNK_SIZE; ++y) {
-        for (int z = 0; z < CHUNK_SIZE; ++z) {
-            for (int x = 0; x < CHUNK_SIZE; ++x) {
-                BlockType blockType = m_blocks[localPosToIndex(x, y, z)];
+    // Reserve some space to avoid frequent reallocations
+    vertices.reserve(CHUNK_VOLUME * 24); // Worst case: all blocks visible, 4 vertices per face, 6 faces
+    indices.reserve(CHUNK_VOLUME * 36);  // Worst case: all blocks visible, 6 indices per face, 6 faces
+    
+    // For each block in the chunk
+    for (int y = 0; y < CHUNK_SIZE; y++) {
+        for (int z = 0; z < CHUNK_SIZE; z++) {
+            for (int x = 0; x < CHUNK_SIZE; x++) {
+                BlockType blockType = getBlock(x, y, z);
+                
+                // Skip air blocks
                 if (blockType == BlockType::AIR) {
                     continue;
                 }
                 
-                // Check all 6 faces of the block
-                for (int i = 0; i < 6; ++i) {
-                    if (shouldRenderFace(x, y, z, i, surroundingChunks)) {
-                        addFaceToMesh(vertices, indices, x, y, z, i, blockType, surroundingChunks);
+                // Check each face
+                for (int face = 0; face < 6; face++) {
+                    if (shouldRenderFace(x, y, z, face, surroundingChunks)) {
+                        // Pass surroundingChunks to addFaceToMesh
+                        addFaceToMesh(vertices, indices, x, y, z, face, blockType, surroundingChunks);
                     }
                 }
             }
         }
     }
     
-    if (vertices.empty() || indices.empty()) {
+    // If no faces to render, mark as not modified and return
+    if (indices.empty()) {
         m_isModified = false;
-        m_hasMesh = false; // No mesh if no vertices
         return;
     }
     
+    // Create OpenGL objects
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
     glGenBuffers(1, &m_ebo);
     
+    // Bind and upload data
     glBindVertexArray(m_vao);
     
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(ChunkVertex), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
     
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
     
-    // Vertex Attributes
-    // Position (local in chunk)
-    glVertexAttribPointer(0, 3, GL_SHORT, GL_FALSE, sizeof(ChunkVertex), (void*)offsetof(ChunkVertex, posX));
+    // Position attribute (3 floats)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    // Color
-    glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ChunkVertex), (void*)offsetof(ChunkVertex, colorR));
+    
+    // Color attribute (3 floats)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    // Texture Coordinates (UVs)
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(ChunkVertex), (void*)offsetof(ChunkVertex, u));
+    
+    // Texture coordinates attribute (2 floats)
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
-    // Normal
-    glVertexAttribPointer(3, 3, GL_BYTE, GL_TRUE, sizeof(ChunkVertex), (void*)offsetof(ChunkVertex, normalX));
+    
+    // Normal attribute (3 floats) - new
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)(8 * sizeof(float)));
     glEnableVertexAttribArray(3);
-    // Ambient Occlusion
-    glVertexAttribPointer(4, 1, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ChunkVertex), (void*)offsetof(ChunkVertex, ao));
+    
+    // AO attribute (1 float) - new
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)(11 * sizeof(float)));
     glEnableVertexAttribArray(4);
     
-    glBindVertexArray(0); // Unbind VAO
+    // Unbind
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
     
+    // Store index count for rendering
     m_indexCount = static_cast<unsigned int>(indices.size());
+    
+    // Mark as up to date
     m_isModified = false;
     m_hasMesh = true;
-    Logger::logDebug("Chunk mesh generated for (" + std::to_string(m_position.x) + ", " +
-                     std::to_string(m_position.y) + ", " + std::to_string(m_position.z) + ") with " +
-                     std::to_string(vertices.size()) + " vertices and " + std::to_string(indices.size()) + " indices.");
+    
+    Logger::logDebug("Chunk mesh generated with " + std::to_string(vertices.size() / 12) + 
+                    " vertices and " + std::to_string(m_indexCount) + " indices");
 }
 
 void Chunk::render(Shader* shader, const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix) {
@@ -426,56 +443,90 @@ bool Chunk::shouldRenderFace(int x, int y, int z, int direction, const Chunk* su
     return true;
 }
 
-void Chunk::addFaceToMesh(std::vector<ChunkVertex>& vertices, std::vector<unsigned int>& indices, 
+void Chunk::addFaceToMesh(std::vector<float>& vertices, std::vector<unsigned int>& indices, 
                          int x, int y, int z, int direction, BlockType blockType,
                          const Chunk* surroundingChunks[6]) {
-    unsigned int baseIndex = static_cast<unsigned int>(vertices.size());
+    // Base index for the new vertices
+    unsigned int baseIndex = static_cast<unsigned int>(vertices.size() / 12); // 12 floats per vertex
 
-    glm::vec3 normal_float(FACE_NORMALS[direction][0], FACE_NORMALS[direction][1], FACE_NORMALS[direction][2]);
+    // Get face normal
+    glm::vec3 normal(FACE_NORMALS[direction][0], FACE_NORMALS[direction][1], FACE_NORMALS[direction][2]);
 
+    // Add 4 vertices for this face
     for (int i = 0; i < 4; ++i) {
-        ChunkVertex vertex;
-
         // Vertex position relative to block origin (0,0,0)
-        float vx_block_rel = FACE_VERTICES[direction][i * 3 + 0];
-        float vy_block_rel = FACE_VERTICES[direction][i * 3 + 1];
-        float vz_block_rel = FACE_VERTICES[direction][i * 3 + 2];
+        float vx_rel = FACE_VERTICES[direction][i * 3 + 0];
+        float vy_rel = FACE_VERTICES[direction][i * 3 + 1];
+        float vz_rel = FACE_VERTICES[direction][i * 3 + 2];
 
-        // Absolute local vertex position within the chunk (integer grid coordinates for AO)
-        int vx_local_ao = x + static_cast<int>(std::round(vx_block_rel));
-        int vy_local_ao = y + static_cast<int>(std::round(vy_block_rel));
-        int vz_local_ao = z + static_cast<int>(std::round(vz_block_rel));
+        // Absolute vertex position within the chunk (local voxel coordinates for the vertex itself)
+        // Example: for a block at (x,y,z), a vertex of its +X face could be at (x+1, y, z)
+        int vx_local = x + static_cast<int>(vx_rel); // Potential issue if vx_rel is not exactly 0 or 1
+        int vy_local = y + static_cast<int>(vy_rel);
+        int vz_local = z + static_cast<int>(vz_rel);
+        
+        // For robust vertex coordinate, consider the face direction.
+        // A vertex is shared by 3 faces. Its coordinates are integer points in the grid.
+        // E.g., for +X face of block (x,y,z), vertices are (x+1,y,z), (x+1,y+1,z), (x+1,y+1,z+1), (x+1,y,z+1)
+        // We need the exact integer grid point for this vertex.
 
-        // Vertex position (local in chunk, for rendering)
-        vertex.posX = static_cast<int16_t>(x + vx_block_rel);
-        vertex.posY = static_cast<int16_t>(y + vy_block_rel);
-        vertex.posZ = static_cast<int16_t>(z + vz_block_rel);
+        // Corrected local vertex coordinates (integer grid points)
+        // These are the coordinates of the corner point this vertex represents.
+        int corner_vx = x + (normal.x > 0 ? 1 : (vx_rel > 0.5f ? 1 : 0));
+        if (normal.x < 0) corner_vx = x + (vx_rel > 0.5f ? 1 : 0); // For -X face, vertices are at x or x+1 plane. FACE_VERTICES already define them at x=0 plane.
 
-        // Vertex color
-        glm::ivec3 world_vertex_pos_ao = m_position * CHUNK_SIZE + glm::ivec3(vx_local_ao, vy_local_ao, vz_local_ao);
-        glm::vec3 color_float = BlockData::getBlockColor(blockType, world_vertex_pos_ao.x, world_vertex_pos_ao.y, world_vertex_pos_ao.z);
-        vertex.colorR = static_cast<uint8_t>(color_float.r * 255.0f);
-        vertex.colorG = static_cast<uint8_t>(color_float.g * 255.0f);
-        vertex.colorB = static_cast<uint8_t>(color_float.b * 255.0f);
+        int corner_vy = y + (normal.y > 0 ? 1 : (vy_rel > 0.5f ? 1 : 0));
+        if (normal.y < 0) corner_vy = y + (vy_rel > 0.5f ? 1 : 0);
+
+        int corner_vz = z + (normal.z > 0 ? 1 : (vz_rel > 0.5f ? 1 : 0));
+        if (normal.z < 0) corner_vz = z + (vz_rel > 0.5f ? 1 : 0);
+
+
+        // More direct way to get corner_v* from FACE_VERTICES which are 0 or 1
+        // For the k-th vertex of the face of block (x,y,z)
+        int actual_corner_vx = x + static_cast<int>(FACE_VERTICES[direction][i*3+0] + (FACE_NORMALS[direction][0] < 0 ? 1.0f : 0.0f) );
+        // This is not quite right either. FACE_VERTICES define unit cube.
+        // Vertices of a face are at corners of the block x,y,z.
+        // Example for +X face: (x+1,y,z), (x+1,y+1,z), (x+1,y+1,z+1), (x+1,y,z+1)
+
+        // Let's define the four corner points for the current vertex i of the face:
+        // The FACE_VERTICES are defined for a unit cube at origin.
+        // If block is at (x,y,z), its actual vertex positions are (x + fv.x, y + fv.y, z + fv.z)
+        // These are the vertex positions that should be used for AO and color variation.
+        vx_local = x + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 0]));
+        vy_local = y + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 1]));
+        vz_local = z + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 2]));
+
+
+        // Vertex position (floats, for rendering)
+        vertices.push_back(x + FACE_VERTICES[direction][i * 3 + 0]); // Relative to chunk origin
+        vertices.push_back(y + FACE_VERTICES[direction][i * 3 + 1]);
+        vertices.push_back(z + FACE_VERTICES[direction][i * 3 + 2]);
+
+        // Vertex color (with per-vertex hue variation)
+        // Calculate world integer coordinates for this vertex
+        glm::ivec3 world_vertex_pos = m_position * CHUNK_SIZE + glm::ivec3(vx_local, vy_local, vz_local);
+        glm::vec3 color = BlockData::getBlockColor(blockType, world_vertex_pos.x, world_vertex_pos.y, world_vertex_pos.z);
+        vertices.push_back(color.r);
+        vertices.push_back(color.g);
+        vertices.push_back(color.b);
 
         // Texture coordinates
-        vertex.u = FACE_UVS[i * 2 + 0];
-        vertex.v = FACE_UVS[i * 2 + 1];
+        vertices.push_back(FACE_UVS[i * 2 + 0]);
+        vertices.push_back(FACE_UVS[i * 2 + 1]);
 
         // Normal
-        vertex.normalX = static_cast<int8_t>(normal_float.x * 127.0f); // Assuming normal components are -1, 0, or 1
-        vertex.normalY = static_cast<int8_t>(normal_float.y * 127.0f);
-        vertex.normalZ = static_cast<int8_t>(normal_float.z * 127.0f);
+        vertices.push_back(normal.x);
+        vertices.push_back(normal.y);
+        vertices.push_back(normal.z);
         
-        // Ambient Occlusion factor
-        float aoFactor_float = calculateVertexAO(this, vx_local_ao, vy_local_ao, vz_local_ao, surroundingChunks);
-        vertex.ao = static_cast<uint8_t>(aoFactor_float * 255.0f);
-        
-        // Padding is default initialized by ChunkVertex constructor
-
-        vertices.push_back(vertex);
+        // Ambient Occlusion factor (per-vertex)
+        // Call improved calculateVertexAO with surrounding chunks
+        float aoFactor = calculateVertexAO(this, vx_local, vy_local, vz_local, surroundingChunks);
+        vertices.push_back(aoFactor);
     }
 
+    // Add indices for the face
     for (int i = 0; i < 6; i++) {
         indices.push_back(baseIndex + FACE_INDICES[i]);
     }

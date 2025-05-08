@@ -11,25 +11,6 @@ namespace Sylva {
 class Shader;
 
 /**
- * @brief Vertex structure for chunk meshes.
- * Optimized for size.
- */
-struct ChunkVertex {
-    int16_t posX, posY, posZ;      // Local position (0-CHUNK_SIZE)
-    uint8_t colorR, colorG, colorB; // Color (0-255)
-    int8_t  normalX, normalY, normalZ; // Normal (-1, 0, 1, can be mapped to int8 range)
-    uint8_t ao;                     // Ambient Occlusion (0-255)
-    float   u, v;                   // Texture Coordinates (0.0-1.0)
-    uint8_t padding[3];             // Padding to make struct size a multiple of 4 (24 bytes total)
-
-    ChunkVertex() : posX(0), posY(0), posZ(0),
-                    colorR(0), colorG(0), colorB(0),
-                    normalX(0), normalY(0), normalZ(0),
-                    ao(0), u(0.0f), v(0.0f),
-                    padding{0,0,0} {}
-};
-
-/**
  * @brief Size constants for chunks
  */
 constexpr int CHUNK_SIZE = 32;      // Size of a chunk in blocks (32x32x32) - increased for micro-voxel density
@@ -169,7 +150,7 @@ private:
      * @param blockType The type of block
      * @param surroundingChunks Pointers to the 6 neighboring chunks
      */
-    void addFaceToMesh(std::vector<ChunkVertex>& vertices, std::vector<unsigned int>& indices, 
+    void addFaceToMesh(std::vector<float>& vertices, std::vector<unsigned int>& indices, 
                         int x, int y, int z, int direction, BlockType blockType,
                         const Chunk* surroundingChunks[6]);
     
