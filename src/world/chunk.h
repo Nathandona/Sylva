@@ -162,6 +162,36 @@ private:
     // Added private static helper for AO calculation
     static float calculateVertexAO(const Chunk* chunk, int vpX, int vpY, int vpZ, const Chunk* surroundingChunks[6]);
     
+    /**
+     * @brief Initialize OpenGL buffers for mesh data
+     * @param vertices The vertex data to upload
+     * @param indices The index data to upload
+     */
+    void initializeMeshBuffers(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
+
+    /**
+     * @brief Generate vertex data for the chunk mesh
+     * @param vertices Output vector for vertex data
+     * @param indices Output vector for index data
+     * @param surroundingChunks Array of pointers to surrounding chunks
+     */
+    void generateVertexData(std::vector<float>& vertices, std::vector<unsigned int>& indices, const Chunk* surroundingChunks[6]);
+
+    /**
+     * @brief Generate index data for the chunk mesh
+     * @param indices Output vector for index data
+     * @param baseVertex The base vertex index to start from
+     * @param vertexCount The number of vertices in the face
+     */
+    void generateIndexData(std::vector<unsigned int>& indices, unsigned int baseVertex, unsigned int vertexCount);
+
+    /**
+     * @brief Upload mesh data to GPU
+     * @param vertices The vertex data to upload
+     * @param indices The index data to upload
+     */
+    void uploadMeshToGPU(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
+    
     // The position of this chunk in chunk coordinates
     glm::ivec3 m_position;
     
@@ -178,6 +208,44 @@ private:
     bool m_isEmpty;     // True if the chunk contains only air blocks
     bool m_isModified;  // True if the chunk has been modified since last mesh generation
     bool m_hasMesh;     // True if the chunk has a generated mesh
+
+    /**
+     * @brief Calculate vertex positions for a face
+     * @param x Block X coordinate
+     * @param y Block Y coordinate
+     * @param z Block Z coordinate
+     * @param direction Face direction
+     * @param i Vertex index (0-3)
+     * @return The vertex position
+     */
+    glm::vec3 calculateVertexPositions(int x, int y, int z, int direction, int i) const;
+
+    /**
+     * @brief Calculate vertex colors with per-vertex variation
+     * @param blockType The type of block
+     * @param vx_local Local X coordinate of vertex
+     * @param vy_local Local Y coordinate of vertex
+     * @param vz_local Local Z coordinate of vertex
+     * @return The vertex color
+     */
+    glm::vec3 calculateVertexColors(BlockType blockType, int vx_local, int vy_local, int vz_local) const;
+
+    /**
+     * @brief Get normal vector for a face
+     * @param direction Face direction
+     * @return The normal vector
+     */
+    glm::vec3 calculateVertexNormals(int direction) const;
+
+    /**
+     * @brief Calculate ambient occlusion for a vertex
+     * @param vx_local Local X coordinate of vertex
+     * @param vy_local Local Y coordinate of vertex
+     * @param vz_local Local Z coordinate of vertex
+     * @param surroundingChunks Array of pointers to surrounding chunks
+     * @return The AO factor (0-1)
+     */
+    float calculateVertexAO(int vx_local, int vy_local, int vz_local, const Chunk* surroundingChunks[6]) const;
 };
 
 } // namespace Sylva 
