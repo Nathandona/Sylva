@@ -93,6 +93,28 @@ public:
     Mat4 getProjectionMatrix(float aspectRatio) const;
 
 private:
+    /**
+     * @brief Update camera rotation based on mouse input
+     * @param input Current input state
+     */
+    void updateRotation(const InputState& input);
+
+    /**
+     * @brief Update camera zoom based on mouse input
+     * @param input Current input state
+     */
+    void updateZoom(const InputState& input);
+
+    /**
+     * @brief Update camera position based on orbit parameters
+     */
+    void updatePosition();
+
+    /**
+     * @brief Update camera orientation vectors
+     */
+    void updateVectors();
+
     // Camera parameters
     CameraParams m_params;
     

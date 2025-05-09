@@ -45,13 +45,7 @@ Camera::Camera(const CameraParams& params) : m_params(params), m_yaw(0.0f), m_pi
     Logger::logDebug("Camera initialized with custom parameters");
 }
 
-void Camera::updateOrbit(float deltaTime, const Player& player, const InputState& input) {
-    // Get player position
-    Vec3 playerPos = player.getPosition();
-    
-    // Update target position (player position + target height)
-    m_target = playerPos + Vec3(0.0f, m_params.targetHeight, 0.0f);
-    
+void Camera::updateRotation(const InputState& input) {
     // Get the mouse sensitivity from config if available
     float mouseSensitivity = Config::getFloat("Input.mouse_sensitivity", 0.1f);
     
@@ -62,7 +56,9 @@ void Camera::updateOrbit(float deltaTime, const Player& player, const InputState
     
     // Clamp pitch to avoid flipping (limit to slightly less than 90 degrees up/down)
     m_pitch = std::clamp(m_pitch, -1.5f, 1.5f); // About 85 degrees
-    
+}
+
+void Camera::updateZoom(const InputState& input) {
     // Process zoom using both mouse wheel and right mouse button
     // Mouse wheel zooming
     m_params.orbitDistance -= input.mouseWheelDelta * m_params.zoomSpeed;
@@ -76,7 +72,9 @@ void Camera::updateOrbit(float deltaTime, const Player& player, const InputState
     m_params.orbitDistance = std::clamp(m_params.orbitDistance, 
                                        m_params.minDistance, 
                                        m_params.maxDistance);
-    
+}
+
+void Camera::updatePosition() {
     // Calculate camera position based on orbit parameters (spherical coordinates)
     float x = m_params.orbitDistance * std::sin(m_yaw) * std::cos(m_pitch);
     float y = m_params.orbitDistance * std::sin(m_pitch);
@@ -84,16 +82,25 @@ void Camera::updateOrbit(float deltaTime, const Player& player, const InputState
     
     // Set camera position relative to target
     m_position = m_target + Vec3(x, y, z);
-    
+}
+
+void Camera::updateVectors() {
     // Update camera vectors
     m_forward = glm::normalize(m_target - m_position);
     m_right = glm::normalize(glm::cross(m_forward, Vec3(0.0f, 1.0f, 0.0f)));
     m_up = glm::normalize(glm::cross(m_right, m_forward));
+}
+
+void Camera::updateOrbit(float deltaTime, const Player& player, const InputState& input) {
+    // Get player position and update target
+    Vec3 playerPos = player.getPosition();
+    m_target = playerPos + Vec3(0.0f, m_params.targetHeight, 0.0f);
     
-    // Log camera position for debugging (uncomment if needed)
-    // Logger::logDebug("Camera: yaw=" + std::to_string(m_yaw) + 
-    //                 ", pitch=" + std::to_string(m_pitch) + 
-    //                 ", distance=" + std::to_string(m_params.orbitDistance));
+    // Update camera components
+    updateRotation(input);
+    updateZoom(input);
+    updatePosition();
+    updateVectors();
 }
 
 void Camera::setTargetHeight(float height) {
