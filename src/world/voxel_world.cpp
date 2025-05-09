@@ -91,6 +91,38 @@ bool VoxelWorld::createShader() {
     }
 }
 
+void VoxelWorld::initializeWorldChunks(const glm::ivec3& centerPos) {
+    for (int y = -1; y <= 7; y++) {
+        for (int z = -m_worldSizeInChunks; z <= m_worldSizeInChunks; z++) {
+            for (int x = -m_worldSizeInChunks; x <= m_worldSizeInChunks; x++) {
+                glm::ivec3 chunkPos = centerPos + glm::ivec3(x, y, z);
+                Chunk* chunk = getChunk(chunkPos);
+                if (chunk == nullptr) {
+                    chunk = createChunk(chunkPos);
+                    generateChunkTerrain(chunk);
+                    generateChunkFeatures(chunk);
+                }
+            }
+        }
+    }
+}
+
+void VoxelWorld::generateChunkTerrain(Chunk* chunk) {
+    if (chunk == nullptr) {
+        Logger::logWarning("Attempted to generate terrain for null chunk");
+        return;
+    }
+    m_terrainGenerator->generateTerrain(chunk);
+}
+
+void VoxelWorld::generateChunkFeatures(Chunk* chunk) {
+    if (chunk == nullptr) {
+        Logger::logWarning("Attempted to generate features for null chunk");
+        return;
+    }
+    m_terrainGenerator->generateFeatures(chunk);
+}
+
 void VoxelWorld::generateWorld(const glm::vec3& playerPosition) {
     Logger::logInfo("Generating micro-voxel world around player position (" + 
                    std::to_string(playerPosition.x) + ", " +
@@ -99,46 +131,52 @@ void VoxelWorld::generateWorld(const glm::vec3& playerPosition) {
     
     glm::ivec3 centerChunkPos = Chunk::worldToChunkPos(playerPosition);
     
+    initializeWorldChunks(centerChunkPos);
+    updateChunkMeshes(centerChunkPos);
+    
+    Logger::logInfo("Micro-voxel world generation complete");
+}
+
+bool VoxelWorld::updateChunkVisibility(const glm::ivec3& chunkPos, const glm::ivec3& playerChunkPos) const {
+    glm::ivec3 diff = chunkPos - playerChunkPos;
+    float distance = sqrt(diff.x * diff.x + diff.z * diff.z);
+    return distance <= m_viewDistanceInChunks;
+}
+
+bool VoxelWorld::updatePlayerChunkPosition(const glm::ivec3& playerChunkPos, glm::ivec3& lastPlayerChunkPos) const {
+    if (playerChunkPos != lastPlayerChunkPos) {
+        lastPlayerChunkPos = playerChunkPos;
+        return true;
+    }
+    return false;
+}
+
+void VoxelWorld::updateChunkLoading(const glm::ivec3& playerChunkPos) {
     for (int y = -1; y <= 7; y++) {
-        for (int z = -m_worldSizeInChunks; z <= m_worldSizeInChunks; z++) {
-            for (int x = -m_worldSizeInChunks; x <= m_worldSizeInChunks; x++) {
-                glm::ivec3 chunkPos = centerChunkPos + glm::ivec3(x, y, z);
-                Chunk* chunk = getChunk(chunkPos);
-                if (chunk == nullptr) {
-                    chunk = createChunk(chunkPos);
-                    m_terrainGenerator->generateTerrain(chunk);
-                    m_terrainGenerator->generateFeatures(chunk);
+        for (int z = -m_viewDistanceInChunks; z <= m_viewDistanceInChunks; z++) {
+            for (int x = -m_viewDistanceInChunks; x <= m_viewDistanceInChunks; x++) {
+                glm::ivec3 chunkPos = playerChunkPos + glm::ivec3(x, y, z);
+                
+                if (updateChunkVisibility(chunkPos, playerChunkPos)) {
+                    Chunk* chunk = getChunk(chunkPos);
+                    if (chunk == nullptr) {
+                        chunk = createChunk(chunkPos);
+                        generateChunkTerrain(chunk);
+                        generateChunkFeatures(chunk);
+                    }
                 }
             }
         }
     }
-    updateChunkMeshes(centerChunkPos);
-    Logger::logInfo("Micro-voxel world generation complete");
+    updateChunkMeshes(playerChunkPos);
 }
 
 void VoxelWorld::update(float deltaTime, const glm::vec3& playerPosition) {
     glm::ivec3 playerChunkPos = Chunk::worldToChunkPos(playerPosition);
     static glm::ivec3 lastPlayerChunkPos(-999999, -999999, -999999);
     
-    if (playerChunkPos != lastPlayerChunkPos) {
-        for (int y = -1; y <= 7; y++) {
-            for (int z = -m_viewDistanceInChunks; z <= m_viewDistanceInChunks; z++) {
-                for (int x = -m_viewDistanceInChunks; x <= m_viewDistanceInChunks; x++) {
-                    glm::ivec3 chunkPos = playerChunkPos + glm::ivec3(x, y, z);
-                    float distance = sqrt(x*x + z*z); // Simple distance check
-                    if (distance <= m_viewDistanceInChunks) {
-                        Chunk* chunk = getChunk(chunkPos);
-                        if (chunk == nullptr) {
-                            chunk = createChunk(chunkPos);
-                            m_terrainGenerator->generateTerrain(chunk);
-                            m_terrainGenerator->generateFeatures(chunk);
-                        }
-                    }
-                }
-            }
-        }
-        updateChunkMeshes(playerChunkPos);
-        lastPlayerChunkPos = playerChunkPos;
+    if (updatePlayerChunkPosition(playerChunkPos, lastPlayerChunkPos)) {
+        updateChunkLoading(playerChunkPos);
     }
 }
 

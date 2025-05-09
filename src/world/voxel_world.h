@@ -127,6 +127,46 @@ public:
      */
     void renderCollisionDebug(const Camera& camera, const Player& player);
     
+    /**
+     * @brief Initialize chunks around a center position
+     * @param centerPos The center position in chunk coordinates
+     */
+    void initializeWorldChunks(const glm::ivec3& centerPos);
+
+    /**
+     * @brief Generate terrain for a specific chunk
+     * @param chunk The chunk to generate terrain for
+     */
+    void generateChunkTerrain(Chunk* chunk);
+
+    /**
+     * @brief Generate features for a specific chunk
+     * @param chunk The chunk to generate features for
+     */
+    void generateChunkFeatures(Chunk* chunk);
+
+    /**
+     * @brief Update chunk loading based on player position
+     * @param playerChunkPos The player's current chunk position
+     */
+    void updateChunkLoading(const glm::ivec3& playerChunkPos);
+
+    /**
+     * @brief Update chunk visibility based on view distance
+     * @param chunkPos The chunk position to check
+     * @param playerChunkPos The player's current chunk position
+     * @return True if the chunk should be visible
+     */
+    bool updateChunkVisibility(const glm::ivec3& chunkPos, const glm::ivec3& playerChunkPos) const;
+
+    /**
+     * @brief Update player chunk position tracking
+     * @param playerChunkPos The player's current chunk position
+     * @param lastPlayerChunkPos Reference to the last known player chunk position
+     * @return True if the player has moved to a new chunk
+     */
+    bool updatePlayerChunkPosition(const glm::ivec3& playerChunkPos, glm::ivec3& lastPlayerChunkPos) const;
+
 private:
     /**
      * @brief Get a chunk at the specified position
