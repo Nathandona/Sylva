@@ -82,7 +82,7 @@ bool Player::initializeGraphics() {
 //     }
 // }
 
-void Player::updateMovement(float deltaTime, const InputState& input, const VoxelWorld& world, const Camera& camera) {
+Vec3 Player::handlePlayerInput(const InputState& input, const Camera& camera) {
     // Get camera forward and right vectors (for camera-relative movement)
     Vec3 forward = camera.getForward();
     Vec3 right = camera.getRight();
@@ -115,37 +115,29 @@ void Player::updateMovement(float deltaTime, const InputState& input, const Voxe
         moveDirection += right;
     }
     
-    // Store original move direction for rotation
-    Vec3 originalMoveDir = moveDirection;
-    
     // Normalize movement vector if not zero
     if (glm::length(moveDirection) > 0.0f) {
         moveDirection = glm::normalize(moveDirection);
     }
     
-    // Apply movement speed
-    moveDirection *= m_params.moveSpeed * deltaTime;
+    return moveDirection;
+}
+
+Vec3 Player::updatePosition(float deltaTime, const Vec3& moveDirection, const VoxelWorld& world) {
+    // Apply movement speed to horizontal movement
+    Vec3 scaledMove = moveDirection * m_params.moveSpeed * deltaTime;
     
-    // Update horizontal position
+    // Calculate new position
     Vec3 newPosition = m_position;
-    newPosition.x += moveDirection.x;
-    newPosition.z += moveDirection.z;
+    newPosition.x += scaledMove.x;
+    newPosition.z += scaledMove.z;
     
-    // Handle jumping and vertical movement
+    // Handle vertical movement
     float terrainHeight = world.getHeightAt(newPosition.x, newPosition.z);
     
-    // Apply gravity and vertical velocity
+    // Apply gravity when not grounded
     if (!m_params.isGrounded) {
-        // Apply gravity to vertical velocity
         m_velocity.y -= m_params.gravity * deltaTime;
-    }
-    
-    // Handle jump input
-    if (input.jump && m_params.isGrounded) {
-        // Apply jump force
-        m_velocity.y = m_params.jumpForce;
-        m_params.isGrounded = false;
-        Logger::logDebug("Player jumped");
     }
     
     // Update vertical position with velocity
@@ -160,9 +152,12 @@ void Player::updateMovement(float deltaTime, const InputState& input, const Voxe
         m_params.isGrounded = false;
     }
     
-    // Check horizontal collision
-    bool collision = false;
-    if (moveDirection.x != 0.0f || moveDirection.z != 0.0f) {
+    return newPosition;
+}
+
+bool Player::handleCollisions(const Vec3& newPosition, const VoxelWorld& world) {
+    // Only check horizontal collision if there's horizontal movement
+    if (newPosition.x != m_position.x || newPosition.z != m_position.z) {
         // Create a test position that only includes horizontal movement
         Vec3 testPosition = m_position;
         testPosition.x = newPosition.x;
@@ -171,28 +166,55 @@ void Player::updateMovement(float deltaTime, const InputState& input, const Voxe
         // Temporarily update position for collision check
         Vec3 oldPosition = m_position;
         m_position = testPosition;
-        collision = checkCollision(world);
+        bool collision = checkCollision(world);
         m_position = oldPosition;  // Restore position
+        
+        return collision;
     }
     
-    // If no horizontal collision, apply movement
-    if (!collision) {
-        m_position = newPosition;
-    } else {
-        // Just update the vertical position if horizontal collision occurred
-        m_position.y = newPosition.y;
+    return false;
+}
+
+void Player::updateAnimation(float deltaTime, const Vec3& moveDirection) {
+    // Update player rotation to face movement direction
+    if (glm::length(moveDirection) > 0.0f) {
+        rotateToMovementDirection(moveDirection, deltaTime);
     }
     
-    // Rotate to face movement direction if moving horizontally
-    if (glm::length(originalMoveDir) > 0.0f) {
-        rotateToMovementDirection(originalMoveDir, deltaTime);
-    }
-    
+    // Log movement for debugging
     Logger::logDebug("Player moved to: " + 
                     std::to_string(m_position.x) + ", " +
                     std::to_string(m_position.y) + ", " +
                     std::to_string(m_position.z) +
                     (m_params.isGrounded ? " (grounded)" : " (in air)"));
+}
+
+void Player::updateMovement(float deltaTime, const InputState& input, const VoxelWorld& world, const Camera& camera) {
+    // Process input and get movement direction
+    Vec3 moveDirection = handlePlayerInput(input, camera);
+    
+    // Handle jumping
+    if (input.jump && m_params.isGrounded) {
+        m_velocity.y = m_params.jumpForce;
+        m_params.isGrounded = false;
+        Logger::logDebug("Player jumped");
+    }
+    
+    // Calculate new position based on movement and physics
+    Vec3 newPosition = updatePosition(deltaTime, moveDirection, world);
+    
+    // Check for collisions
+    bool collision = handleCollisions(newPosition, world);
+    
+    // Apply movement if no collision, or just vertical movement if collision
+    if (!collision) {
+        m_position = newPosition;
+    } else {
+        m_position.y = newPosition.y;
+    }
+    
+    // Update animation state
+    updateAnimation(deltaTime, moveDirection);
 }
 
 void Player::rotateToMovementDirection() {

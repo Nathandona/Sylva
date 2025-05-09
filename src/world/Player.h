@@ -146,6 +146,38 @@ public:
     bool isGrounded() const;
 
 private:
+    /**
+     * @brief Process player input and calculate movement direction
+     * @param input Current input state
+     * @param camera Camera for relative movement calculation
+     * @return Normalized movement direction vector
+     */
+    Vec3 handlePlayerInput(const InputState& input, const Camera& camera);
+
+    /**
+     * @brief Update player position based on movement and physics
+     * @param deltaTime Time since last frame
+     * @param moveDirection Desired movement direction
+     * @param world VoxelWorld for terrain height and collision
+     * @return New position after movement
+     */
+    Vec3 updatePosition(float deltaTime, const Vec3& moveDirection, const VoxelWorld& world);
+
+    /**
+     * @brief Handle player collisions with the world
+     * @param newPosition Desired new position
+     * @param world VoxelWorld to check collisions against
+     * @return True if collision detected, false otherwise
+     */
+    bool handleCollisions(const Vec3& newPosition, const VoxelWorld& world);
+
+    /**
+     * @brief Update player animation state
+     * @param deltaTime Time since last frame
+     * @param moveDirection Current movement direction
+     */
+    void updateAnimation(float deltaTime, const Vec3& moveDirection);
+
     // Player parameters
     PlayerParams m_params;
     
