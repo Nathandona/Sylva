@@ -122,4 +122,10 @@ Thumbs.db
 # *.fbx
 # *.blend 
 
+# Cursor rules
 .cursor/rules/
+	
+# Project files
+Plan.md
+refactor.md
+character_design.md
