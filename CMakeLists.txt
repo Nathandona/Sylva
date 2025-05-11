@@ -13,6 +13,7 @@ find_package(glad REQUIRED)
 find_package(glm REQUIRED)
 find_package(tinyobjloader REQUIRED)
 find_package(OpenAL REQUIRED)
+find_package(EnTT REQUIRED)
 
 # Source files
 file(GLOB_RECURSE SOURCES 
@@ -29,6 +30,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glm::glm
     tinyobjloader::tinyobjloader
     OpenAL::OpenAL
+    EnTT::EnTT
 )
 
 # Copy assets to the build directory

@@ -6,6 +6,7 @@
     "glad",
     "glm",
     "tinyobjloader",
-    "openal-soft"
+    "openal-soft",
+    "entt"
   ]
 } 
