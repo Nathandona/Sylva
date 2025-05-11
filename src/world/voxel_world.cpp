@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
-#include "world/terrain_generator.h"
+#include "generation/terrain_generator.h"
 #include "voxel_world_generation.h"
 #include "voxel_world_rendering.h"
 #include "voxel_world_physics.h"

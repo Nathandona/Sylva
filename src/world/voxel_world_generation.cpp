@@ -1,7 +1,7 @@
 #include "voxel_world_generation.h"
 #include "voxel_world.h"
 #include "core/logger.h"
-#include "world/terrain_generator.h"
+#include "generation/terrain_generator.h"
 #include <glm/gtc/noise.hpp>
 #include <string>
 

@@ -2,8 +2,11 @@
 
 #include "core/types.h"
 #include "world/chunk/chunk.h"
+#include "biome_generator.h"
+#include "feature_generator.h"
 #include <glm/glm.hpp>
 #include <random> // For std::mt19937
+#include <memory>
 
 namespace Sylva {
 
@@ -55,15 +58,6 @@ private:
     float generateBaseHeight(float worldX, float worldZ, std::mt19937& rng) const;
 
     /**
-     * @brief Generate biome data for a given world position
-     * @param worldX X coordinate in world space
-     * @param worldZ Z coordinate in world space
-     * @param rng Random number generator for noise
-     * @return Pair of humidity and temperature values
-     */
-    std::pair<float, float> generateBiomeData(float worldX, float worldZ, std::mt19937& rng) const;
-
-    /**
      * @brief Apply terrain features to modify base height
      * @param baseHeight Initial height value
      * @param worldX X coordinate in world space
@@ -74,57 +68,29 @@ private:
     float applyTerrainFeatures(float baseHeight, float worldX, float worldZ, std::mt19937& rng) const;
 
     /**
-     * @brief Apply environmental effects based on biome data
-     * @param chunk Target chunk
-     * @param x_local Local X coordinate in chunk
-     * @param z_local Local Z coordinate in chunk
-     * @param height Terrain height
-     * @param humidity Biome humidity value
-     * @param temperature Biome temperature value
+     * @brief Helper method for Perlin noise, could be more complex
+     * @param x X coordinate in world space
+     * @param y Y coordinate in world space
+     * @param scale Scale factor for noise
+     * @param octaves Number of octaves for noise
+     * @param persistence Persistence factor for noise
+     * @param lacunarity Lacunarity factor for noise
+     * @return Perlin noise value
      */
-    void applyEnvironmentalEffects(Chunk* chunk, int x_local, int z_local, float height, float humidity, float temperature) const;
-
-    // Feature generation helpers
-    /**
-     * @brief Generate trees in the chunk
-     * @param chunk Target chunk
-     * @param rng Random number generator
-     * @param randPos Random position distribution
-     */
-    void generateTrees(Chunk* chunk, std::mt19937& rng, std::uniform_int_distribution<int>& randPos);
-
-    /**
-     * @brief Generate rocks in the chunk
-     * @param chunk Target chunk
-     * @param rng Random number generator
-     * @param randPos Random position distribution
-     */
-    void generateRocks(Chunk* chunk, std::mt19937& rng, std::uniform_int_distribution<int>& randPos);
-
-    /**
-     * @brief Generate vegetation (flowers) in the chunk
-     * @param chunk Target chunk
-     * @param rng Random number generator
-     * @param randPos Random position distribution
-     */
-    void generateVegetation(Chunk* chunk, std::mt19937& rng, std::uniform_int_distribution<int>& randPos);
-
-    /**
-     * @brief Generate decorations (mushrooms and bushes) in the chunk
-     * @param chunk Target chunk
-     * @param rng Random number generator
-     * @param randPos Random position distribution
-     */
-    void generateDecorations(Chunk* chunk, std::mt19937& rng, std::uniform_int_distribution<int>& randPos);
-
-    // Helper method for Perlin noise, could be more complex
     float getPerlinNoise(float x, float y, float scale, int octaves, float persistence, float lacunarity) const;
     
-    // Helper to get height at a specific integer voxel column
+    /**
+     * @brief Helper to get height at a specific integer voxel column
+     * @param worldX X coordinate in world space
+     * @param worldZ Z coordinate in world space
+     * @return Height at the specified column
+     */
     int getColumnHeight(int worldX, int worldZ) const;
 
     // Store world generation parameters
     WorldParams m_params;
+    std::unique_ptr<BiomeGenerator> m_biomeGen;
+    std::unique_ptr<FeatureGenerator> m_featureGen;
 };
 
 } // namespace Sylva 

@@ -2,7 +2,7 @@
 
 #include "chunk/chunk.h"
 #include "core/types.h"
-#include "world/terrain_generator.h"
+#include "generation/terrain_generator.h"
 #include <unordered_map>
 #include <memory>
 #include <glm/glm.hpp>
