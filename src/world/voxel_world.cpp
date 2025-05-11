@@ -10,6 +10,9 @@
 #include <cmath>
 #include <random>
 #include "world/terrain_generator.h"
+#include "voxel_world_generation.h"
+#include "voxel_world_rendering.h"
+#include "voxel_world_physics.h"
 
 namespace Sylva {
 
@@ -28,6 +31,9 @@ VoxelWorld::VoxelWorld()
     m_params.terrainSmoothness = Config::getFloat("World.terrain_smoothness", 0.6f);
     
     m_terrainGenerator = std::make_unique<TerrainGenerator>(m_params);
+    m_generation = std::make_unique<VoxelWorldGeneration>(m_terrainGenerator.get());
+    m_rendering = std::make_unique<VoxelWorldRendering>();
+    m_physics = std::make_unique<VoxelWorldPhysics>();
     
     Logger::logInfo("Micro-voxel world created with size " + std::to_string(m_worldSizeInChunks) + 
                    " chunks and view distance " + std::to_string(m_viewDistanceInChunks) + " chunks");
@@ -39,6 +45,9 @@ VoxelWorld::VoxelWorld(const WorldParams& params)
     m_worldSizeInChunks = Config::getInt("World.size_in_chunks", m_worldSizeInChunks);
     m_viewDistanceInChunks = Config::getInt("World.view_distance", m_viewDistanceInChunks);
     m_terrainGenerator = std::make_unique<TerrainGenerator>(m_params);
+    m_generation = std::make_unique<VoxelWorldGeneration>(m_terrainGenerator.get());
+    m_rendering = std::make_unique<VoxelWorldRendering>();
+    m_physics = std::make_unique<VoxelWorldPhysics>();
     
     Logger::logInfo("VoxelWorld created with custom parameters");
 }
@@ -107,34 +116,17 @@ void VoxelWorld::initializeWorldChunks(const glm::ivec3& centerPos) {
     }
 }
 
+void VoxelWorld::generateWorld(const glm::vec3& playerPosition) {
+    m_generation->generateWorld(this, playerPosition);
+    updateChunkMeshes(Chunk::worldToChunkPos(playerPosition));
+}
+
 void VoxelWorld::generateChunkTerrain(Chunk* chunk) {
-    if (chunk == nullptr) {
-        Logger::logWarning("Attempted to generate terrain for null chunk");
-        return;
-    }
-    m_terrainGenerator->generateTerrain(chunk);
+    m_generation->generateChunkTerrain(chunk);
 }
 
 void VoxelWorld::generateChunkFeatures(Chunk* chunk) {
-    if (chunk == nullptr) {
-        Logger::logWarning("Attempted to generate features for null chunk");
-        return;
-    }
-    m_terrainGenerator->generateFeatures(chunk);
-}
-
-void VoxelWorld::generateWorld(const glm::vec3& playerPosition) {
-    Logger::logInfo("Generating micro-voxel world around player position (" + 
-                   std::to_string(playerPosition.x) + ", " +
-                   std::to_string(playerPosition.y) + ", " +
-                   std::to_string(playerPosition.z) + ")");
-    
-    glm::ivec3 centerChunkPos = Chunk::worldToChunkPos(playerPosition);
-    
-    initializeWorldChunks(centerChunkPos);
-    updateChunkMeshes(centerChunkPos);
-    
-    Logger::logInfo("Micro-voxel world generation complete");
+    m_generation->generateChunkFeatures(chunk);
 }
 
 bool VoxelWorld::updateChunkVisibility(const glm::ivec3& chunkPos, const glm::ivec3& playerChunkPos) const {
@@ -181,46 +173,7 @@ void VoxelWorld::update(float deltaTime, const glm::vec3& playerPosition) {
 }
 
 void VoxelWorld::render(const Camera& camera) {
-    if (m_shader == nullptr) {
-        Logger::logWarning("Cannot render voxel world, shader not initialized");
-        return;
-    }
-    
-    // Get camera matrices
-    glm::mat4 viewMatrix = camera.getViewMatrix();
-    glm::mat4 projectionMatrix = camera.getProjectionMatrix(16.0f / 9.0f); // TODO: Get actual aspect ratio
-    
-    // Set up directional light for "Pelican Harbor" stylized aesthetic
-    // Warm, slightly angled sunlight creates soft shadows and highlights
-    glm::vec3 lightDir = glm::normalize(glm::vec3(0.5f, 1.0f, 0.3f));
-    
-    // Activate shader before setting uniforms
-    m_shader->use();
-    
-    // Pass light direction to shader
-    m_shader->setVec3("lightDir", lightDir);
-
-    // Get lighting colors from config or use defaults
-    glm::vec3 lightColor(
-        Config::getFloat("Lighting.light_color.x", 1.0f),
-        Config::getFloat("Lighting.light_color.y", 0.95f),
-        Config::getFloat("Lighting.light_color.z", 0.8f)
-    ); // Warm white
-    glm::vec3 ambientColor(
-        Config::getFloat("Lighting.ambient_color.x", 0.45f), // Slightly warmer and less blue
-        Config::getFloat("Lighting.ambient_color.y", 0.45f),
-        Config::getFloat("Lighting.ambient_color.z", 0.45f) 
-    ); // Neutral warmish ambient, slightly reduced from a bluish 0.5 on Z
-
-    m_shader->setVec3("uniformLightColor", lightColor);
-    m_shader->setVec3("uniformAmbientColor", ambientColor);
-    
-    // Render each chunk
-    for (const auto& pair : m_chunks) {
-        pair.second->render(m_shader, viewMatrix, projectionMatrix);
-    }
-    
-    Logger::logDebug("Voxel world rendered with " + std::to_string(m_chunks.size()) + " chunks");
+    m_rendering->render(this, camera);
 }
 
 Chunk* VoxelWorld::getChunk(const glm::ivec3& chunkPos) const {
@@ -359,69 +312,11 @@ void VoxelWorld::setBlockAt(const glm::vec3& worldPos, BlockType type) {
 }
 
 float VoxelWorld::getHeightAt(float x, float z) const {
-    // Use higher precision for micro-voxel terrain
-    // Start from a high position and move down with smaller steps
-    float maxHeight = 128.0f; // Maximum world height in blocks
-    float heightIncrement = m_params.cellSize; // Step down by one micro-voxel at a time
-    
-    for (float y = maxHeight; y >= 0.0f; y -= heightIncrement) {
-        glm::vec3 pos(x, y, z);
-        BlockType block = getBlockAt(pos);
-        
-        if (block != BlockType::AIR && BlockData::isSolid(block)) {
-            // Return the height of the block top
-            // Add cell size to get the top surface
-            return y + m_params.cellSize;
-        }
-    }
-    
-    // Fallback to 0 if no solid block found
-    return 0.0f;
+    return m_physics->getHeightAt(this, x, z);
 }
 
 bool VoxelWorld::checkCollision(const Player& player) const {
-    // Get player position and size
-    Vec3 playerPos = player.getPosition();
-    float playerSize = player.getCollisionRadius();
-    
-    // Clear previous debug points if debug is enabled
-    if (m_collisionDebugEnabled) {
-        m_collisionDebugPoints.clear();
-    }
-    
-    // Calculate step size based on cell size for proper micro-voxel sampling
-    // Use a fraction of cellSize to ensure thorough collision checking
-    float stepSize = m_params.cellSize * 0.5f;
-    
-    // Ensure we have a reasonable step size (not too small, not too large)
-    stepSize = std::max(stepSize, 0.05f);
-    
-    bool collision = false;
-    
-    // Check blocks in player's bounding box with appropriate sampling density
-    for (float y = playerPos.y; y <= playerPos.y + player.getHeight(); y += stepSize) {
-        for (float z = playerPos.z - playerSize; z <= playerPos.z + playerSize; z += stepSize) {
-            for (float x = playerPos.x - playerSize; x <= playerPos.x + playerSize; x += stepSize) {
-                BlockType block = getBlockAt(glm::vec3(x, y, z));
-                
-                if (block != BlockType::AIR && BlockData::isSolid(block)) {
-                    // Store collision point for debug visualization
-                    if (m_collisionDebugEnabled) {
-                        m_collisionDebugPoints.push_back(glm::vec3(x, y, z));
-                    }
-                    
-                    collision = true;
-                    
-                    // If not in debug mode, return immediately on first collision
-                    if (!m_collisionDebugEnabled) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-    
-    return collision;
+    return m_physics->checkCollision(this, player);
 }
 
 void VoxelWorld::setWorldSize(int size) {

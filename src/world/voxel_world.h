@@ -7,6 +7,9 @@
 #include <memory>
 #include <glm/glm.hpp>
 #include <vector>
+#include "voxel_world_generation.h"
+#include "voxel_world_rendering.h"
+#include "voxel_world_physics.h"
 
 namespace Sylva {
 
@@ -14,6 +17,8 @@ namespace Sylva {
 class Camera;
 class Shader;
 class Player;
+class VoxelWorldRendering;
+class VoxelWorldPhysics;
 
 /**
  * @brief Hash function for glm::ivec3 to use in unordered_map
@@ -167,6 +172,10 @@ public:
      */
     bool updatePlayerChunkPosition(const glm::ivec3& playerChunkPos, glm::ivec3& lastPlayerChunkPos) const;
 
+    Shader* getShader() const { return m_shader; }
+    const std::unordered_map<glm::ivec3, std::unique_ptr<Chunk>, Vec3Hash>& getChunks() const { return m_chunks; }
+    const WorldParams& getParams() const { return m_params; }
+
 private:
     /**
      * @brief Get a chunk at the specified position
@@ -214,6 +223,9 @@ private:
     unsigned int m_debugVBO = 0;
     
     std::unique_ptr<TerrainGenerator> m_terrainGenerator;
+    std::unique_ptr<VoxelWorldGeneration> m_generation;
+    std::unique_ptr<VoxelWorldRendering> m_rendering;
+    std::unique_ptr<VoxelWorldPhysics> m_physics;
 };
 
 } // namespace Sylva 
