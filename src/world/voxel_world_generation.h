@@ -1,6 +1,6 @@
 #pragma once
 
-#include "chunk.h"
+#include "chunk/chunk.h"
 #include "core/types.h"
 #include <glm/glm.hpp>
 

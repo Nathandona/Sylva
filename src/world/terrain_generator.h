@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/types.h"
-#include "world/chunk.h" // For BlockType and Chunk, might be needed for generation context
+#include "world/chunk/chunk.h"
 #include <glm/glm.hpp>
 #include <random> // For std::mt19937
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "chunk.h"
+#include "chunk/chunk.h"
 #include "core/types.h"
 #include "world/terrain_generator.h"
 #include <unordered_map>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "block.h"
+#include "../block.h"
 #include <array>
 #include <vector>
 #include <glm/glm.hpp>

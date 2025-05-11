@@ -1,6 +1,6 @@
 #include "world/terrain_generator.h"
 #include "core/logger.h"
-#include "world/chunk.h" // For Chunk, BlockType, BlockData, CHUNK_SIZE
+#include "world/chunk/chunk.h" // For Chunk, BlockType, BlockData, CHUNK_SIZE
 #include "core/config.h" // If params in TerrainGenerator need defaults from config
 #include <glm/gtc/noise.hpp>
 #include <cmath> // For std::pow, std::abs, sin, etc.
