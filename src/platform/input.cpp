@@ -169,5 +169,11 @@ void shutdown() {
     s_window = nullptr;
 }
 
+void reset() {
+    s_inputState = InputState{};
+    s_window = nullptr;
+    s_cursorDisabled = true;
+}
+
 } // namespace Input
 } // namespace Sylva 

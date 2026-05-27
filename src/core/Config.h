@@ -71,6 +71,12 @@ public:
     template<typename T>
     static void set(const std::string& key, const T& value);
 
+    /**
+     * @brief Discard all loaded keys. Provided for test isolation — production
+     *        code shouldn't need to wipe Config mid-run.
+     */
+    static void reset();
+
     // Delete copy constructor and assignment operator
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;

@@ -49,6 +49,12 @@ void toggleCursorMode(bool disabled);
  */
 void shutdown();
 
+/**
+ * @brief Reset module state (input state struct, window pointer, cursor flag).
+ * Provided so tests can isolate themselves from a previous run.
+ */
+void reset();
+
 } // namespace Input
 
 } // namespace Sylva 

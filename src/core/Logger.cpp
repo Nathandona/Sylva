@@ -43,6 +43,16 @@ void Logger::setLogLevel(LogLevel level) {
     getInstance().m_currentLevel.store(level, std::memory_order_relaxed);
 }
 
+void Logger::reset() {
+    Logger& inst = getInstance();
+    std::lock_guard<std::mutex> lock(inst.m_mutex);
+    if (inst.m_fileStream.is_open()) {
+        inst.m_fileStream.close();
+    }
+    inst.m_fileLoggingEnabled = false;
+    inst.m_currentLevel.store(LogLevel::INFO, std::memory_order_relaxed);
+}
+
 bool Logger::setLogFile(const std::string& filePath) {
     std::lock_guard<std::mutex> lock(getInstance().m_mutex);
     

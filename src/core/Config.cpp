@@ -203,4 +203,9 @@ template void Config::set<int>(const std::string& key, const int& value);
 template void Config::set<float>(const std::string& key, const float& value);
 template void Config::set<bool>(const std::string& key, const bool& value);
 
+void Config::reset() {
+    std::lock_guard<std::mutex> lock(getInstance().m_mutex);
+    getInstance().m_values.clear();
+}
+
 } // namespace Sylva 

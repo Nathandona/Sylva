@@ -72,9 +72,10 @@ bool Engine::initialize(const std::string& configPath) {
         UI::resize(width, height);
         Logger::logInfo("Window resized to " + std::to_string(width) + "x" + std::to_string(height));
     });
-    // Audio: initialize() already reads volumes + mute states from config
-    // via its per-type table (see audio_system.cpp).
-    if (!AudioSystem::initialize()) {
+    // Audio: ctor opens the AL device + reads volumes/mute states from
+    // config via the per-type metadata table.
+    m_audio = std::make_unique<OpenALAudioSystem>();
+    if (!m_audio->isReady()) {
         Logger::logError("Failed to initialize audio system");
         return false;
     }
@@ -109,14 +110,14 @@ bool Engine::initialize(const std::string& configPath) {
     const std::string startupPath  = Config::getString("AudioAssets.startup_sfx",  "assets/audio/sfx/startup.wav");
     const std::string footstepPath = Config::getString("AudioAssets.footstep_sfx", "assets/audio/sfx/footstep.wav");
     const std::string musicPath    = Config::getString("AudioAssets.music_track",  "");
-    AudioSystem::loadSound("startup",  startupPath,  AudioType::SOUND_EFFECT);
-    AudioSystem::loadSound("footstep", footstepPath, AudioType::SOUND_EFFECT);
+    m_audio->loadSound("startup",  startupPath,  AudioType::SOUND_EFFECT);
+    m_audio->loadSound("footstep", footstepPath, AudioType::SOUND_EFFECT);
     if (!musicPath.empty()) {
-        if (AudioSystem::loadSound("background", musicPath, AudioType::MUSIC)) {
-            m_musicId = AudioSystem::playSound("background", true, 0.7f);
+        if (m_audio->loadSound("background", musicPath, AudioType::MUSIC)) {
+            m_musicId = m_audio->playSound("background", true, 0.7f);
         }
     }
-    AudioSystem::playSound("startup");
+    m_audio->playSound("startup");
     // OpenGL settings
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -149,12 +150,12 @@ void Engine::tick(float deltaTime) {
     m_voxelWorld->update(deltaTime, m_player->getPosition());
     handleDebugToggles();
     Input::update();
-    AudioSystem::update();
+    m_audio->update();
     const glm::vec3 camPos = m_camera->getPosition();
     const glm::vec3 camFwd = m_camera->getForward();
     const glm::vec3 camUp  = m_camera->getUp();
-    AudioSystem::setListenerPosition(glm::value_ptr(camPos));
-    AudioSystem::setListenerOrientation(glm::value_ptr(camFwd), glm::value_ptr(camUp));
+    m_audio->setListenerPosition(glm::value_ptr(camPos));
+    m_audio->setListenerOrientation(glm::value_ptr(camFwd), glm::value_ptr(camUp));
 }
 
 void Engine::renderFrame(float aspectRatio) {
@@ -198,8 +199,8 @@ void Engine::logFrameStats(float deltaTime) {
 void Engine::shutdown() {
     if (m_shutdownComplete) return;
     Logger::logInfo("Cleaning up...");
-    if (m_musicId != 0) {
-        AudioSystem::stopSound(m_musicId);
+    if (m_musicId != 0 && m_audio) {
+        m_audio->stopSound(m_musicId);
         m_musicId = 0;
     }
     // Release GL resources held by free systems before the window/context dies.
@@ -214,7 +215,7 @@ void Engine::shutdown() {
         m_window.reset();
     }
     // Audio is context-independent; tear it down last.
-    AudioSystem::shutdown();
+    m_audio.reset();
     m_shutdownComplete = true;
     Logger::logInfo("Sylva Engine shut down.");
 }

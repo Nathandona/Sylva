@@ -69,6 +69,12 @@ public:
      */
     static bool setLogFile(const std::string& filePath);
 
+    /**
+     * @brief Reset logger state — closes the log file, resets the log level.
+     * Provided so tests can isolate themselves from a previous run's state.
+     */
+    static void reset();
+
     // Delete copy constructor and assignment operator
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
