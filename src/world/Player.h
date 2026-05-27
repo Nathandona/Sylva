@@ -30,9 +30,9 @@ public:
     explicit Player(const PlayerParams& params);
 
     /**
-     * @brief Destructor
+     * @brief Destructor — releases the player mesh's GL handles.
      */
-    ~Player() = default;
+    ~Player();
 
     Player(const Player&) = delete;
     Player& operator=(const Player&) = delete;
@@ -184,6 +184,16 @@ private:
     Vec3 m_position;  // Position in world space
     float m_rotation; // Rotation in radians
     Vec3 m_velocity;  // Current velocity
+
+    /// Lazy-builds the GPU cube mesh on first render (needs a live GL context).
+    void ensureMesh();
+
+    // GPU resources for the placeholder cube model. Built on first render,
+    // released in the destructor before the Engine tears down the window.
+    unsigned int m_vao = 0;
+    unsigned int m_vbo = 0;
+    unsigned int m_ebo = 0;
+    unsigned int m_indexCount = 0;
 };
 
 } // namespace Sylva
