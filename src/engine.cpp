@@ -13,9 +13,7 @@
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
-#include <thread>
-#include <chrono>
-#include <iostream>
+#include <exception>
 
 namespace Sylva {
 
@@ -74,29 +72,11 @@ bool Engine::initialize(const std::string& configPath) {
         UI::resize(width, height);
         Logger::logInfo("Window resized to " + std::to_string(width) + "x" + std::to_string(height));
     });
-    // Initialize audio system
+    // Audio: initialize() already reads volumes + mute states from config
+    // via its per-type table (see audio_system.cpp).
     if (!AudioSystem::initialize()) {
         Logger::logError("Failed to initialize audio system");
         return false;
-    }
-    // Set audio volumes from config
-    AudioSystem::setMasterVolume(Config::getFloat("Audio.master_volume", 0.8f));
-    AudioSystem::setTypeVolume(AudioType::SOUND_EFFECT, Config::getFloat("Audio.sound_effect_volume", 1.0f));
-    AudioSystem::setTypeVolume(AudioType::MUSIC, Config::getFloat("Audio.music_volume", 0.7f));
-    AudioSystem::setTypeVolume(AudioType::AMBIENT, Config::getFloat("Audio.ambient_volume", 0.5f));
-    AudioSystem::setTypeVolume(AudioType::VOICE, Config::getFloat("Audio.voice_volume", 1.0f));
-    // Initialize mute states from config
-    if (Config::getBool("Audio.mute_music", false)) {
-        AudioSystem::setTypeMuted(AudioType::MUSIC, true);
-    }
-    if (Config::getBool("Audio.mute_sfx", false)) {
-        AudioSystem::setTypeMuted(AudioType::SOUND_EFFECT, true);
-    }
-    if (Config::getBool("Audio.mute_ambient", false)) {
-        AudioSystem::setTypeMuted(AudioType::AMBIENT, true);
-    }
-    if (Config::getBool("Audio.mute_voice", false)) {
-        AudioSystem::setTypeMuted(AudioType::VOICE, true);
     }
     m_camera = std::make_unique<Camera>();
     m_player = std::make_unique<Player>();
