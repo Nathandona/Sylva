@@ -95,6 +95,7 @@ Shader::~Shader() {
     }
 }
 
+// NOLINTNEXTLINE(bugprone-exception-escape) — body is trivial integer assignment; tidy false positive.
 Shader::Shader(Shader&& other) noexcept : m_ID(other.m_ID) {
     other.m_ID = 0;
 }

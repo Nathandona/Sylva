@@ -34,6 +34,11 @@ public:
      */
     ~Player() = default;
 
+    Player(const Player&) = delete;
+    Player& operator=(const Player&) = delete;
+    Player(Player&&) = delete;
+    Player& operator=(Player&&) = delete;
+
     /**
      * @brief Update player movement against the world.
      * @param deltaTime  Time since last update.

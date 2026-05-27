@@ -23,7 +23,13 @@ enum class AudioType {
  */
 class IAudioSystem {
 public:
+    IAudioSystem() = default;
     virtual ~IAudioSystem() = default;
+
+    IAudioSystem(const IAudioSystem&) = delete;
+    IAudioSystem& operator=(const IAudioSystem&) = delete;
+    IAudioSystem(IAudioSystem&&) = delete;
+    IAudioSystem& operator=(IAudioSystem&&) = delete;
 
     // Sound loading / management.
     virtual bool loadSound(const std::string& name, const std::string& filePath, AudioType type) = 0;
@@ -74,6 +80,8 @@ public:
 
     OpenALAudioSystem(const OpenALAudioSystem&) = delete;
     OpenALAudioSystem& operator=(const OpenALAudioSystem&) = delete;
+    OpenALAudioSystem(OpenALAudioSystem&&) = delete;
+    OpenALAudioSystem& operator=(OpenALAudioSystem&&) = delete;
 
     bool loadSound(const std::string& name, const std::string& filePath, AudioType type) override;
     void unloadSound(const std::string& name) override;

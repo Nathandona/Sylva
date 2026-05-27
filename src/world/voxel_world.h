@@ -46,6 +46,11 @@ public:
      */
     ~VoxelWorld();
 
+    VoxelWorld(const VoxelWorld&) = delete;
+    VoxelWorld& operator=(const VoxelWorld&) = delete;
+    VoxelWorld(VoxelWorld&&) = delete;
+    VoxelWorld& operator=(VoxelWorld&&) = delete;
+
     /**
      * @brief Initialize world graphics
      * @return true if initialization successful

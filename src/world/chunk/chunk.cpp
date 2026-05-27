@@ -104,14 +104,14 @@ void Chunk::setBlock(int x, int y, int z, BlockType type) {
     }
 }
 
-float Chunk::calculateVertexAO(int vpX, int vpY, int vpZ, const BlockSampler& sampler) const {
+float Chunk::calculateVertexAO(int vx_local, int vy_local, int vz_local, const BlockSampler& sampler) const {
     // The 8 voxels sharing this vertex are at offsets {-1, 0} on each axis.
     // Sampler resolves out-of-bounds queries (incl. diagonals) via the world.
     int solidNeighbors = 0;
     for (int dz = -1; dz <= 0; ++dz) {
         for (int dy = -1; dy <= 0; ++dy) {
             for (int dx = -1; dx <= 0; ++dx) {
-                BlockType const b = sampler(vpX + dx, vpY + dy, vpZ + dz);
+                BlockType const b = sampler(vx_local + dx, vy_local + dy, vz_local + dz);
                 if (b != BlockType::AIR && BlockData::isSolid(b)) {
                     ++solidNeighbors;
                 }
@@ -140,8 +140,8 @@ void Chunk::initializeMeshBuffers(const std::vector<float>& vertices, const std:
 }
 
 void Chunk::generateVertexData(std::vector<float>& vertices, std::vector<unsigned int>& indices, const BlockSampler& sampler) {
-    vertices.reserve(CHUNK_VOLUME * 24);
-    indices.reserve(CHUNK_VOLUME * 36);
+    vertices.reserve(static_cast<size_t>(CHUNK_VOLUME) * 24);
+    indices.reserve(static_cast<size_t>(CHUNK_VOLUME) * 36);
 
     for (int y = 0; y < CHUNK_SIZE; y++) {
         for (int z = 0; z < CHUNK_SIZE; z++) {
@@ -170,24 +170,23 @@ void Chunk::generateIndexData(std::vector<unsigned int>& indices, unsigned int b
 }
 
 void Chunk::uploadMeshToGPU(const std::vector<float>& /*vertices*/, const std::vector<unsigned int>& indices) {
-    // Position attribute (3 floats)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)nullptr);
+    // glVertexAttribPointer takes the byte offset as a const void* — the
+    // canonical OpenGL idiom. tidy flags the int->pointer conversion, but
+    // it's required by the GL ABI. Suppress per call.
+    const GLsizei kStride = 12 * sizeof(float);
+    auto byteOffset = [](size_t bytes) -> const void* {
+        return reinterpret_cast<const void*>(bytes); // NOLINT(performance-no-int-to-ptr)
+    };
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, kStride, byteOffset(0)); // position
     glEnableVertexAttribArray(0);
-
-    // Color attribute (3 floats)
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, kStride, byteOffset(3 * sizeof(float))); // color
     glEnableVertexAttribArray(1);
-
-    // Texture coordinates attribute (2 floats)
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)(6 * sizeof(float)));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, kStride, byteOffset(6 * sizeof(float))); // uv
     glEnableVertexAttribArray(2);
-
-    // Normal attribute (3 floats)
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)(8 * sizeof(float)));
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, kStride, byteOffset(8 * sizeof(float))); // normal
     glEnableVertexAttribArray(3);
-
-    // AO attribute (1 float)
-    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)(11 * sizeof(float)));
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, kStride, byteOffset(11 * sizeof(float))); // AO
     glEnableVertexAttribArray(4);
 
     // Unbind

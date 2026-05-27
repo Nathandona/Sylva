@@ -33,10 +33,15 @@ bool Engine::initialize(const std::string& configPath) {
 
     // Logger: level + optional file output, both config-driven.
     const std::string levelStr = Config::getString("Logging.level");
-    Logger::setLogLevel(levelStr == "DEBUG"     ? LogLevel::DEBUG
-                        : levelStr == "WARNING" ? LogLevel::WARNING
-                        : levelStr == "ERROR"   ? LogLevel::ERROR
-                                                : LogLevel::INFO);
+    LogLevel level = LogLevel::INFO;
+    if (levelStr == "DEBUG") {
+        level = LogLevel::DEBUG;
+    } else if (levelStr == "WARNING") {
+        level = LogLevel::WARNING;
+    } else if (levelStr == "ERROR") {
+        level = LogLevel::ERROR;
+    }
+    Logger::setLogLevel(level);
     const std::string logFile = Config::getString("Logging.file");
     if (!logFile.empty()) {
         Logger::setLogFile(logFile);

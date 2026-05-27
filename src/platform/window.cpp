@@ -12,13 +12,15 @@ namespace Sylva {
 // Initialize static member
 bool Window::s_glfwInitialized = false;
 
-// GLFW error callback function
-static void glfwErrorCallback(int error, const char* description) {
+namespace {
+
+// GLFW error callback.
+void glfwErrorCallback(int error, const char* description) {
     Logger::logError("GLFW Error (" + std::to_string(error) + "): " + description);
 }
 
-// GLFW framebuffer size callback function (for window resizing)
-static void glfwFramebufferSizeCallback(GLFWwindow* window, int width, int height) {
+// GLFW framebuffer size callback (for window resizing).
+void glfwFramebufferSizeCallback(GLFWwindow* window, int width, int height) {
     // Retrieve Window instance from GLFW user pointer
     auto* userWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
     if (userWindow && userWindow->getGLFWwindow() == window) {
@@ -32,6 +34,8 @@ static void glfwFramebufferSizeCallback(GLFWwindow* window, int width, int heigh
         }
     }
 }
+
+} // namespace
 
 Window::Window(int width, int height, const std::string& title) {
     // Initialize GLFW if not already initialized
@@ -104,7 +108,7 @@ bool Window::create(int width, int height, const std::string& title, bool fullsc
     glfwSetWindowUserPointer(m_window, this);
 
     // Initialize GLAD (OpenGL function loader)
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+    if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
         Logger::logError("Failed to initialize GLAD");
         glfwDestroyWindow(m_window);
         m_window = nullptr;

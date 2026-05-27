@@ -35,15 +35,14 @@ void BiomeGenerator::applyEnvironmentalEffects(Chunk* chunk,
             float const materialNoise = glm::simplex(glm::vec2(worldX * 0.1f, worldZ * 0.1f));
             float const depthNoise = (materialNoise + 1.0f) * 0.5f;
             if (y_local == localTerrainHeight - 1) {
+                BlockType surface = BlockType::GRASS;
                 if (height > m_params.maxHeight * 0.7f && depthNoise > 0.5f) {
-                    chunk->setBlock(x_local, y_local, z_local, BlockType::STONE);
-                } else if (temperature > 0.7f && humidity < 0.35f) {
-                    chunk->setBlock(x_local, y_local, z_local, BlockType::SAND);
-                } else if (height < m_params.maxHeight * 0.3f && humidity > 0.4f) {
-                    chunk->setBlock(x_local, y_local, z_local, BlockType::SAND);
-                } else {
-                    chunk->setBlock(x_local, y_local, z_local, BlockType::GRASS);
+                    surface = BlockType::STONE;
+                } else if ((temperature > 0.7f && humidity < 0.35f) ||
+                           (height < m_params.maxHeight * 0.3f && humidity > 0.4f)) {
+                    surface = BlockType::SAND;
                 }
+                chunk->setBlock(x_local, y_local, z_local, surface);
             } else {
                 int const dirtDepth = 2 + static_cast<int>(humidity * 3.0f + depthNoise * 2.0f);
                 if (y_local >= localTerrainHeight - dirtDepth) {

@@ -5,13 +5,16 @@
 
 namespace Sylva::Input {
 
-// Internal static state
-static InputState s_inputState;
-static GLFWwindow* s_window = nullptr;
-static bool s_cursorDisabled = true; // Track cursor state
+namespace {
 
-// Key callback function for GLFW
-static void keyCallback(GLFWwindow* /*window*/, int key, int /*scancode*/, int action, int /*mods*/) {
+// Internal module state. Anonymous namespace gives internal linkage
+// without the C-style 'static' keyword.
+InputState s_inputState;
+GLFWwindow* s_window = nullptr;
+bool s_cursorDisabled = true; // Track cursor state
+
+// Key callback function for GLFW.
+void keyCallback(GLFWwindow* /*window*/, int key, int /*scancode*/, int action, int /*mods*/) {
     const bool down = (action != GLFW_RELEASE); // true on press OR repeat, false on release
     switch (key) {
     // Movement controls
@@ -57,11 +60,13 @@ static void keyCallback(GLFWwindow* /*window*/, int key, int /*scancode*/, int a
             s_inputState.toggleCursor = true;
         }
         break;
+    default:
+        break;
     }
 }
 
-// Mouse button callback
-static void mouseButtonCallback(GLFWwindow* /*window*/, int button, int action, int /*mods*/) {
+// Mouse button callback.
+void mouseButtonCallback(GLFWwindow* /*window*/, int button, int action, int /*mods*/) {
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         s_inputState.mouseLeftButton = (action == GLFW_PRESS);
     } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
@@ -69,8 +74,8 @@ static void mouseButtonCallback(GLFWwindow* /*window*/, int button, int action, 
     }
 }
 
-// Mouse movement callback
-static void cursorPosCallback(GLFWwindow* /*window*/, double xpos, double ypos) {
+// Mouse movement callback.
+void cursorPosCallback(GLFWwindow* /*window*/, double xpos, double ypos) {
     static double lastX = xpos;
     static double lastY = ypos;
     static bool firstMouse = true;
@@ -90,11 +95,12 @@ static void cursorPosCallback(GLFWwindow* /*window*/, double xpos, double ypos) 
     lastY = ypos;
 }
 
-// Scroll callback for mouse wheel input
-static void scrollCallback(GLFWwindow* /*window*/, double /*xoffset*/, double yoffset) {
-    // Store the mouse wheel data for camera zooming
+// Scroll callback for mouse wheel input.
+void scrollCallback(GLFWwindow* /*window*/, double /*xoffset*/, double yoffset) {
     s_inputState.mouseWheelDelta = static_cast<float>(yoffset);
 }
+
+} // namespace
 
 void initialize(GLFWwindow* window) {
     Logger::logInfo("Initializing Input system");

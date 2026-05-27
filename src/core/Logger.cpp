@@ -23,9 +23,8 @@ Logger* Logger::s_current = nullptr;
 Logger::Logger() = default;
 
 Logger::~Logger() {
-    if (m_fileStream.is_open()) {
-        m_fileStream.close();
-    }
+    // m_fileStream's own destructor closes + flushes. We don't call close()
+    // explicitly because it can throw (and ~Logger must be noexcept).
     // If we *were* the active logger, fall back to the default so subsequent
     // logs don't reference us after destruction.
     if (s_current == this) {

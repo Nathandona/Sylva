@@ -27,9 +27,12 @@ namespace Sylva {
 class Config {
 public:
     Config();
+    ~Config() = default;
 
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
+    Config(Config&&) = delete;
+    Config& operator=(Config&&) = delete;
 
     // --- Static API (all calls route through current()) ---
     static bool load(const std::string& path);

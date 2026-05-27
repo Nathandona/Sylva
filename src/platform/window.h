@@ -31,9 +31,11 @@ public:
      */
     ~Window();
 
-    // Delete copy constructor and assignment operator
+    // Owns a GLFW window handle — non-copyable, non-movable.
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
+    Window(Window&&) = delete;
+    Window& operator=(Window&&) = delete;
 
     /**
      * @brief Initializes GLFW and sets up error callbacks

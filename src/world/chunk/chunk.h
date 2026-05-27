@@ -42,6 +42,11 @@ public:
      */
     ~Chunk();
 
+    Chunk(const Chunk&) = delete;
+    Chunk& operator=(const Chunk&) = delete;
+    Chunk(Chunk&&) = delete;
+    Chunk& operator=(Chunk&&) = delete;
+
     /**
      * @brief Get the position of this chunk in chunk coordinates
      * @return The chunk's position

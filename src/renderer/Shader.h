@@ -93,21 +93,21 @@ public:
      * @param name Name of the uniform variable
      * @param value Value to set
      */
-    void setMat2(const std::string& name, const glm::mat2& value) const;
+    void setMat2(const std::string& name, const glm::mat2& mat) const;
 
     /**
      * @brief Set a mat3 uniform variable
      * @param name Name of the uniform variable
      * @param value Value to set
      */
-    void setMat3(const std::string& name, const glm::mat3& value) const;
+    void setMat3(const std::string& name, const glm::mat3& mat) const;
 
     /**
      * @brief Set a mat4 uniform variable
      * @param name Name of the uniform variable
      * @param value Value to set
      */
-    void setMat4(const std::string& name, const glm::mat4& value) const;
+    void setMat4(const std::string& name, const glm::mat4& mat) const;
 
 private:
     /**

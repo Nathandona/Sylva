@@ -29,10 +29,13 @@ enum class LogLevel {
 class Logger {
 public:
     Logger();
-    ~Logger();
+    // Virtual so a TestLogger subclass can be deleted through Logger*.
+    virtual ~Logger();
 
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
+    Logger(Logger&&) = delete;
+    Logger& operator=(Logger&&) = delete;
 
     // --- Instance API (virtual so tests can derive a TestLogger that
     // captures lines into a vector for assertions) ---

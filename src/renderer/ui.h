@@ -25,6 +25,8 @@ public:
 
     UISystem(const UISystem&) = delete;
     UISystem& operator=(const UISystem&) = delete;
+    UISystem(UISystem&&) = delete;
+    UISystem& operator=(UISystem&&) = delete;
 
     void resize(int windowWidth, int windowHeight);
 

@@ -323,14 +323,28 @@ float VoxelWorld::getHeightAt(float x, float z) const {
 }
 
 bool VoxelWorld::checkCollision(const Player& player) const {
-    Vec3 const playerPos = player.getPosition();
-    float const playerSize = player.getCollisionRadius();
-    float const stepSize = std::max(m_params.cellSize * 0.5f, 0.05f);
+    const Vec3 playerPos = player.getPosition();
+    const float playerSize = player.getCollisionRadius();
+    const float stepSize = std::max(m_params.cellSize * 0.5f, 0.05f);
+    // Iterate via integer counters scaled by stepSize — avoids float-as-loop-
+    // counter precision drift (and the cert-flp30-c lint).
+    const auto stepsAlong = [stepSize](float extent) { return static_cast<int>(std::ceil(extent / stepSize)) + 1; };
+    const int ySteps = stepsAlong(player.getHeight());
+    const int xzSteps = stepsAlong(2.0f * playerSize);
     bool collision = false;
-    for (float y = playerPos.y; y <= playerPos.y + player.getHeight(); y += stepSize) {
-        for (float z = playerPos.z - playerSize; z <= playerPos.z + playerSize; z += stepSize) {
-            for (float x = playerPos.x - playerSize; x <= playerPos.x + playerSize; x += stepSize) {
-                BlockType const block = getBlockAt(glm::vec3(x, y, z));
+    for (int iy = 0; iy < ySteps; ++iy) {
+        const float y = playerPos.y + static_cast<float>(iy) * stepSize;
+        if (y > playerPos.y + player.getHeight())
+            break;
+        for (int iz = 0; iz < xzSteps; ++iz) {
+            const float z = (playerPos.z - playerSize) + static_cast<float>(iz) * stepSize;
+            if (z > playerPos.z + playerSize)
+                break;
+            for (int ix = 0; ix < xzSteps; ++ix) {
+                const float x = (playerPos.x - playerSize) + static_cast<float>(ix) * stepSize;
+                if (x > playerPos.x + playerSize)
+                    break;
+                const BlockType block = getBlockAt(glm::vec3(x, y, z));
                 if (block != BlockType::AIR && BlockData::isSolid(block)) {
                     collision = true;
                     if (!m_collisionDebugEnabled) {

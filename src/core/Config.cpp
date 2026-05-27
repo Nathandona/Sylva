@@ -62,7 +62,13 @@ bool Config::load(const std::string& path) {
         if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
             value = value.substr(1, value.size() - 2);
         }
-        const std::string fullKey = currentSection.empty() ? key : currentSection + "." + key;
+        std::string fullKey;
+        if (currentSection.empty()) {
+            fullKey = key;
+        } else {
+            fullKey.reserve(currentSection.size() + 1 + key.size());
+            fullKey.append(currentSection).append(".").append(key);
+        }
 
         if (value == "true" || value == "false") {
             values[fullKey] = (value == "true");

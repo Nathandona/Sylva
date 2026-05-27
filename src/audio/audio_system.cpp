@@ -125,7 +125,8 @@ std::optional<WavData> loadWavFile(const std::string& path) {
             gotData = true;
             break;
         } else {
-            f.ignore(static_cast<std::streamsize>(size + (size & 1)));
+            const auto skipBytes = static_cast<std::streamsize>(size) + static_cast<std::streamsize>(size & 1U);
+            f.ignore(skipBytes);
         }
     }
     if (!gotFmt || !gotData)
@@ -202,7 +203,7 @@ struct OpenALAudioSystem::State {
 
     struct Sound {
         ALuint buffer{};
-        AudioType type;
+        AudioType type{AudioType::SOUND_EFFECT};
         std::string filePath;
     };
     struct SoundInstance {
@@ -212,7 +213,7 @@ struct OpenALAudioSystem::State {
         bool isPaused{};
         bool isLooping{};
         float volume{};
-        AudioType type;
+        AudioType type{AudioType::SOUND_EFFECT};
     };
 
     std::unordered_map<std::string, Sound> soundLibrary;

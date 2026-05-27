@@ -191,7 +191,7 @@ void FeatureGenerator::generateDecorations(Chunk* chunk, std::mt19937& rng, std:
                 if (groundY + 2 < CHUNK_SIZE) {
                     chunk->setBlock(mushroomX, groundY + 2, mushroomZ, BlockType::LEAVES);
                     int const capExtends[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-                    for (auto& capExtend : capExtends) {
+                    for (const auto& capExtend : capExtends) {
                         int const capX = mushroomX + capExtend[0];
                         int const capZ = mushroomZ + capExtend[1];
                         if (capX >= 0 && capX < CHUNK_SIZE && capZ >= 0 && capZ < CHUNK_SIZE) {
