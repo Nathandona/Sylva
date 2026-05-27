@@ -132,4 +132,13 @@ void TerrainGenerator::generateFeatures(Chunk* chunk) {
     m_featureGen->generateDecorations(chunk, rng, randPos);
 }
 
+float TerrainGenerator::sampleHeight(float voxelX, float voxelZ) const {
+    // generateBaseHeight + applyTerrainFeatures are deterministic on (x,z);
+    // the rng parameter is threaded through for API uniformity but neither
+    // helper actually consumes it. Pass a fresh dummy generator.
+    std::mt19937 unused(0);
+    const float base = generateBaseHeight(voxelX, voxelZ, unused);
+    return applyTerrainFeatures(base, voxelX, voxelZ, unused);
+}
+
 } // namespace Sylva 

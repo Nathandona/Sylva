@@ -2,14 +2,8 @@
 
 #include <string>
 #include <unordered_map>
-#include <memory>
-#include <vector>
 
 namespace Sylva {
-
-// Forward declarations
-class AudioSource;
-class AudioListener;
 
 enum class AudioType {
     SOUND_EFFECT,  // Short sounds played once or occasionally

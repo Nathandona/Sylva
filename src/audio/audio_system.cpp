@@ -4,9 +4,13 @@
 
 #include <AL/al.h>
 #include <AL/alc.h>
-#include <glm/glm.hpp>
 #include <algorithm>
 #include <mutex>
+#include <fstream>
+#include <cstring>
+#include <cstdint>
+#include <optional>
+#include <vector>
 
 namespace Sylva {
 
@@ -94,27 +98,108 @@ namespace {
         return true;
     }
     
-    // Helper to load audio file (stub - would need audio file loading library)
-    bool loadAudioFile(const std::string& filePath, ALuint buffer) {
-        // In a real implementation, this would use a library like libsndfile, stb_vorbis, etc.
-        // to load different audio formats (WAV, OGG, MP3, etc.)
-        
-        // This is a placeholder that would be replaced with actual file loading code
-        Logger::logInfo("Loading audio file: " + filePath);
-        
-        // Example with hardcoded data for demonstration - NOT ACTUAL IMPLEMENTATION
-        // Just to show how the buffer would be filled
-        const int sampleRate = 44100;
-        const int seconds = 1;
-        std::vector<short> samples(sampleRate * seconds);
-        
-        // Generate a simple sine wave as placeholder audio data
-        for (int i = 0; i < samples.size(); i++) {
-            samples[i] = short(32760 * sin(2.0f * 3.14159f * 440.0f * i / sampleRate));
+    struct WavData {
+        std::vector<uint8_t> samples;
+        uint16_t channels = 0;
+        uint16_t bitsPerSample = 0;
+        uint32_t sampleRate = 0;
+    };
+
+    template <typename T>
+    bool readLE(std::ifstream& f, T& out) {
+        return static_cast<bool>(f.read(reinterpret_cast<char*>(&out), sizeof(T)));
+    }
+
+    // Minimal WAV PCM parser. Handles uncompressed mono/stereo 8- or 16-bit
+    // PCM (audioFormat == 1). Skips unknown chunks (LIST, fact, ...) between
+    // 'fmt ' and 'data'. Returns nullopt on any I/O or format failure.
+    std::optional<WavData> loadWavFile(const std::string& path) {
+        std::ifstream f(path, std::ios::binary);
+        if (!f) return std::nullopt;
+
+        char tag[5] = {0};
+        uint32_t size = 0;
+
+        f.read(tag, 4);
+        if (std::strncmp(tag, "RIFF", 4) != 0) return std::nullopt;
+        readLE(f, size);
+        f.read(tag, 4);
+        if (std::strncmp(tag, "WAVE", 4) != 0) return std::nullopt;
+
+        WavData wav;
+        bool gotFmt = false, gotData = false;
+        while (f.read(tag, 4) && readLE(f, size)) {
+            if (std::strncmp(tag, "fmt ", 4) == 0) {
+                uint16_t audioFormat = 0, channels = 0, blockAlign = 0, bitsPerSample = 0;
+                uint32_t sampleRate = 0, byteRate = 0;
+                readLE(f, audioFormat);
+                readLE(f, channels);
+                readLE(f, sampleRate);
+                readLE(f, byteRate);
+                readLE(f, blockAlign);
+                readLE(f, bitsPerSample);
+                // Skip any extension bytes past the 16-byte PCM fmt block.
+                if (size > 16) f.ignore(static_cast<std::streamsize>(size - 16));
+                if (audioFormat != 1) return std::nullopt; // PCM only
+                wav.channels = channels;
+                wav.sampleRate = sampleRate;
+                wav.bitsPerSample = bitsPerSample;
+                gotFmt = true;
+            } else if (std::strncmp(tag, "data", 4) == 0) {
+                wav.samples.resize(size);
+                f.read(reinterpret_cast<char*>(wav.samples.data()), size);
+                gotData = true;
+                break;
+            } else {
+                // Unknown chunk; skip its payload (padded to even length).
+                f.ignore(static_cast<std::streamsize>(size + (size & 1)));
+            }
         }
-        
-        // Upload audio data to OpenAL buffer
-        alBufferData(buffer, AL_FORMAT_MONO16, samples.data(), samples.size() * sizeof(short), sampleRate);
+        if (!gotFmt || !gotData) return std::nullopt;
+        return wav;
+    }
+
+    ALenum alFormatFor(uint16_t channels, uint16_t bits) {
+        if (channels == 1 && bits == 8)  return AL_FORMAT_MONO8;
+        if (channels == 1 && bits == 16) return AL_FORMAT_MONO16;
+        if (channels == 2 && bits == 8)  return AL_FORMAT_STEREO8;
+        if (channels == 2 && bits == 16) return AL_FORMAT_STEREO16;
+        return 0;
+    }
+
+    bool loadAudioFile(const std::string& filePath, ALuint buffer) {
+        Logger::logInfo("Loading audio file: " + filePath);
+
+        // Only PCM WAV is supported. Other formats (OGG/MP3/FLAC) would need
+        // dedicated decoders; failing here is preferable to silently filling
+        // the buffer with garbage.
+        const auto dot = filePath.find_last_of('.');
+        const std::string ext = (dot != std::string::npos) ? filePath.substr(dot) : "";
+        std::string extLower = ext;
+        std::transform(extLower.begin(), extLower.end(), extLower.begin(), ::tolower);
+        if (extLower != ".wav") {
+            Logger::logWarning("Unsupported audio format (only PCM WAV is supported): " + filePath);
+            return false;
+        }
+
+        const auto wav = loadWavFile(filePath);
+        if (!wav) {
+            Logger::logError("Failed to parse WAV file: " + filePath);
+            return false;
+        }
+
+        const ALenum format = alFormatFor(wav->channels, wav->bitsPerSample);
+        if (format == 0) {
+            Logger::logError("Unsupported WAV channel/bit combination (" +
+                             std::to_string(wav->channels) + "ch, " +
+                             std::to_string(wav->bitsPerSample) + "bit): " + filePath);
+            return false;
+        }
+
+        alBufferData(buffer, format,
+                     wav->samples.data(),
+                     static_cast<ALsizei>(wav->samples.size()),
+                     static_cast<ALsizei>(wav->sampleRate));
         return checkALError("loading audio data");
     }
 }

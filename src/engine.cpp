@@ -104,14 +104,19 @@ bool Engine::initialize(const std::string& configPath) {
     m_camera->setDistance(5.0f);
     // Generate the voxel world around the player's starting position
     m_voxelWorld->generateWorld(m_player->getPosition());
-    // Load some example audio
-    AudioSystem::loadSound("startup", "assets/audio/sfx/startup.wav", AudioType::SOUND_EFFECT);
-    AudioSystem::loadSound("background", "assets/audio/music/background.ogg", AudioType::MUSIC);
-    AudioSystem::loadSound("footstep", "assets/audio/sfx/footstep.wav", AudioType::SOUND_EFFECT);
-    // Play startup sound
+    // Audio asset paths come from [AudioAssets] in config so users can swap
+    // files (or point at WAVs) without touching code.
+    const std::string startupPath  = Config::getString("AudioAssets.startup_sfx",  "assets/audio/sfx/startup.wav");
+    const std::string footstepPath = Config::getString("AudioAssets.footstep_sfx", "assets/audio/sfx/footstep.wav");
+    const std::string musicPath    = Config::getString("AudioAssets.music_track",  "");
+    AudioSystem::loadSound("startup",  startupPath,  AudioType::SOUND_EFFECT);
+    AudioSystem::loadSound("footstep", footstepPath, AudioType::SOUND_EFFECT);
+    if (!musicPath.empty()) {
+        if (AudioSystem::loadSound("background", musicPath, AudioType::MUSIC)) {
+            m_musicId = AudioSystem::playSound("background", true, 0.7f);
+        }
+    }
     AudioSystem::playSound("startup");
-    // Start background music (looped)
-    m_musicId = AudioSystem::playSound("background", true, 0.7f);
     // OpenGL settings
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);

@@ -37,6 +37,19 @@ public:
      */
     void generateFeatures(Chunk* chunk);
 
+    /**
+     * @brief Sample the terrain surface height (voxel units) at a position.
+     *
+     * Computes the same height that generateTerrain would place at this
+     * column, so callers can predict the surface without scanning blocks.
+     * Note: does not reflect player-modified blocks — pure noise sample.
+     *
+     * @param voxelX  Voxel-space X coordinate (world / cellSize).
+     * @param voxelZ  Voxel-space Z coordinate (world / cellSize).
+     * @return Height in voxel units (float, matches generateTerrain's value).
+     */
+    float sampleHeight(float voxelX, float voxelZ) const;
+
 private:
     /**
      * @brief Generate base height for a given world position
