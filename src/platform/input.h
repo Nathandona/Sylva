@@ -9,7 +9,7 @@ namespace Sylva {
 
 /**
  * @brief Input system
- * 
+ *
  * Handles user input through GLFW and maintains the current input state.
  */
 namespace Input {
@@ -57,4 +57,4 @@ void reset();
 
 } // namespace Input
 
-} // namespace Sylva 
+} // namespace Sylva

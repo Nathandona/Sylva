@@ -13,11 +13,11 @@ namespace Sylva {
 Camera::Camera() {
     // Defaults come from NSDMI; only override the params from config here.
     m_params.orbitDistance = Config::getFloat("Camera.orbit_distance", m_params.orbitDistance);
-    m_params.minDistance   = Config::getFloat("Camera.min_distance",   m_params.minDistance);
-    m_params.maxDistance   = Config::getFloat("Camera.max_distance",   m_params.maxDistance);
-    m_params.targetHeight  = Config::getFloat("Camera.target_height",  m_params.targetHeight);
+    m_params.minDistance = Config::getFloat("Camera.min_distance", m_params.minDistance);
+    m_params.maxDistance = Config::getFloat("Camera.max_distance", m_params.maxDistance);
+    m_params.targetHeight = Config::getFloat("Camera.target_height", m_params.targetHeight);
     m_params.rotationSpeed = Config::getFloat("Camera.rotation_speed", m_params.rotationSpeed);
-    m_params.zoomSpeed     = Config::getFloat("Camera.zoom_speed",     m_params.zoomSpeed);
+    m_params.zoomSpeed = Config::getFloat("Camera.zoom_speed", m_params.zoomSpeed);
     Logger::logDebug("Camera initialized with orbit distance: " + std::to_string(m_params.orbitDistance));
 }
 
@@ -28,12 +28,12 @@ Camera::Camera(const CameraParams& params) : m_params(params) {
 void Camera::updateRotation(const InputState& input) {
     // Get the mouse sensitivity from config if available
     float mouseSensitivity = Config::getFloat("Input.mouse_sensitivity", 0.1f);
-    
+
     // Process mouse rotation - Cube World style camera movement
     // Scale by sensitivity and make rotation speed consistent regardless of frame rate
     m_yaw += input.mouseDeltaX * mouseSensitivity * 0.01f;
     m_pitch += input.mouseDeltaY * mouseSensitivity * 0.01f;
-    
+
     // Clamp pitch to avoid flipping (limit to slightly less than 90 degrees up/down)
     m_pitch = std::clamp(m_pitch, -1.5f, 1.5f); // About 85 degrees
 }
@@ -42,16 +42,14 @@ void Camera::updateZoom(const InputState& input) {
     // Process zoom using both mouse wheel and right mouse button
     // Mouse wheel zooming
     m_params.orbitDistance -= input.mouseWheelDelta * m_params.zoomSpeed;
-    
+
     // Right mouse button + vertical mouse movement for zooming
     if (input.mouseRightButton) {
         m_params.orbitDistance -= input.mouseDeltaY * m_params.zoomSpeed * 0.05f;
     }
-    
+
     // Clamp orbit distance
-    m_params.orbitDistance = std::clamp(m_params.orbitDistance, 
-                                       m_params.minDistance, 
-                                       m_params.maxDistance);
+    m_params.orbitDistance = std::clamp(m_params.orbitDistance, m_params.minDistance, m_params.maxDistance);
 }
 
 void Camera::updatePosition() {
@@ -59,7 +57,7 @@ void Camera::updatePosition() {
     float x = m_params.orbitDistance * std::sin(m_yaw) * std::cos(m_pitch);
     float y = m_params.orbitDistance * std::sin(m_pitch);
     float z = m_params.orbitDistance * std::cos(m_yaw) * std::cos(m_pitch);
-    
+
     // Set camera position relative to target
     m_position = m_target + Vec3(x, y, z);
 }
@@ -75,7 +73,7 @@ void Camera::updateOrbit(float deltaTime, const Player& player, const InputState
     // Get player position and update target
     Vec3 playerPos = player.getPosition();
     m_target = playerPos + Vec3(0.0f, m_params.targetHeight, 0.0f);
-    
+
     // Update camera components
     updateRotation(input);
     updateZoom(input);
@@ -119,4 +117,4 @@ Mat4 Camera::getProjectionMatrix(float aspectRatio) const {
     return glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 1000.0f);
 }
 
-} // namespace Sylva 
+} // namespace Sylva

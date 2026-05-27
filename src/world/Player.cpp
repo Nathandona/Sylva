@@ -8,10 +8,7 @@
 
 namespace Sylva {
 
-Player::Player()
-    : m_position(0.0f, 0.0f, 0.0f),
-      m_rotation(0.0f),
-      m_velocity(0.0f, 0.0f, 0.0f) {
+Player::Player() : m_position(0.0f, 0.0f, 0.0f), m_rotation(0.0f), m_velocity(0.0f, 0.0f, 0.0f) {
     // Load player parameters from config if available
     m_params.moveSpeed = Config::getFloat("Player.move_speed", m_params.moveSpeed);
     m_params.rotationSpeed = Config::getFloat("Player.rotation_speed", m_params.rotationSpeed);
@@ -22,18 +19,13 @@ Player::Player()
     m_params.jumpHeight = Config::getFloat("Player.jump_height", m_params.jumpHeight);
     m_params.jumpForce = Config::getFloat("Player.jump_force", m_params.jumpForce);
     m_params.gravity = Config::getFloat("Player.gravity", m_params.gravity);
-    
-    Logger::logDebug("Player initialized at position: " + 
-                    std::to_string(m_position.x) + ", " +
-                    std::to_string(m_position.y) + ", " +
-                    std::to_string(m_position.z));
+
+    Logger::logDebug("Player initialized at position: " + std::to_string(m_position.x) + ", " +
+                     std::to_string(m_position.y) + ", " + std::to_string(m_position.z));
 }
 
 Player::Player(const PlayerParams& params)
-    : m_params(params),
-      m_position(0.0f, 0.0f, 0.0f),
-      m_rotation(0.0f),
-      m_velocity(0.0f, 0.0f, 0.0f) {
+    : m_params(params), m_position(0.0f, 0.0f, 0.0f), m_rotation(0.0f), m_velocity(0.0f, 0.0f, 0.0f) {
     Logger::logDebug("Player initialized with custom parameters");
 }
 
@@ -49,13 +41,17 @@ Vec3 Player::handlePlayerInput(const InputState& input, const Vec3& cameraForwar
         return (len > 0.0f) ? v / len : Vec3(0.0f);
     };
     const Vec3 forward = flatten(cameraForward);
-    const Vec3 right   = flatten(cameraRight);
+    const Vec3 right = flatten(cameraRight);
 
     Vec3 moveDirection(0.0f);
-    if (input.moveForward)  moveDirection += forward;
-    if (input.moveBackward) moveDirection -= forward;
-    if (input.moveLeft)     moveDirection -= right;
-    if (input.moveRight)    moveDirection += right;
+    if (input.moveForward)
+        moveDirection += forward;
+    if (input.moveBackward)
+        moveDirection -= forward;
+    if (input.moveLeft)
+        moveDirection -= right;
+    if (input.moveRight)
+        moveDirection += right;
     if (glm::length(moveDirection) > 0.0f) {
         moveDirection = glm::normalize(moveDirection);
     }
@@ -65,23 +61,23 @@ Vec3 Player::handlePlayerInput(const InputState& input, const Vec3& cameraForwar
 Vec3 Player::updatePosition(float deltaTime, const Vec3& moveDirection, const VoxelWorld& world) {
     // Apply movement speed to horizontal movement
     Vec3 scaledMove = moveDirection * m_params.moveSpeed * deltaTime;
-    
+
     // Calculate new position
     Vec3 newPosition = m_position;
     newPosition.x += scaledMove.x;
     newPosition.z += scaledMove.z;
-    
+
     // Handle vertical movement
     float terrainHeight = world.getHeightAt(newPosition.x, newPosition.z);
-    
+
     // Apply gravity when not grounded
     if (!m_params.isGrounded) {
         m_velocity.y -= m_params.gravity * deltaTime;
     }
-    
+
     // Update vertical position with velocity
     newPosition.y += m_velocity.y * deltaTime;
-    
+
     // Check if player is on or below ground
     if (newPosition.y <= terrainHeight) {
         newPosition.y = terrainHeight;
@@ -90,7 +86,7 @@ Vec3 Player::updatePosition(float deltaTime, const Vec3& moveDirection, const Vo
     } else {
         m_params.isGrounded = false;
     }
-    
+
     return newPosition;
 }
 
@@ -101,16 +97,16 @@ bool Player::handleCollisions(const Vec3& newPosition, const VoxelWorld& world) 
         Vec3 testPosition = m_position;
         testPosition.x = newPosition.x;
         testPosition.z = newPosition.z;
-        
+
         // Temporarily update position for collision check
         Vec3 oldPosition = m_position;
         m_position = testPosition;
         bool collision = checkCollision(world);
-        m_position = oldPosition;  // Restore position
-        
+        m_position = oldPosition; // Restore position
+
         return collision;
     }
-    
+
     return false;
 }
 
@@ -120,31 +116,33 @@ void Player::updateAnimation(float deltaTime, const Vec3& moveDirection) {
     }
 }
 
-void Player::updateMovement(float deltaTime, const InputState& input,
-                            const Vec3& cameraForward, const Vec3& cameraRight,
+void Player::updateMovement(float deltaTime,
+                            const InputState& input,
+                            const Vec3& cameraForward,
+                            const Vec3& cameraRight,
                             const VoxelWorld& world) {
     Vec3 moveDirection = handlePlayerInput(input, cameraForward, cameraRight);
-    
+
     // Handle jumping
     if (input.jump && m_params.isGrounded) {
         m_velocity.y = m_params.jumpForce;
         m_params.isGrounded = false;
         Logger::logDebug("Player jumped");
     }
-    
+
     // Calculate new position based on movement and physics
     Vec3 newPosition = updatePosition(deltaTime, moveDirection, world);
-    
+
     // Check for collisions
     bool collision = handleCollisions(newPosition, world);
-    
+
     // Apply movement if no collision, or just vertical movement if collision
     if (!collision) {
         m_position = newPosition;
     } else {
         m_position.y = newPosition.y;
     }
-    
+
     // Update animation state
     updateAnimation(deltaTime, moveDirection);
 }
@@ -155,13 +153,13 @@ void Player::rotateToMovementDirection(const Vec3& moveDirection, float deltaTim
         // Calculate the angle in radians using atan2
         // Add PI to make the front face (-Z in local coords) point in the movement direction
         float targetRotation = atan2(moveDirection.x, moveDirection.z) + glm::pi<float>();
-        
+
         // Smoothly interpolate to the target rotation
         float rotationDelta = m_params.rotationSpeed * deltaTime;
-        
+
         // Find the shortest path to the target angle
         float angleDifference = targetRotation - m_rotation;
-        
+
         // Normalize angle to -PI to PI
         while (angleDifference > glm::pi<float>()) {
             angleDifference -= 2.0f * glm::pi<float>();
@@ -169,7 +167,7 @@ void Player::rotateToMovementDirection(const Vec3& moveDirection, float deltaTim
         while (angleDifference < -glm::pi<float>()) {
             angleDifference += 2.0f * glm::pi<float>();
         }
-        
+
         // Apply smooth rotation with speed limit
         if (abs(angleDifference) < rotationDelta) {
             m_rotation = targetRotation; // Close enough, snap to target
@@ -177,7 +175,7 @@ void Player::rotateToMovementDirection(const Vec3& moveDirection, float deltaTim
             // Move towards the target at limited speed
             m_rotation += (angleDifference > 0.0f) ? rotationDelta : -rotationDelta;
         }
-        
+
         // Keep rotation in range [0, 2π]
         while (m_rotation < 0.0f) {
             m_rotation += 2.0f * glm::pi<float>();
@@ -185,7 +183,6 @@ void Player::rotateToMovementDirection(const Vec3& moveDirection, float deltaTim
         while (m_rotation >= 2.0f * glm::pi<float>()) {
             m_rotation -= 2.0f * glm::pi<float>();
         }
-        
     }
 }
 
@@ -196,11 +193,11 @@ bool Player::checkCollision(const VoxelWorld& world) {
 
 void Player::renderPlayer(Shader& shader, const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix) {
     shader.use();
-    
+
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, m_position);
     model = glm::rotate(model, m_rotation, glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate around Y axis
-    
+
     shader.setMat4("model", model);
     shader.setMat4("view", viewMatrix);
     shader.setMat4("projection", projectionMatrix);
@@ -234,7 +231,7 @@ float Player::getHeight() const {
 
 void Player::setJumpHeight(float height) {
     m_params.jumpHeight = height;
-    
+
     // Recalculate jump force based on jumpHeight and gravity
     // Using physics formula: v = sqrt(2 * g * h)
     m_params.jumpForce = sqrt(2.0f * m_params.gravity * m_params.jumpHeight);
@@ -242,7 +239,7 @@ void Player::setJumpHeight(float height) {
 
 void Player::setJumpForce(float force) {
     m_params.jumpForce = force;
-    
+
     // Update jump height to match the new force
     // Using physics formula: h = v^2 / (2 * g)
     m_params.jumpHeight = (m_params.jumpForce * m_params.jumpForce) / (2.0f * m_params.gravity);
@@ -250,7 +247,7 @@ void Player::setJumpForce(float force) {
 
 void Player::setGravity(float gravity) {
     m_params.gravity = gravity;
-    
+
     // Recalculate jump force to maintain the same jump height
     m_params.jumpForce = sqrt(2.0f * m_params.gravity * m_params.jumpHeight);
 }
@@ -259,4 +256,4 @@ bool Player::isGrounded() const {
     return m_params.isGrounded;
 }
 
-} // namespace Sylva 
+} // namespace Sylva

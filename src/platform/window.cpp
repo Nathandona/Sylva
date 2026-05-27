@@ -23,7 +23,7 @@ static void glfwFramebufferSizeCallback(GLFWwindow* window, int width, int heigh
     if (userWindow && userWindow->getGLFWwindow() == window) {
         // Update OpenGL viewport
         glViewport(0, 0, width, height);
-        
+
         // Call user's resize callback if set
         auto callback = userWindow->getResizeCallback();
         if (callback) {
@@ -37,7 +37,7 @@ Window::Window(int width, int height, const std::string& title) {
     if (!s_glfwInitialized) {
         initialize();
     }
-    
+
     // Create the window
     create(width, height, title);
 }
@@ -50,26 +50,26 @@ bool Window::initialize() {
     if (s_glfwInitialized) {
         return true; // Already initialized
     }
-    
+
     // Set GLFW error callback
     glfwSetErrorCallback(glfwErrorCallback);
-    
+
     // Initialize GLFW
     if (!glfwInit()) {
         Logger::logError("Failed to initialize GLFW");
         return false;
     }
-    
+
     // Set GLFW window hints
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    
-    // MAC OS compatibility
-    #ifdef __APPLE__
-        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    #endif
-    
+
+// MAC OS compatibility
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
+
     Logger::logInfo("GLFW initialized successfully");
     s_glfwInitialized = true;
     return true;
@@ -81,27 +81,27 @@ bool Window::create(int width, int height, const std::string& title, bool fullsc
         glfwDestroyWindow(m_window);
         m_window = nullptr;
     }
-    
+
     m_width = width;
     m_height = height;
     m_title = title;
     m_fullscreen = fullscreen;
-    
+
     // Create GLFW window
     GLFWmonitor* monitor = fullscreen ? glfwGetPrimaryMonitor() : nullptr;
     m_window = glfwCreateWindow(width, height, title.c_str(), monitor, nullptr);
-    
+
     if (!m_window) {
         Logger::logError("Failed to create GLFW window");
         return false;
     }
-    
+
     // Set this window as the current OpenGL context
     glfwMakeContextCurrent(m_window);
-    
+
     // Set window user pointer to this instance for callbacks
     glfwSetWindowUserPointer(m_window, this);
-    
+
     // Initialize GLAD (OpenGL function loader)
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         Logger::logError("Failed to initialize GLAD");
@@ -109,25 +109,24 @@ bool Window::create(int width, int height, const std::string& title, bool fullsc
         m_window = nullptr;
         return false;
     }
-    
+
     // Set viewport
     glViewport(0, 0, width, height);
-    
+
     // Set up callbacks
     setupCallbacks();
-    
+
     // Set vsync based on config
     bool vsync = Config::getBool("Graphics.vsync", true);
     setVSync(vsync);
-    
+
     // Initialize time tracking
     m_lastFrameTime = static_cast<float>(glfwGetTime());
     m_deltaTime = 0.0f;
-    
-    Logger::logInfo("Window created: " + std::to_string(width) + "x" + 
-                    std::to_string(height) + " - " + title + 
+
+    Logger::logInfo("Window created: " + std::to_string(width) + "x" + std::to_string(height) + " - " + title +
                     (fullscreen ? " (Fullscreen)" : ""));
-    
+
     return true;
 }
 
@@ -137,7 +136,7 @@ void Window::shutdown() {
         m_window = nullptr;
         Logger::logInfo("Window destroyed");
     }
-    
+
     // Only terminate GLFW if we initialized it
     if (s_glfwInitialized) {
         glfwTerminate();
@@ -159,7 +158,7 @@ void Window::setShouldClose(bool shouldClose) {
 void Window::swapBuffers() {
     if (m_window) {
         glfwSwapBuffers(m_window);
-        
+
         // Update delta time
         float currentTime = static_cast<float>(glfwGetTime());
         m_deltaTime = currentTime - m_lastFrameTime;
@@ -208,11 +207,12 @@ std::function<void(int, int)> Window::getResizeCallback() const {
 }
 
 void Window::setupCallbacks() {
-    if (!m_window) return;
-    
+    if (!m_window)
+        return;
+
     // Set framebuffer size callback
     glfwSetFramebufferSizeCallback(m_window, glfwFramebufferSizeCallback);
-    
+
     // Additional callbacks can be set here:
     // - Key callback
     // - Mouse position callback
@@ -221,4 +221,4 @@ void Window::setupCallbacks() {
     // Depending on your requirements
 }
 
-} // namespace Sylva 
+} // namespace Sylva

@@ -25,28 +25,41 @@ struct AudioTypeMeta {
 };
 constexpr AudioTypeMeta kAudioTypeMeta[] = {
     {AudioType::SOUND_EFFECT, "SOUND_EFFECT", "Audio.sound_effect_volume", "Audio.mute_sound_effects"},
-    {AudioType::MUSIC,        "MUSIC",        "Audio.music_volume",        "Audio.mute_music"},
-    {AudioType::AMBIENT,      "AMBIENT",      "Audio.ambient_volume",      "Audio.mute_ambient"},
-    {AudioType::VOICE,        "VOICE",        "Audio.voice_volume",        "Audio.mute_voice"},
+    {AudioType::MUSIC, "MUSIC", "Audio.music_volume", "Audio.mute_music"},
+    {AudioType::AMBIENT, "AMBIENT", "Audio.ambient_volume", "Audio.mute_ambient"},
+    {AudioType::VOICE, "VOICE", "Audio.voice_volume", "Audio.mute_voice"},
 };
 const AudioTypeMeta& metaFor(AudioType t) {
     for (const auto& e : kAudioTypeMeta) {
-        if (e.type == t) return e;
+        if (e.type == t)
+            return e;
     }
     return kAudioTypeMeta[0];
 }
 
 bool checkALError(const std::string& operation) {
     ALenum error = alGetError();
-    if (error == AL_NO_ERROR) return true;
+    if (error == AL_NO_ERROR)
+        return true;
     const char* msg = "Unknown OpenAL error";
     switch (error) {
-        case AL_INVALID_NAME:      msg = "AL_INVALID_NAME"; break;
-        case AL_INVALID_ENUM:      msg = "AL_INVALID_ENUM"; break;
-        case AL_INVALID_VALUE:     msg = "AL_INVALID_VALUE"; break;
-        case AL_INVALID_OPERATION: msg = "AL_INVALID_OPERATION"; break;
-        case AL_OUT_OF_MEMORY:     msg = "AL_OUT_OF_MEMORY"; break;
-        default: break;
+    case AL_INVALID_NAME:
+        msg = "AL_INVALID_NAME";
+        break;
+    case AL_INVALID_ENUM:
+        msg = "AL_INVALID_ENUM";
+        break;
+    case AL_INVALID_VALUE:
+        msg = "AL_INVALID_VALUE";
+        break;
+    case AL_INVALID_OPERATION:
+        msg = "AL_INVALID_OPERATION";
+        break;
+    case AL_OUT_OF_MEMORY:
+        msg = "AL_OUT_OF_MEMORY";
+        break;
+    default:
+        break;
     }
     Logger::logError("OpenAL error during " + operation + ": " + msg);
     return false;
@@ -61,23 +74,25 @@ struct WavData {
     uint32_t sampleRate = 0;
 };
 
-template <typename T>
-bool readLE(std::ifstream& f, T& out) {
+template<typename T> bool readLE(std::ifstream& f, T& out) {
     return static_cast<bool>(f.read(reinterpret_cast<char*>(&out), sizeof(T)));
 }
 
 std::optional<WavData> loadWavFile(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
-    if (!f) return std::nullopt;
+    if (!f)
+        return std::nullopt;
 
     char tag[5] = {0};
     uint32_t size = 0;
 
     f.read(tag, 4);
-    if (std::strncmp(tag, "RIFF", 4) != 0) return std::nullopt;
+    if (std::strncmp(tag, "RIFF", 4) != 0)
+        return std::nullopt;
     readLE(f, size);
     f.read(tag, 4);
-    if (std::strncmp(tag, "WAVE", 4) != 0) return std::nullopt;
+    if (std::strncmp(tag, "WAVE", 4) != 0)
+        return std::nullopt;
 
     WavData wav;
     bool gotFmt = false, gotData = false;
@@ -91,8 +106,10 @@ std::optional<WavData> loadWavFile(const std::string& path) {
             readLE(f, byteRate);
             readLE(f, blockAlign);
             readLE(f, bitsPerSample);
-            if (size > 16) f.ignore(static_cast<std::streamsize>(size - 16));
-            if (audioFormat != 1) return std::nullopt; // PCM only
+            if (size > 16)
+                f.ignore(static_cast<std::streamsize>(size - 16));
+            if (audioFormat != 1)
+                return std::nullopt; // PCM only
             wav.channels = channels;
             wav.sampleRate = sampleRate;
             wav.bitsPerSample = bitsPerSample;
@@ -106,15 +123,20 @@ std::optional<WavData> loadWavFile(const std::string& path) {
             f.ignore(static_cast<std::streamsize>(size + (size & 1)));
         }
     }
-    if (!gotFmt || !gotData) return std::nullopt;
+    if (!gotFmt || !gotData)
+        return std::nullopt;
     return wav;
 }
 
 ALenum alFormatFor(uint16_t channels, uint16_t bits) {
-    if (channels == 1 && bits == 8)  return AL_FORMAT_MONO8;
-    if (channels == 1 && bits == 16) return AL_FORMAT_MONO16;
-    if (channels == 2 && bits == 8)  return AL_FORMAT_STEREO8;
-    if (channels == 2 && bits == 16) return AL_FORMAT_STEREO16;
+    if (channels == 1 && bits == 8)
+        return AL_FORMAT_MONO8;
+    if (channels == 1 && bits == 16)
+        return AL_FORMAT_MONO16;
+    if (channels == 2 && bits == 8)
+        return AL_FORMAT_STEREO8;
+    if (channels == 2 && bits == 16)
+        return AL_FORMAT_STEREO16;
     return 0;
 }
 
@@ -137,13 +159,13 @@ bool loadAudioFile(const std::string& filePath, ALuint buffer) {
 
     const ALenum format = alFormatFor(wav->channels, wav->bitsPerSample);
     if (format == 0) {
-        Logger::logError("Unsupported WAV channel/bit combination (" +
-                         std::to_string(wav->channels) + "ch, " +
+        Logger::logError("Unsupported WAV channel/bit combination (" + std::to_string(wav->channels) + "ch, " +
                          std::to_string(wav->bitsPerSample) + "bit): " + filePath);
         return false;
     }
 
-    alBufferData(buffer, format,
+    alBufferData(buffer,
+                 format,
                  wav->samples.data(),
                  static_cast<ALsizei>(wav->samples.size()),
                  static_cast<ALsizei>(wav->sampleRate));
@@ -155,7 +177,7 @@ bool loadAudioFile(const std::string& filePath, ALuint buffer) {
 // --- OpenALAudioSystem::State (pImpl) --------------------------------------
 
 struct OpenALAudioSystem::State {
-    ALCdevice*  device  = nullptr;
+    ALCdevice* device = nullptr;
     ALCcontext* context = nullptr;
     bool ready = false;
 
@@ -225,7 +247,8 @@ OpenALAudioSystem::OpenALAudioSystem() : m_state(std::make_unique<State>()) {
         std::lock_guard<std::mutex> lock(m_state->mutex);
         m_state->masterVolume = std::clamp(Config::getFloat("Audio.master_volume", m_state->masterVolume), 0.0f, 1.0f);
         for (const auto& e : kAudioTypeMeta) {
-            m_state->typeVolumes[e.type]    = std::clamp(Config::getFloat(e.volumeKey, m_state->typeVolumes[e.type]), 0.0f, 1.0f);
+            m_state->typeVolumes[e.type] =
+                std::clamp(Config::getFloat(e.volumeKey, m_state->typeVolumes[e.type]), 0.0f, 1.0f);
             m_state->typeMuteStates[e.type] = Config::getBool(e.muteKey, m_state->typeMuteStates[e.type]);
         }
     }
@@ -235,7 +258,8 @@ OpenALAudioSystem::OpenALAudioSystem() : m_state(std::make_unique<State>()) {
 }
 
 OpenALAudioSystem::~OpenALAudioSystem() {
-    if (!m_state) return;
+    if (!m_state)
+        return;
     if (m_state->ready) {
         {
             std::lock_guard<std::mutex> lock(m_state->mutex);
@@ -281,7 +305,8 @@ bool OpenALAudioSystem::loadSound(const std::string& name, const std::string& fi
     }
     ALuint buffer = 0;
     alGenBuffers(1, &buffer);
-    if (!checkALError("generating buffer")) return false;
+    if (!checkALError("generating buffer"))
+        return false;
     if (!loadAudioFile(filePath, buffer)) {
         alDeleteBuffers(1, &buffer);
         Logger::logError("Failed to load audio file: " + filePath);
@@ -293,7 +318,8 @@ bool OpenALAudioSystem::loadSound(const std::string& name, const std::string& fi
 }
 
 void OpenALAudioSystem::unloadSound(const std::string& name) {
-    if (!isReady()) return;
+    if (!isReady())
+        return;
     std::lock_guard<std::mutex> lock(m_state->mutex);
     auto it = m_state->soundLibrary.find(name);
     if (it == m_state->soundLibrary.end()) {
@@ -317,7 +343,8 @@ void OpenALAudioSystem::unloadSound(const std::string& name) {
 }
 
 void OpenALAudioSystem::unloadAllSounds() {
-    if (!isReady()) return;
+    if (!isReady())
+        return;
     std::lock_guard<std::mutex> lock(m_state->mutex);
     for (auto& pair : m_state->activeSounds) {
         alSourceStop(pair.second.source);
@@ -350,7 +377,8 @@ unsigned int OpenALAudioSystem::playSound(const std::string& name, bool loop, fl
     }
     ALuint source = 0;
     alGenSources(1, &source);
-    if (!checkALError("generating source")) return 0;
+    if (!checkALError("generating source"))
+        return 0;
     alSourcei(source, AL_BUFFER, it->second.buffer);
     alSourcef(source, AL_GAIN, volume * m_state->masterVolume * m_state->typeVolumes[it->second.type]);
     alSourcei(source, AL_LOOPING, loop ? AL_TRUE : AL_FALSE);
@@ -360,37 +388,41 @@ unsigned int OpenALAudioSystem::playSound(const std::string& name, bool loop, fl
         return 0;
     }
     const unsigned int soundId = m_state->nextSoundId++;
-    m_state->activeSounds[soundId] = State::SoundInstance{
-        source, name, true, false, loop, volume, it->second.type
-    };
+    m_state->activeSounds[soundId] = State::SoundInstance{source, name, true, false, loop, volume, it->second.type};
     return soundId;
 }
 
 void OpenALAudioSystem::stopSound(unsigned int soundId) {
-    if (!isReady()) return;
+    if (!isReady())
+        return;
     std::lock_guard<std::mutex> lock(m_state->mutex);
     auto it = m_state->activeSounds.find(soundId);
-    if (it == m_state->activeSounds.end()) return;
+    if (it == m_state->activeSounds.end())
+        return;
     alSourceStop(it->second.source);
     alDeleteSources(1, &it->second.source);
     m_state->activeSounds.erase(it);
 }
 
 void OpenALAudioSystem::pauseSound(unsigned int soundId) {
-    if (!isReady()) return;
+    if (!isReady())
+        return;
     std::lock_guard<std::mutex> lock(m_state->mutex);
     auto it = m_state->activeSounds.find(soundId);
-    if (it == m_state->activeSounds.end() || it->second.isPaused) return;
+    if (it == m_state->activeSounds.end() || it->second.isPaused)
+        return;
     alSourcePause(it->second.source);
     it->second.isPaused = true;
     it->second.isPlaying = false;
 }
 
 void OpenALAudioSystem::resumeSound(unsigned int soundId) {
-    if (!isReady()) return;
+    if (!isReady())
+        return;
     std::lock_guard<std::mutex> lock(m_state->mutex);
     auto it = m_state->activeSounds.find(soundId);
-    if (it == m_state->activeSounds.end() || !it->second.isPaused) return;
+    if (it == m_state->activeSounds.end() || !it->second.isPaused)
+        return;
     alSourcePlay(it->second.source);
     it->second.isPaused = false;
     it->second.isPlaying = true;
@@ -446,7 +478,8 @@ void OpenALAudioSystem::setTypeMuted(AudioType type, bool muted) {
         std::lock_guard<std::mutex> lock(m_state->mutex);
         m_state->typeMuteStates[type] = muted;
         for (auto& pair : m_state->activeSounds) {
-            if (pair.second.type != type) continue;
+            if (pair.second.type != type)
+                continue;
             if (muted) {
                 if (pair.second.isPlaying && !pair.second.isPaused) {
                     alSourceStop(pair.second.source);
@@ -464,56 +497,71 @@ void OpenALAudioSystem::setTypeMuted(AudioType type, bool muted) {
 }
 
 bool OpenALAudioSystem::isTypeMuted(AudioType type) const {
-    if (!isReady()) return false;
+    if (!isReady())
+        return false;
     std::lock_guard<std::mutex> lock(m_state->mutex);
     auto it = m_state->typeMuteStates.find(type);
     return it != m_state->typeMuteStates.end() && it->second;
 }
 
 void OpenALAudioSystem::muteAll() {
-    if (!isReady()) return;
-    for (const auto& e : kAudioTypeMeta) setTypeMuted(e.type, true);
+    if (!isReady())
+        return;
+    for (const auto& e : kAudioTypeMeta)
+        setTypeMuted(e.type, true);
     Logger::logInfo("All audio types muted");
 }
 
 void OpenALAudioSystem::unmuteAll() {
-    if (!isReady()) return;
-    for (const auto& e : kAudioTypeMeta) setTypeMuted(e.type, false);
+    if (!isReady())
+        return;
+    for (const auto& e : kAudioTypeMeta)
+        setTypeMuted(e.type, false);
     Logger::logInfo("All audio types unmuted");
 }
 
 // --- 3D positioning --------------------------------------------------------
 
 void OpenALAudioSystem::setListenerPosition(const float* position) {
-    if (!isReady()) return;
+    if (!isReady())
+        return;
     alListener3f(AL_POSITION, position[0], position[1], position[2]);
 }
 
 void OpenALAudioSystem::setListenerOrientation(const float* forward, const float* up) {
-    if (!isReady()) return;
+    if (!isReady())
+        return;
     float orientation[6] = {
-        forward[0], forward[1], forward[2],
-        up[0],      up[1],      up[2],
+        forward[0],
+        forward[1],
+        forward[2],
+        up[0],
+        up[1],
+        up[2],
     };
     alListenerfv(AL_ORIENTATION, orientation);
 }
 
 void OpenALAudioSystem::setSoundPosition(unsigned int soundId, const float* position) {
-    if (!isReady()) return;
+    if (!isReady())
+        return;
     std::lock_guard<std::mutex> lock(m_state->mutex);
     auto it = m_state->activeSounds.find(soundId);
-    if (it == m_state->activeSounds.end()) return;
+    if (it == m_state->activeSounds.end())
+        return;
     alSource3f(it->second.source, AL_POSITION, position[0], position[1], position[2]);
 }
 
 // --- per-frame update ------------------------------------------------------
 
 void OpenALAudioSystem::update() {
-    if (!isReady()) return;
+    if (!isReady())
+        return;
     std::lock_guard<std::mutex> lock(m_state->mutex);
     std::vector<unsigned int> toRemove;
     for (auto& pair : m_state->activeSounds) {
-        if (pair.second.isLooping) continue;
+        if (pair.second.isLooping)
+            continue;
         ALint state = 0;
         alGetSourcei(pair.second.source, AL_SOURCE_STATE, &state);
         if (state == AL_STOPPED) {

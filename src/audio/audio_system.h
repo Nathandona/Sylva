@@ -37,9 +37,9 @@ public:
     virtual void resumeSound(unsigned int soundId) = 0;
 
     // Volume controls.
-    virtual void  setMasterVolume(float volume) = 0;
+    virtual void setMasterVolume(float volume) = 0;
     virtual float getMasterVolume() const = 0;
-    virtual void  setTypeVolume(AudioType type, float volume) = 0;
+    virtual void setTypeVolume(AudioType type, float volume) = 0;
     virtual float getTypeVolume(AudioType type) const = 0;
 
     // Mute controls.
@@ -84,9 +84,9 @@ public:
     void pauseSound(unsigned int soundId) override;
     void resumeSound(unsigned int soundId) override;
 
-    void  setMasterVolume(float volume) override;
+    void setMasterVolume(float volume) override;
     float getMasterVolume() const override;
-    void  setTypeVolume(AudioType type, float volume) override;
+    void setTypeVolume(AudioType type, float volume) override;
     float getTypeVolume(AudioType type) const override;
 
     void setTypeMuted(AudioType type, bool muted) override;

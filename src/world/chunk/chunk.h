@@ -23,7 +23,7 @@ using BlockSampler = std::function<BlockType(int x, int y, int z)>;
 /**
  * @brief Size constants for chunks
  */
-constexpr int CHUNK_SIZE = 32;      // Size of a chunk in blocks (32x32x32) - increased for micro-voxel density
+constexpr int CHUNK_SIZE = 32; // Size of a chunk in blocks (32x32x32) - increased for micro-voxel density
 constexpr int CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 
 /**
@@ -36,18 +36,18 @@ public:
      * @param position The position of the chunk in chunk coordinates
      */
     Chunk(const glm::ivec3& position);
-    
+
     /**
      * @brief Destructor
      */
     ~Chunk();
-    
+
     /**
      * @brief Get the position of this chunk in chunk coordinates
      * @return The chunk's position
      */
     const glm::ivec3& getPosition() const { return m_position; }
-    
+
     /**
      * @brief Get the block type at the specified local position
      * @param x Local X coordinate (0 to CHUNK_SIZE-1)
@@ -56,7 +56,7 @@ public:
      * @return The block type at the position
      */
     BlockType getBlock(int x, int y, int z) const;
-    
+
     /**
      * @brief Set the block type at the specified local position
      * @param x Local X coordinate (0 to CHUNK_SIZE-1)
@@ -65,13 +65,13 @@ public:
      * @param type The new block type
      */
     void setBlock(int x, int y, int z, BlockType type);
-    
+
     /**
      * @brief Check if the chunk is empty (contains only air blocks)
      * @return True if the chunk is empty, false otherwise
      */
     bool isEmpty() const { return m_isEmpty; }
-    
+
     /**
      * @brief Generate the chunk mesh based on current blocks
      * @param sampler Callback returning the block at any chunk-local coordinate;
@@ -79,7 +79,7 @@ public:
      *                out-of-bounds queries.
      */
     void generateMesh(const BlockSampler& sampler);
-    
+
     /**
      * @brief Render the chunk
      * @param shader The shader to use for rendering
@@ -87,32 +87,32 @@ public:
      * @param projectionMatrix The camera projection matrix
      */
     void render(Shader* shader, const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix);
-    
+
     /**
      * @brief Check if the chunk has been modified since last mesh generation
      * @return True if the chunk has been modified, false otherwise
      */
     bool isModified() const { return m_isModified; }
-    
+
     /**
      * @brief Mark the chunk as modified, forcing a mesh rebuild on next update.
      */
     void markModified() { m_isModified = true; }
-    
+
     /**
      * @brief Convert chunk coordinates to world coordinates
      * @param chunkPos The chunk position
      * @return The world coordinates of the chunk's origin
      */
     static glm::vec3 chunkToWorldPos(const glm::ivec3& chunkPos);
-    
+
     /**
      * @brief Convert world coordinates to chunk coordinates
      * @param worldPos The world position
      * @return The chunk coordinates containing the world position
      */
     static glm::ivec3 worldToChunkPos(const glm::vec3& worldPos);
-    
+
     /**
      * @brief Get local coordinates within a chunk from world coordinates
      * @param worldPos The world position
@@ -138,7 +138,7 @@ private:
      * @return The index in the blocks array
      */
     int localPosToIndex(int x, int y, int z) const;
-    
+
     /**
      * @brief Check if a face should be rendered based on the neighboring block.
      */
@@ -147,8 +147,13 @@ private:
     /**
      * @brief Add a block face to the mesh.
      */
-    void addFaceToMesh(std::vector<float>& vertices, std::vector<unsigned int>& indices,
-                       int x, int y, int z, int direction, BlockType blockType,
+    void addFaceToMesh(std::vector<float>& vertices,
+                       std::vector<unsigned int>& indices,
+                       int x,
+                       int y,
+                       int z,
+                       int direction,
+                       BlockType blockType,
                        const BlockSampler& sampler);
 
     /**
@@ -180,23 +185,23 @@ private:
      * @param indices The index data to upload
      */
     void uploadMeshToGPU(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
-    
+
     // The position of this chunk in chunk coordinates
     glm::ivec3 m_position;
-    
+
     // 3D array of blocks stored in a 1D array
     std::array<BlockType, CHUNK_VOLUME> m_blocks;
-    
+
     // Graphics resources
     unsigned int m_vao;
     unsigned int m_vbo;
     unsigned int m_ebo;
     unsigned int m_indexCount;
-    
+
     // State flags
-    bool m_isEmpty;     // True if the chunk contains only air blocks
-    bool m_isModified;  // True if the chunk has been modified since last mesh generation
-    bool m_hasMesh;     // True if the chunk has a generated mesh
+    bool m_isEmpty;    // True if the chunk contains only air blocks
+    bool m_isModified; // True if the chunk has been modified since last mesh generation
+    bool m_hasMesh;    // True if the chunk has a generated mesh
 
     /**
      * @brief Calculate vertex positions for a face
@@ -234,4 +239,4 @@ private:
     float calculateVertexAO(int vx_local, int vy_local, int vz_local, const BlockSampler& sampler) const;
 };
 
-} // namespace Sylva 
+} // namespace Sylva

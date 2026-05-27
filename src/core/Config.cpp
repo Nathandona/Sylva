@@ -44,14 +44,16 @@ bool Config::load(const std::string& path) {
     while (std::getline(file, line)) {
         line.erase(0, line.find_first_not_of(" \t"));
         line.erase(line.find_last_not_of(" \t") + 1);
-        if (line.empty() || line[0] == ';' || line[0] == '#') continue;
+        if (line.empty() || line[0] == ';' || line[0] == '#')
+            continue;
         if (line[0] == '[' && line.back() == ']') {
             currentSection = line.substr(1, line.size() - 2);
             continue;
         }
         const size_t eq = line.find('=');
-        if (eq == std::string::npos) continue;
-        std::string key   = line.substr(0, eq);
+        if (eq == std::string::npos)
+            continue;
+        std::string key = line.substr(0, eq);
         std::string value = line.substr(eq + 1);
         key.erase(0, key.find_first_not_of(" \t"));
         key.erase(key.find_last_not_of(" \t") + 1);
@@ -65,11 +67,17 @@ bool Config::load(const std::string& path) {
         if (value == "true" || value == "false") {
             values[fullKey] = (value == "true");
         } else if (value.find('.') != std::string::npos) {
-            try { values[fullKey] = std::stof(value); }
-            catch (...) { values[fullKey] = value; }
+            try {
+                values[fullKey] = std::stof(value);
+            } catch (...) {
+                values[fullKey] = value;
+            }
         } else {
-            try { values[fullKey] = std::stoi(value); }
-            catch (...) { values[fullKey] = value; }
+            try {
+                values[fullKey] = std::stoi(value);
+            } catch (...) {
+                values[fullKey] = value;
+            }
         }
     }
     Logger::logInfo("Configuration file loaded: " + path);
@@ -84,11 +92,16 @@ std::string Config::getString(const std::string& key, const std::string& default
     Config& cfg = current();
     std::lock_guard<std::mutex> lock(cfg.m_mutex);
     auto it = cfg.m_values.find(key);
-    if (it == cfg.m_values.end()) return defaultValue;
-    if (std::holds_alternative<std::string>(it->second)) return std::get<std::string>(it->second);
-    if (std::holds_alternative<int>   (it->second)) return std::to_string(std::get<int>   (it->second));
-    if (std::holds_alternative<float> (it->second)) return std::to_string(std::get<float> (it->second));
-    if (std::holds_alternative<bool>  (it->second)) return std::get<bool>(it->second) ? "true" : "false";
+    if (it == cfg.m_values.end())
+        return defaultValue;
+    if (std::holds_alternative<std::string>(it->second))
+        return std::get<std::string>(it->second);
+    if (std::holds_alternative<int>(it->second))
+        return std::to_string(std::get<int>(it->second));
+    if (std::holds_alternative<float>(it->second))
+        return std::to_string(std::get<float>(it->second));
+    if (std::holds_alternative<bool>(it->second))
+        return std::get<bool>(it->second) ? "true" : "false";
     return defaultValue;
 }
 
@@ -96,12 +109,17 @@ int Config::getInt(const std::string& key, int defaultValue) {
     Config& cfg = current();
     std::lock_guard<std::mutex> lock(cfg.m_mutex);
     auto it = cfg.m_values.find(key);
-    if (it == cfg.m_values.end()) return defaultValue;
-    if (std::holds_alternative<int>   (it->second)) return std::get<int>(it->second);
+    if (it == cfg.m_values.end())
+        return defaultValue;
+    if (std::holds_alternative<int>(it->second))
+        return std::get<int>(it->second);
     try {
-        if (std::holds_alternative<std::string>(it->second)) return std::stoi(std::get<std::string>(it->second));
-        if (std::holds_alternative<float> (it->second))      return static_cast<int>(std::get<float>(it->second));
-        if (std::holds_alternative<bool>  (it->second))      return std::get<bool>(it->second) ? 1 : 0;
+        if (std::holds_alternative<std::string>(it->second))
+            return std::stoi(std::get<std::string>(it->second));
+        if (std::holds_alternative<float>(it->second))
+            return static_cast<int>(std::get<float>(it->second));
+        if (std::holds_alternative<bool>(it->second))
+            return std::get<bool>(it->second) ? 1 : 0;
     } catch (...) {
         Logger::logWarning("Failed to convert config value to int: " + key);
     }
@@ -112,12 +130,17 @@ float Config::getFloat(const std::string& key, float defaultValue) {
     Config& cfg = current();
     std::lock_guard<std::mutex> lock(cfg.m_mutex);
     auto it = cfg.m_values.find(key);
-    if (it == cfg.m_values.end()) return defaultValue;
-    if (std::holds_alternative<float> (it->second)) return std::get<float>(it->second);
+    if (it == cfg.m_values.end())
+        return defaultValue;
+    if (std::holds_alternative<float>(it->second))
+        return std::get<float>(it->second);
     try {
-        if (std::holds_alternative<std::string>(it->second)) return std::stof(std::get<std::string>(it->second));
-        if (std::holds_alternative<int>   (it->second))      return static_cast<float>(std::get<int>(it->second));
-        if (std::holds_alternative<bool>  (it->second))      return std::get<bool>(it->second) ? 1.0f : 0.0f;
+        if (std::holds_alternative<std::string>(it->second))
+            return std::stof(std::get<std::string>(it->second));
+        if (std::holds_alternative<int>(it->second))
+            return static_cast<float>(std::get<int>(it->second));
+        if (std::holds_alternative<bool>(it->second))
+            return std::get<bool>(it->second) ? 1.0f : 0.0f;
     } catch (...) {
         Logger::logWarning("Failed to convert config value to float: " + key);
     }
@@ -128,32 +151,35 @@ bool Config::getBool(const std::string& key, bool defaultValue) {
     Config& cfg = current();
     std::lock_guard<std::mutex> lock(cfg.m_mutex);
     auto it = cfg.m_values.find(key);
-    if (it == cfg.m_values.end()) return defaultValue;
-    if (std::holds_alternative<bool> (it->second)) return std::get<bool>(it->second);
+    if (it == cfg.m_values.end())
+        return defaultValue;
+    if (std::holds_alternative<bool>(it->second))
+        return std::get<bool>(it->second);
     try {
         if (std::holds_alternative<std::string>(it->second)) {
             std::string s = std::get<std::string>(it->second);
             std::transform(s.begin(), s.end(), s.begin(), ::tolower);
             return s == "true" || s == "1" || s == "yes";
         }
-        if (std::holds_alternative<int>  (it->second)) return std::get<int>(it->second) != 0;
-        if (std::holds_alternative<float>(it->second)) return std::get<float>(it->second) != 0.0f;
+        if (std::holds_alternative<int>(it->second))
+            return std::get<int>(it->second) != 0;
+        if (std::holds_alternative<float>(it->second))
+            return std::get<float>(it->second) != 0.0f;
     } catch (...) {
         Logger::logWarning("Failed to convert config value to bool: " + key);
     }
     return defaultValue;
 }
 
-template <typename T>
-void Config::set(const std::string& key, const T& value) {
+template<typename T> void Config::set(const std::string& key, const T& value) {
     Config& cfg = current();
     std::lock_guard<std::mutex> lock(cfg.m_mutex);
     cfg.m_values[key] = value;
 }
 
 template void Config::set<std::string>(const std::string& key, const std::string& value);
-template void Config::set<int>        (const std::string& key, const int&         value);
-template void Config::set<float>      (const std::string& key, const float&       value);
-template void Config::set<bool>       (const std::string& key, const bool&        value);
+template void Config::set<int>(const std::string& key, const int& value);
+template void Config::set<float>(const std::string& key, const float& value);
+template void Config::set<bool>(const std::string& key, const bool& value);
 
 } // namespace Sylva

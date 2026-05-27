@@ -45,7 +45,7 @@ private:
 
     // FPS smoothing: accumulate over N frames before logging an average.
     float m_fpsAccum = 0.0f;
-    int   m_fpsFrames = 0;
+    int m_fpsFrames = 0;
 };
 
 } // namespace Sylva

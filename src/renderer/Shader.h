@@ -9,7 +9,7 @@ namespace Sylva {
 
 /**
  * @brief Shader management class
- * 
+ *
  * Handles loading, compiling, and using OpenGL shaders.
  * Allows setting uniform variables for shaders.
  */
@@ -127,4 +127,4 @@ private:
     mutable std::unordered_map<std::string, GLint> m_uniformCache;
 };
 
-} // namespace Sylva 
+} // namespace Sylva

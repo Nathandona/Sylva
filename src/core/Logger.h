@@ -63,11 +63,11 @@ public:
     // --- Static facade (forwards to current()) ---
     // Kept so existing call sites Logger::logInfo("...") continue to work
     // without 195 mechanical edits across the codebase.
-    static void logInfo(const std::string& m)    { current().info(m); }
+    static void logInfo(const std::string& m) { current().info(m); }
     static void logWarning(const std::string& m) { current().warning(m); }
-    static void logError(const std::string& m)   { current().error(m); }
-    static void logDebug(const std::string& m)   { current().debug(m); }
-    static void setLogLevel(LogLevel l)          { current().setLevel(l); }
+    static void logError(const std::string& m) { current().error(m); }
+    static void logDebug(const std::string& m) { current().debug(m); }
+    static void setLogLevel(LogLevel l) { current().setLevel(l); }
     static bool setLogFile(const std::string& p) { return current().setFile(p); }
 
 private:

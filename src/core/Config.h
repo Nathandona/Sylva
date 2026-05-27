@@ -36,12 +36,11 @@ public:
 
     static std::string getString(const std::string& key);
     static std::string getString(const std::string& key, const std::string& defaultValue);
-    static int   getInt  (const std::string& key, int   defaultValue = 0);
+    static int getInt(const std::string& key, int defaultValue = 0);
     static float getFloat(const std::string& key, float defaultValue = 0.0f);
-    static bool  getBool (const std::string& key, bool  defaultValue = false);
+    static bool getBool(const std::string& key, bool defaultValue = false);
 
-    template <typename T>
-    static void set(const std::string& key, const T& value);
+    template<typename T> static void set(const std::string& key, const T& value);
 
     // --- Service locator ---
     static Config& current();

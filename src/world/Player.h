@@ -12,7 +12,7 @@ class VoxelWorld;
 
 /**
  * @brief Player system
- * 
+ *
  * Handles player movement, collision, and rendering.
  * Player model uses larger voxel blocks to create visual contrast with the micro-voxel environment.
  */
@@ -28,7 +28,7 @@ public:
      * @param params Player parameters to use
      */
     Player(const PlayerParams& params);
-    
+
     /**
      * @brief Destructor
      */
@@ -45,8 +45,10 @@ public:
      * Player no longer depends on the Camera class — only on the two basis
      * vectors it needs, supplied by the caller.
      */
-    void updateMovement(float deltaTime, const InputState& input,
-                        const Vec3& cameraForward, const Vec3& cameraRight,
+    void updateMovement(float deltaTime,
+                        const InputState& input,
+                        const Vec3& cameraForward,
+                        const Vec3& cameraRight,
                         const VoxelWorld& world);
 
     /**
@@ -117,19 +119,19 @@ public:
      * @param height The maximum height of jumps
      */
     void setJumpHeight(float height);
-    
+
     /**
      * @brief Set the player's jump force
      * @param force The initial vertical velocity applied when jumping
      */
     void setJumpForce(float force);
-    
+
     /**
      * @brief Set the gravity strength
      * @param gravity The gravity acceleration value
      */
     void setGravity(float gravity);
-    
+
     /**
      * @brief Check if the player is on the ground
      * @return True if the player is on the ground, false if in the air
@@ -172,11 +174,11 @@ private:
 
     // Player parameters
     PlayerParams m_params;
-    
+
     // Player state
-    Vec3 m_position;     // Position in world space
-    float m_rotation;    // Rotation in radians
-    Vec3 m_velocity;     // Current velocity
+    Vec3 m_position;  // Position in world space
+    float m_rotation; // Rotation in radians
+    Vec3 m_velocity;  // Current velocity
 };
 
-} // namespace Sylva 
+} // namespace Sylva

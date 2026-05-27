@@ -56,10 +56,18 @@ bool Logger::setFile(const std::string& filePath) {
     return m_fileLoggingEnabled;
 }
 
-void Logger::info(const std::string& m)    { log(LogLevel::INFO,    m); }
-void Logger::warning(const std::string& m) { log(LogLevel::WARNING, m); }
-void Logger::error(const std::string& m)   { log(LogLevel::ERROR,   m); }
-void Logger::debug(const std::string& m)   { log(LogLevel::DEBUG,   m); }
+void Logger::info(const std::string& m) {
+    log(LogLevel::INFO, m);
+}
+void Logger::warning(const std::string& m) {
+    log(LogLevel::WARNING, m);
+}
+void Logger::error(const std::string& m) {
+    log(LogLevel::ERROR, m);
+}
+void Logger::debug(const std::string& m) {
+    log(LogLevel::DEBUG, m);
+}
 
 void Logger::log(LogLevel level, const std::string& message) {
     if (level < m_currentLevel.load(std::memory_order_relaxed)) {
@@ -84,10 +92,14 @@ void Logger::log(LogLevel level, const std::string& message) {
 
 std::string Logger::logLevelToString(LogLevel level) {
     switch (level) {
-        case LogLevel::DEBUG:   return "DEBUG";
-        case LogLevel::INFO:    return "INFO";
-        case LogLevel::WARNING: return "WARNING";
-        case LogLevel::ERROR:   return "ERROR";
+    case LogLevel::DEBUG:
+        return "DEBUG";
+    case LogLevel::INFO:
+        return "INFO";
+    case LogLevel::WARNING:
+        return "WARNING";
+    case LogLevel::ERROR:
+        return "ERROR";
     }
     return "UNKNOWN";
 }

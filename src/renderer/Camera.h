@@ -12,7 +12,7 @@ struct InputState;
 
 /**
  * @brief Third-person orbit camera system
- * 
+ *
  * A camera that orbits around the player character at a fixed distance,
  * always looking at the player. Supports zooming in/out and rotation.
  */
@@ -121,13 +121,13 @@ private:
     // Camera state (NSDMI — both ctors share these defaults)
     Vec3 m_position{0.0f, 5.0f, 5.0f};
     Vec3 m_target{0.0f};
-    float m_yaw   = 0.0f;
+    float m_yaw = 0.0f;
     float m_pitch = 0.0f;
 
     // Orientation basis
     Vec3 m_forward{0.0f, 0.0f, -1.0f};
-    Vec3 m_up     {0.0f, 1.0f,  0.0f};
-    Vec3 m_right  {1.0f, 0.0f,  0.0f};
+    Vec3 m_up{0.0f, 1.0f, 0.0f};
+    Vec3 m_right{1.0f, 0.0f, 0.0f};
 };
 
-} // namespace Sylva 
+} // namespace Sylva

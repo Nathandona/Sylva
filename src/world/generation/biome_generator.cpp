@@ -5,8 +5,7 @@
 
 namespace Sylva {
 
-BiomeGenerator::BiomeGenerator(const WorldParams& params)
-    : m_params(params) {}
+BiomeGenerator::BiomeGenerator(const WorldParams& params) : m_params(params) {}
 
 std::pair<float, float> BiomeGenerator::generateBiomeData(float worldX, float worldZ, std::mt19937& rng) const {
     float humiditySeed = (worldX * 0.01f) + (worldZ * 0.015f) + m_params.seed * 0.001f;
@@ -18,8 +17,14 @@ std::pair<float, float> BiomeGenerator::generateBiomeData(float worldX, float wo
     return {humidity, temperature};
 }
 
-void BiomeGenerator::applyEnvironmentalEffects(Chunk* chunk, int x_local, int z_local, float height, float humidity, float temperature) const {
-    if (chunk == nullptr) return;
+void BiomeGenerator::applyEnvironmentalEffects(Chunk* chunk,
+                                               int x_local,
+                                               int z_local,
+                                               float height,
+                                               float humidity,
+                                               float temperature) const {
+    if (chunk == nullptr)
+        return;
     const glm::ivec3& chunkPos = chunk->getPosition();
     float worldX = (chunkPos.x * CHUNK_SIZE) + x_local;
     float worldZ = (chunkPos.z * CHUNK_SIZE) + z_local;
@@ -61,4 +66,4 @@ void BiomeGenerator::applyEnvironmentalEffects(Chunk* chunk, int x_local, int z_
     }
 }
 
-} // namespace Sylva 
+} // namespace Sylva

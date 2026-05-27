@@ -9,12 +9,10 @@
 
 namespace Sylva {
 
-UISystem::UISystem(int windowWidth, int windowHeight)
-    : m_windowWidth(windowWidth),
-      m_windowHeight(windowHeight) {
+UISystem::UISystem(int windowWidth, int windowHeight) : m_windowWidth(windowWidth), m_windowHeight(windowHeight) {
     Logger::logDebug("Initializing UI system");
 
-    m_params.crosshairSize      = Config::getFloat("UI.crosshair_size",      m_params.crosshairSize);
+    m_params.crosshairSize = Config::getFloat("UI.crosshair_size", m_params.crosshairSize);
     m_params.crosshairThickness = Config::getFloat("UI.crosshair_thickness", m_params.crosshairThickness);
 
     try {
@@ -46,7 +44,9 @@ UISystem::~UISystem() {
     Logger::logDebug("UI shutdown");
 }
 
-bool UISystem::isReady() const { return m_ready; }
+bool UISystem::isReady() const {
+    return m_ready;
+}
 
 void UISystem::updateCrosshairGeometry() {
     if (m_crosshairVAO == 0 || m_crosshairVBO == 0) {
@@ -54,26 +54,38 @@ void UISystem::updateCrosshairGeometry() {
         return;
     }
 
-    const float halfSize      = m_params.crosshairSize / 2.0f;
+    const float halfSize = m_params.crosshairSize / 2.0f;
     const float halfThickness = m_params.crosshairThickness / 2.0f;
-    const float cx = m_windowWidth  / 2.0f;
+    const float cx = m_windowWidth / 2.0f;
     const float cy = m_windowHeight / 2.0f;
 
     const float vertices[] = {
         // Horizontal bar
-        cx - halfSize, cy - halfThickness,
-        cx + halfSize, cy - halfThickness,
-        cx + halfSize, cy + halfThickness,
-        cx - halfSize, cy - halfThickness,
-        cx + halfSize, cy + halfThickness,
-        cx - halfSize, cy + halfThickness,
+        cx - halfSize,
+        cy - halfThickness,
+        cx + halfSize,
+        cy - halfThickness,
+        cx + halfSize,
+        cy + halfThickness,
+        cx - halfSize,
+        cy - halfThickness,
+        cx + halfSize,
+        cy + halfThickness,
+        cx - halfSize,
+        cy + halfThickness,
         // Vertical bar
-        cx - halfThickness, cy - halfSize,
-        cx + halfThickness, cy - halfSize,
-        cx + halfThickness, cy + halfSize,
-        cx - halfThickness, cy - halfSize,
-        cx + halfThickness, cy + halfSize,
-        cx - halfThickness, cy + halfSize,
+        cx - halfThickness,
+        cy - halfSize,
+        cx + halfThickness,
+        cy - halfSize,
+        cx + halfThickness,
+        cy + halfSize,
+        cx - halfThickness,
+        cy - halfSize,
+        cx + halfThickness,
+        cy + halfSize,
+        cx - halfThickness,
+        cy + halfSize,
     };
 
     glBindVertexArray(m_crosshairVAO);
@@ -105,13 +117,14 @@ void UISystem::renderCrosshair() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     m_uiShader->use();
-    const glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(m_windowWidth),
-                                            0.0f, static_cast<float>(m_windowHeight));
+    const glm::mat4 projection =
+        glm::ortho(0.0f, static_cast<float>(m_windowWidth), 0.0f, static_cast<float>(m_windowHeight));
     m_uiShader->setMat4("projection", projection);
-    m_uiShader->setVec4("color", glm::vec4(m_params.crosshairColor.x,
-                                           m_params.crosshairColor.y,
-                                           m_params.crosshairColor.z,
-                                           m_params.crosshairColor.w));
+    m_uiShader->setVec4("color",
+                        glm::vec4(m_params.crosshairColor.x,
+                                  m_params.crosshairColor.y,
+                                  m_params.crosshairColor.z,
+                                  m_params.crosshairColor.w));
 
     glBindVertexArray(m_crosshairVAO);
     glDrawArrays(GL_TRIANGLES, 0, 12);

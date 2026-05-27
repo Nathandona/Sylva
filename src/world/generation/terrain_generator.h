@@ -11,7 +11,7 @@
 namespace Sylva {
 
 // Forward declaration if VoxelWorld needs to be referenced, though likely not for generator
-// class VoxelWorld; 
+// class VoxelWorld;
 
 /**
  * @brief Encapsulates terrain generation logic including noise functions,
@@ -81,7 +81,7 @@ private:
      * @return Perlin noise value
      */
     float getPerlinNoise(float x, float y, float scale, int octaves, float persistence, float lacunarity) const;
-    
+
     /**
      * @brief Helper to get height at a specific integer voxel column
      * @param worldX X coordinate in world space
@@ -96,4 +96,4 @@ private:
     std::unique_ptr<FeatureGenerator> m_featureGen;
 };
 
-} // namespace Sylva 
+} // namespace Sylva

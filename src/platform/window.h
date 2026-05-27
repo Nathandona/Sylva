@@ -132,15 +132,15 @@ private:
      */
     void setupCallbacks();
 
-    GLFWwindow* m_window = nullptr;        ///< GLFW window handle
-    int m_width = 0;                       ///< Window width
-    int m_height = 0;                      ///< Window height
-    std::string m_title;                   ///< Window title
-    bool m_fullscreen = false;             ///< Fullscreen flag
-    float m_lastFrameTime = 0.0f;          ///< Time of the last frame
-    float m_deltaTime = 0.0f;              ///< Time between frames
+    GLFWwindow* m_window = nullptr;                 ///< GLFW window handle
+    int m_width = 0;                                ///< Window width
+    int m_height = 0;                               ///< Window height
+    std::string m_title;                            ///< Window title
+    bool m_fullscreen = false;                      ///< Fullscreen flag
+    float m_lastFrameTime = 0.0f;                   ///< Time of the last frame
+    float m_deltaTime = 0.0f;                       ///< Time between frames
     std::function<void(int, int)> m_resizeCallback; ///< Window resize callback
-    static bool s_glfwInitialized;         ///< GLFW initialization flag
+    static bool s_glfwInitialized;                  ///< GLFW initialization flag
 };
 
-} // namespace Sylva 
+} // namespace Sylva

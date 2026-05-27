@@ -41,7 +41,7 @@ private:
     void updateCrosshairGeometry();
 
     UIParams m_params{};
-    int m_windowWidth  = 1280;
+    int m_windowWidth = 1280;
     int m_windowHeight = 720;
     unsigned int m_crosshairVAO = 0;
     unsigned int m_crosshairVBO = 0;

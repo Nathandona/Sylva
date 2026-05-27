@@ -33,12 +33,10 @@ bool Engine::initialize(const std::string& configPath) {
 
     // Logger: level + optional file output, both config-driven.
     const std::string levelStr = Config::getString("Logging.level");
-    Logger::setLogLevel(
-        levelStr == "DEBUG"   ? LogLevel::DEBUG :
-        levelStr == "WARNING" ? LogLevel::WARNING :
-        levelStr == "ERROR"   ? LogLevel::ERROR :
-                                LogLevel::INFO
-    );
+    Logger::setLogLevel(levelStr == "DEBUG"     ? LogLevel::DEBUG
+                        : levelStr == "WARNING" ? LogLevel::WARNING
+                        : levelStr == "ERROR"   ? LogLevel::ERROR
+                                                : LogLevel::INFO);
     const std::string logFile = Config::getString("Logging.file");
     if (!logFile.empty()) {
         Logger::setLogFile(logFile);
@@ -53,12 +51,10 @@ bool Engine::initialize(const std::string& configPath) {
     }
 
     m_window = std::make_unique<Window>();
-    if (!m_window->create(
-        Config::getInt("Window.width"),
-        Config::getInt("Window.height"),
-        Config::getString("Window.title"),
-        Config::getBool("Window.fullscreen")
-    )) {
+    if (!m_window->create(Config::getInt("Window.width"),
+                          Config::getInt("Window.height"),
+                          Config::getString("Window.title"),
+                          Config::getBool("Window.fullscreen"))) {
         Logger::logError("Failed to create window!");
         return false;
     }
@@ -69,7 +65,8 @@ bool Engine::initialize(const std::string& configPath) {
     m_ui = std::make_unique<UISystem>(m_window->getWidth(), m_window->getHeight());
     // Set up window resize callback — forwards to the engine-owned UI instance.
     m_window->setResizeCallback([this](int width, int height) {
-        if (m_ui) m_ui->resize(width, height);
+        if (m_ui)
+            m_ui->resize(width, height);
         Logger::logInfo("Window resized to " + std::to_string(width) + "x" + std::to_string(height));
     });
     // Audio: ctor opens the AL device + reads volumes/mute states from
@@ -107,10 +104,10 @@ bool Engine::initialize(const std::string& configPath) {
     m_voxelWorld->generateWorld(m_player->getPosition());
     // Audio asset paths come from [AudioAssets] in config so users can swap
     // files (or point at WAVs) without touching code.
-    const std::string startupPath  = Config::getString("AudioAssets.startup_sfx",  "assets/audio/sfx/startup.wav");
+    const std::string startupPath = Config::getString("AudioAssets.startup_sfx", "assets/audio/sfx/startup.wav");
     const std::string footstepPath = Config::getString("AudioAssets.footstep_sfx", "assets/audio/sfx/footstep.wav");
-    const std::string musicPath    = Config::getString("AudioAssets.music_track",  "");
-    m_audio->loadSound("startup",  startupPath,  AudioType::SOUND_EFFECT);
+    const std::string musicPath = Config::getString("AudioAssets.music_track", "");
+    m_audio->loadSound("startup", startupPath, AudioType::SOUND_EFFECT);
     m_audio->loadSound("footstep", footstepPath, AudioType::SOUND_EFFECT);
     if (!musicPath.empty()) {
         if (m_audio->loadSound("background", musicPath, AudioType::MUSIC)) {
@@ -153,7 +150,7 @@ void Engine::tick(float deltaTime) {
     m_audio->update();
     const glm::vec3 camPos = m_camera->getPosition();
     const glm::vec3 camFwd = m_camera->getForward();
-    const glm::vec3 camUp  = m_camera->getUp();
+    const glm::vec3 camUp = m_camera->getUp();
     m_audio->setListenerPosition(glm::value_ptr(camPos));
     m_audio->setListenerOrientation(glm::value_ptr(camFwd), glm::value_ptr(camUp));
 }
@@ -168,7 +165,8 @@ void Engine::renderFrame(float aspectRatio) {
         m_voxelWorld->renderCollisionDebug(*m_camera, *m_player, aspectRatio);
     }
     m_player->renderPlayer(*m_playerShader, view, proj);
-    if (m_ui) m_ui->renderCrosshair();
+    if (m_ui)
+        m_ui->renderCrosshair();
 }
 
 void Engine::handleDebugToggles() {
@@ -189,15 +187,16 @@ void Engine::logFrameStats(float deltaTime) {
         const float avgFps = m_fpsFrames / m_fpsAccum;
         Logger::logDebug("FPS (avg over " + std::to_string(m_fpsFrames) + " frames): " + std::to_string(avgFps));
         const glm::vec3 p = m_player->getPosition();
-        Logger::logDebug("Player position: " +
-                         std::to_string(p.x) + ", " + std::to_string(p.y) + ", " + std::to_string(p.z));
+        Logger::logDebug("Player position: " + std::to_string(p.x) + ", " + std::to_string(p.y) + ", " +
+                         std::to_string(p.z));
         m_fpsAccum = 0.0f;
         m_fpsFrames = 0;
     }
 }
 
 void Engine::shutdown() {
-    if (m_shutdownComplete) return;
+    if (m_shutdownComplete)
+        return;
     Logger::logInfo("Cleaning up...");
     if (m_musicId != 0 && m_audio) {
         m_audio->stopSound(m_musicId);
@@ -220,4 +219,4 @@ void Engine::shutdown() {
     Logger::logInfo("Sylva Engine shut down.");
 }
 
-} // namespace Sylva 
+} // namespace Sylva
