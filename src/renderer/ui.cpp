@@ -1,5 +1,4 @@
 #include "ui.h"
-#include "camera.h"
 #include "shader.h"
 #include "core/logger.h"
 #include "core/config.h"
@@ -124,55 +123,34 @@ void shutdown() {
     Logger::logDebug("UI shutdown");
 }
 
-void renderCrosshair(const Camera& camera) {
+void renderCrosshair() {
     if (!s_uiShader || s_crosshairVAO == 0) {
         Logger::logWarning("Cannot render crosshair, UI system not properly initialized");
         return;
     }
-    
-    // Save OpenGL state
+
     GLboolean depthTestEnabled;
     glGetBooleanv(GL_DEPTH_TEST, &depthTestEnabled);
-    
-    // Disable depth testing for UI
     glDisable(GL_DEPTH_TEST);
-    
-    // Enable blending for transparent UI elements
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    // Use UI shader
+
     s_uiShader->use();
-    
-    // Set orthographic projection
-    glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(s_windowWidth), 
-                                      0.0f, static_cast<float>(s_windowHeight));
+    const glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(s_windowWidth),
+                                            0.0f, static_cast<float>(s_windowHeight));
     s_uiShader->setMat4("projection", projection);
-    
-    // Set color
-    s_uiShader->setVec4("color", glm::vec4(s_params.crosshairColor.x, 
-                                          s_params.crosshairColor.y, 
-                                          s_params.crosshairColor.z, 
-                                          s_params.crosshairColor.w));
-    
-    // Render crosshair
+    s_uiShader->setVec4("color", glm::vec4(s_params.crosshairColor.x,
+                                           s_params.crosshairColor.y,
+                                           s_params.crosshairColor.z,
+                                           s_params.crosshairColor.w));
+
     glBindVertexArray(s_crosshairVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 12); // 2 quads, 6 vertices each
+    glDrawArrays(GL_TRIANGLES, 0, 12);
     glBindVertexArray(0);
-    
-    // Restore OpenGL state
+
     if (depthTestEnabled) {
         glEnable(GL_DEPTH_TEST);
     }
-    
-    // Log the render operation
-    Logger::logDebug("Rendered crosshair");
-}
-
-void renderHUD() {
-    // This would involve rendering more UI elements
-    // using the same shader and approach as the crosshair
-    Logger::logDebug("Rendering HUD");
 }
 
 void setCrosshairSize(float size) {

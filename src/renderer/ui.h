@@ -4,12 +4,9 @@
 
 namespace Sylva {
 
-// Forward declarations
-class Camera;
-
 /**
  * @brief UI system
- * 
+ *
  * Handles rendering of user interface elements.
  */
 namespace UI {
@@ -34,15 +31,9 @@ void shutdown();
 void resize(int windowWidth, int windowHeight);
 
 /**
- * @brief Render the crosshair at the center of the screen
- * @param camera The camera to align the crosshair with
+ * @brief Render the crosshair at the center of the screen.
  */
-void renderCrosshair(const Camera& camera);
-
-/**
- * @brief Render the HUD (heads-up display)
- */
-void renderHUD();
+void renderCrosshair();
 
 /**
  * @brief Set the crosshair size

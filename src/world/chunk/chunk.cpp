@@ -42,9 +42,6 @@ const float FACE_UVS[8] = {
     1.0f, 0.0f   // Bottom-right
 };
 
-// Indices for a single face (two triangles)
-const unsigned int FACE_INDICES[6] = { 0, 1, 2, 0, 2, 3 };
-
 // Add normals for each face
 const float FACE_NORMALS[6][3] = {
     { 1.0f,  0.0f,  0.0f}, // +X face

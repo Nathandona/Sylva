@@ -162,7 +162,7 @@ void Engine::renderFrame(float aspectRatio) {
         m_voxelWorld->renderCollisionDebug(*m_camera, *m_player, aspectRatio);
     }
     m_player->renderPlayer(*m_playerShader, view, proj);
-    UI::renderCrosshair(*m_camera);
+    UI::renderCrosshair();
 }
 
 void Engine::handleDebugToggles() {

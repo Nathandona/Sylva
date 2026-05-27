@@ -115,17 +115,9 @@ bool Player::handleCollisions(const Vec3& newPosition, const VoxelWorld& world) 
 }
 
 void Player::updateAnimation(float deltaTime, const Vec3& moveDirection) {
-    // Update player rotation to face movement direction
     if (glm::length(moveDirection) > 0.0f) {
         rotateToMovementDirection(moveDirection, deltaTime);
     }
-    
-    // Log movement for debugging
-    Logger::logDebug("Player moved to: " + 
-                    std::to_string(m_position.x) + ", " +
-                    std::to_string(m_position.y) + ", " +
-                    std::to_string(m_position.z) +
-                    (m_params.isGrounded ? " (grounded)" : " (in air)"));
 }
 
 void Player::updateMovement(float deltaTime, const InputState& input,
@@ -194,7 +186,6 @@ void Player::rotateToMovementDirection(const Vec3& moveDirection, float deltaTim
             m_rotation -= 2.0f * glm::pi<float>();
         }
         
-        Logger::logDebug("Player rotated to " + std::to_string(m_rotation) + " radians");
     }
 }
 
