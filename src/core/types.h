@@ -69,6 +69,12 @@ struct WorldParams {
     float noiseScale = 0.02f;       // Scale for base terrain noise
     float detailScale = 0.08f;      // Scale for detail noise
     float terrainSmoothness = 0.6f; // Terrain smoothness (0.0-1.0, higher = smoother)
+
+    // Terrain is sampled on a (plateauWidthVoxels x plateauWidthVoxels) grid in
+    // XZ — every voxel column inside the same cell gets the same height. This
+    // turns steep noise gradients into walkable stair-step terrain. Set this
+    // >= player width (in voxels) so each step has room for the player bbox.
+    int plateauWidthVoxels = 4;
 };
 
 /**

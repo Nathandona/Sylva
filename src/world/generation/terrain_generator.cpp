@@ -17,6 +17,18 @@ TerrainGenerator::TerrainGenerator(const WorldParams& params)
     Logger::logInfo("TerrainGenerator created.");
 }
 
+namespace {
+// Snap a voxel-space coordinate to the plateau grid (cell origin). All voxel
+// columns inside the same plateau cell receive the same noise sample → flat
+// plateau, sharp step at cell boundary.
+float quantizeToPlateau(float v, int plateauWidth) {
+    if (plateauWidth <= 1)
+        return v;
+    const float w = static_cast<float>(plateauWidth);
+    return std::floor(v / w) * w;
+}
+} // namespace
+
 float TerrainGenerator::generateBaseHeight(float worldX, float worldZ, std::mt19937& /*rng*/) const {
     float const continentalScale = m_params.noiseScale * 0.2f;
     float const continentalNoise = glm::simplex(glm::vec2(worldX * continentalScale, worldZ * continentalScale));
@@ -88,21 +100,22 @@ void TerrainGenerator::generateTerrain(Chunk* chunk) {
     int const chunkSeed = m_params.seed + chunkPos.x * 10000 + chunkPos.y * 1000 + chunkPos.z * 100;
     std::mt19937 rng(chunkSeed);
 
+    const int plateauW = m_params.plateauWidthVoxels;
     for (int z_local = 0; z_local < CHUNK_SIZE; z_local++) {
         for (int x_local = 0; x_local < CHUNK_SIZE; x_local++) {
-            float const worldX = (chunkPos.x * CHUNK_SIZE) + x_local;
-            float const worldZ = (chunkPos.z * CHUNK_SIZE) + z_local;
+            const float worldX = (chunkPos.x * CHUNK_SIZE) + x_local;
+            const float worldZ = (chunkPos.z * CHUNK_SIZE) + z_local;
+            // Sample noise on plateau grid so every column inside a cell shares
+            // a height — produces flat walkable steps instead of voxel-scale
+            // ripples. Biome humidity/temperature stay per-voxel so the
+            // surface block choice (grass/sand/etc) still varies smoothly.
+            const float sampleX = quantizeToPlateau(worldX, plateauW);
+            const float sampleZ = quantizeToPlateau(worldZ, plateauW);
 
-            // Generate base terrain height
-            float const baseHeight = generateBaseHeight(worldX, worldZ, rng);
-
-            // Generate biome data
+            const float baseHeight = generateBaseHeight(sampleX, sampleZ, rng);
             auto [humidity, temperature] = m_biomeGen->generateBiomeData(worldX, worldZ, rng);
+            const float finalHeight = applyTerrainFeatures(baseHeight, sampleX, sampleZ, rng);
 
-            // Apply terrain features
-            float const finalHeight = applyTerrainFeatures(baseHeight, worldX, worldZ, rng);
-
-            // Apply environmental effects (surface blocks, underground layers, water)
             m_biomeGen->applyEnvironmentalEffects(chunk, x_local, z_local, finalHeight, humidity, temperature);
         }
     }
@@ -131,12 +144,14 @@ void TerrainGenerator::generateFeatures(Chunk* chunk) {
 }
 
 float TerrainGenerator::sampleHeight(float voxelX, float voxelZ) const {
-    // generateBaseHeight + applyTerrainFeatures are deterministic on (x,z);
-    // the rng parameter is threaded through for API uniformity but neither
-    // helper actually consumes it. Pass a fresh dummy generator.
+    // Quantize XZ to the same plateau grid generateTerrain uses, otherwise
+    // VoxelWorld::getHeightAt would return a smooth-noise height that
+    // disagrees with the stepped terrain actually placed.
+    const float sampleX = quantizeToPlateau(voxelX, m_params.plateauWidthVoxels);
+    const float sampleZ = quantizeToPlateau(voxelZ, m_params.plateauWidthVoxels);
     std::mt19937 unused(0); // NOLINT(cert-msc32-c,cert-msc51-cpp) — values discarded; rng is unused inside the helpers.
-    const float base = generateBaseHeight(voxelX, voxelZ, unused);
-    return applyTerrainFeatures(base, voxelX, voxelZ, unused);
+    const float base = generateBaseHeight(sampleX, sampleZ, unused);
+    return applyTerrainFeatures(base, sampleX, sampleZ, unused);
 }
 
 } // namespace Sylva

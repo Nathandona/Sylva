@@ -27,6 +27,7 @@ VoxelWorld::VoxelWorld() {
     m_params.noiseScale = Config::getFloat("World.noise_scale", 0.05f);
     m_params.detailScale = Config::getFloat("World.detail_scale", 0.20f);
     m_params.terrainSmoothness = Config::getFloat("World.terrain_smoothness", 0.6f);
+    m_params.plateauWidthVoxels = Config::getInt("World.plateau_width_voxels", m_params.plateauWidthVoxels);
 
     m_terrainGenerator = std::make_unique<TerrainGenerator>(m_params);
 
