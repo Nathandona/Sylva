@@ -49,6 +49,17 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     EnTT::EnTT
 )
 
-# Copy assets to the build directory
-file(COPY ${PROJECT_SOURCE_DIR}/assets DESTINATION ${CMAKE_BINARY_DIR})
-file(COPY ${PROJECT_SOURCE_DIR}/config DESTINATION ${CMAKE_BINARY_DIR}) 
+# Copy assets + config next to the executable so the game can be launched
+# directly (double-click, drag&drop) from build/<Config>/ — engine reads
+# 'config/default_config.ini' and 'assets/shaders/...' relative to CWD.
+# Runs on every build so edits in the source tree pick up automatically.
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${PROJECT_SOURCE_DIR}/assets
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${PROJECT_SOURCE_DIR}/config
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>/config
+    COMMENT "Copying assets + config next to ${PROJECT_NAME}.exe"
+    VERBATIM
+) 
