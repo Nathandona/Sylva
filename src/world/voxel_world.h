@@ -70,8 +70,9 @@ public:
     /**
      * @brief Render the world
      * @param camera The camera to use for rendering
+     * @param aspectRatio Viewport aspect ratio (width / height)
      */
-    void render(const Camera& camera);
+    void render(const Camera& camera, float aspectRatio);
     
     /**
      * @brief Check collision with a player
@@ -125,7 +126,7 @@ public:
      * @param camera The camera to use for rendering
      * @param player The player to check collision points for
      */
-    void renderCollisionDebug(const Camera& camera, const Player& player);
+    void renderCollisionDebug(const Camera& camera, const Player& player, float aspectRatio);
     
     /**
      * @brief Initialize chunks around a center position
@@ -185,6 +186,11 @@ private:
      * @return Pointer to the created chunk
      */
     Chunk* createChunk(const glm::ivec3& chunkPos);
+
+    /**
+     * @brief Create + generate a chunk at the given position if not already loaded.
+     */
+    void loadChunkIfMissing(const glm::ivec3& chunkPos);
     
     /**
      * @brief Update chunk meshes around a position
@@ -211,6 +217,8 @@ private:
     // World generation parameters
     int m_worldSizeInChunks = 8;     // Number of chunks in each direction from center
     int m_viewDistanceInChunks = 6;  // Maximum view distance in chunks
+    int m_chunkYMin = -1;            // Vertical chunk range (inclusive)
+    int m_chunkYMax = 7;
     
     // Store collision points for debug visualization
     mutable std::vector<glm::vec3> m_collisionDebugPoints;

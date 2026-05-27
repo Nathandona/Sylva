@@ -21,9 +21,11 @@ VoxelWorld::VoxelWorld() {
     m_params.seed = Config::getInt("World.seed", m_params.seed);
     m_worldSizeInChunks = Config::getInt("World.size_in_chunks", m_worldSizeInChunks);
     m_viewDistanceInChunks = Config::getInt("World.view_distance", m_viewDistanceInChunks);
-    
-    m_params.noiseScale = Config::getFloat("World.noise_scale", 0.05f);  
-    m_params.detailScale = Config::getFloat("World.detail_scale", 0.20f); 
+    m_chunkYMin = Config::getInt("World.chunk_y_min", m_chunkYMin);
+    m_chunkYMax = Config::getInt("World.chunk_y_max", m_chunkYMax);
+
+    m_params.noiseScale = Config::getFloat("World.noise_scale", 0.05f);
+    m_params.detailScale = Config::getFloat("World.detail_scale", 0.20f);
     m_params.terrainSmoothness = Config::getFloat("World.terrain_smoothness", 0.6f);
     
     m_terrainGenerator = std::make_unique<TerrainGenerator>(m_params);
@@ -36,6 +38,8 @@ VoxelWorld::VoxelWorld(const WorldParams& params)
     : m_params(params) {
     m_worldSizeInChunks = Config::getInt("World.size_in_chunks", m_worldSizeInChunks);
     m_viewDistanceInChunks = Config::getInt("World.view_distance", m_viewDistanceInChunks);
+    m_chunkYMin = Config::getInt("World.chunk_y_min", m_chunkYMin);
+    m_chunkYMax = Config::getInt("World.chunk_y_max", m_chunkYMax);
     m_terrainGenerator = std::make_unique<TerrainGenerator>(m_params);
 
     Logger::logInfo("VoxelWorld created with custom parameters");
@@ -75,19 +79,20 @@ bool VoxelWorld::createShader() {
 }
 
 void VoxelWorld::initializeWorldChunks(const glm::ivec3& centerPos) {
-    for (int y = -1; y <= 7; y++) {
+    for (int y = m_chunkYMin; y <= m_chunkYMax; y++) {
         for (int z = -m_worldSizeInChunks; z <= m_worldSizeInChunks; z++) {
             for (int x = -m_worldSizeInChunks; x <= m_worldSizeInChunks; x++) {
-                glm::ivec3 chunkPos = centerPos + glm::ivec3(x, y, z);
-                Chunk* chunk = getChunk(chunkPos);
-                if (chunk == nullptr) {
-                    chunk = createChunk(chunkPos);
-                    generateChunkTerrain(chunk);
-                    generateChunkFeatures(chunk);
-                }
+                loadChunkIfMissing(centerPos + glm::ivec3(x, y, z));
             }
         }
     }
+}
+
+void VoxelWorld::loadChunkIfMissing(const glm::ivec3& chunkPos) {
+    if (getChunk(chunkPos) != nullptr) return;
+    Chunk* chunk = createChunk(chunkPos);
+    generateChunkTerrain(chunk);
+    generateChunkFeatures(chunk);
 }
 
 void VoxelWorld::generateWorld(const glm::vec3& playerPosition) {
@@ -132,18 +137,12 @@ bool VoxelWorld::updatePlayerChunkPosition(const glm::ivec3& playerChunkPos, glm
 }
 
 void VoxelWorld::updateChunkLoading(const glm::ivec3& playerChunkPos) {
-    for (int y = -1; y <= 7; y++) {
+    for (int y = m_chunkYMin; y <= m_chunkYMax; y++) {
         for (int z = -m_viewDistanceInChunks; z <= m_viewDistanceInChunks; z++) {
             for (int x = -m_viewDistanceInChunks; x <= m_viewDistanceInChunks; x++) {
                 glm::ivec3 chunkPos = playerChunkPos + glm::ivec3(x, y, z);
-                
                 if (updateChunkVisibility(chunkPos, playerChunkPos)) {
-                    Chunk* chunk = getChunk(chunkPos);
-                    if (chunk == nullptr) {
-                        chunk = createChunk(chunkPos);
-                        generateChunkTerrain(chunk);
-                        generateChunkFeatures(chunk);
-                    }
+                    loadChunkIfMissing(chunkPos);
                 }
             }
         }
@@ -160,13 +159,13 @@ void VoxelWorld::update(float deltaTime, const glm::vec3& playerPosition) {
     }
 }
 
-void VoxelWorld::render(const Camera& camera) {
+void VoxelWorld::render(const Camera& camera, float aspectRatio) {
     if (!m_shader) {
         Logger::logWarning("Cannot render voxel world, shader not initialized");
         return;
     }
     glm::mat4 viewMatrix = camera.getViewMatrix();
-    glm::mat4 projectionMatrix = camera.getProjectionMatrix(16.0f / 9.0f); // TODO: actual aspect ratio
+    glm::mat4 projectionMatrix = camera.getProjectionMatrix(aspectRatio);
     glm::vec3 lightDir = glm::normalize(glm::vec3(0.5f, 1.0f, 0.3f));
     m_shader->use();
     m_shader->setVec3("lightDir", lightDir);
@@ -277,50 +276,26 @@ void VoxelWorld::setBlockAt(const glm::vec3& worldPos, BlockType type) {
     
     // Set the block in the chunk
     chunk->setBlock(localPos.x, localPos.y, localPos.z, type);
-    
-    // Check if the modified block is on a boundary of the chunk.
-    // If so, the neighboring chunk also needs its mesh updated.
-    const glm::ivec3 neighborOffsets[6] = {
-        {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}
+
+    // If the modified block lies on a chunk face, the neighboring chunk's mesh
+    // depends on it (visibility / AO). A single block can touch up to three
+    // neighbors (corner). Mark each affected neighbor.
+    struct Boundary { int axis; bool atEdge; glm::ivec3 offset; };
+    const Boundary boundaries[6] = {
+        { localPos.x, localPos.x == 0,              {-1, 0, 0} },
+        { localPos.x, localPos.x == CHUNK_SIZE - 1, { 1, 0, 0} },
+        { localPos.y, localPos.y == 0,              { 0,-1, 0} },
+        { localPos.y, localPos.y == CHUNK_SIZE - 1, { 0, 1, 0} },
+        { localPos.z, localPos.z == 0,              { 0, 0,-1} },
+        { localPos.z, localPos.z == CHUNK_SIZE - 1, { 0, 0, 1} },
     };
-    bool onBoundary = false;
-    int boundaryDirection = -1;
-
-    if (localPos.x == 0) { onBoundary = true; boundaryDirection = 1; } // Touches -X neighbor
-    else if (localPos.x == CHUNK_SIZE - 1) { onBoundary = true; boundaryDirection = 0; } // Touches +X neighbor
-    if (localPos.y == 0) { onBoundary = true; boundaryDirection = 3; } // Touches -Y neighbor (can overwrite if multiple boundaries touched)
-    else if (localPos.y == CHUNK_SIZE - 1) { onBoundary = true; boundaryDirection = 2; } // Touches +Y neighbor
-    if (localPos.z == 0) { onBoundary = true; boundaryDirection = 5; } // Touches -Z neighbor
-    else if (localPos.z == CHUNK_SIZE - 1) { onBoundary = true; boundaryDirection = 4; } // Touches +Z neighbor
-    
-    // A single block can be on multiple boundaries. We need to check all relevant neighbors.
-    if (localPos.x == 0) {
-        Chunk* neighbor = getChunk(chunkPos + neighborOffsets[1]); // -X neighbor
-        if (neighbor) neighbor->markModified();
+    for (const auto& b : boundaries) {
+        if (!b.atEdge) continue;
+        if (Chunk* neighbor = getChunk(chunkPos + b.offset)) {
+            neighbor->markModified();
+        }
     }
-    if (localPos.x == CHUNK_SIZE - 1) {
-        Chunk* neighbor = getChunk(chunkPos + neighborOffsets[0]); // +X neighbor
-        if (neighbor) neighbor->markModified();
-    }
-    if (localPos.y == 0) {
-        Chunk* neighbor = getChunk(chunkPos + neighborOffsets[3]); // -Y neighbor
-        if (neighbor) neighbor->markModified();
-    }
-    if (localPos.y == CHUNK_SIZE - 1) {
-        Chunk* neighbor = getChunk(chunkPos + neighborOffsets[2]); // +Y neighbor
-        if (neighbor) neighbor->markModified();
-    }
-    if (localPos.z == 0) {
-        Chunk* neighbor = getChunk(chunkPos + neighborOffsets[5]); // -Z neighbor
-        if (neighbor) neighbor->markModified();
-    }
-    if (localPos.z == CHUNK_SIZE - 1) {
-        Chunk* neighbor = getChunk(chunkPos + neighborOffsets[4]); // +Z neighbor
-        if (neighbor) neighbor->markModified();
-    }
-
-    // No need to call updateChunkMeshes here directly. 
-    // The main loop's call to updateChunkMeshes will handle it because chunks are marked modified.
+    // updateChunkMeshes runs from the main loop; marked chunks will re-mesh then.
 }
 
 float VoxelWorld::getHeightAt(float x, float z) const {
@@ -360,7 +335,7 @@ void VoxelWorld::setWorldSize(int size) {
     m_worldSizeInChunks = size;
 }
 
-void VoxelWorld::renderCollisionDebug(const Camera& camera, const Player& player) {
+void VoxelWorld::renderCollisionDebug(const Camera& camera, const Player& player, float aspectRatio) {
     if (!m_collisionDebugEnabled || m_collisionDebugPoints.empty()) {
         return;
     }
@@ -399,7 +374,7 @@ void VoxelWorld::renderCollisionDebug(const Camera& camera, const Player& player
     // Render points
     m_debugShader->use();
     m_debugShader->setMat4("view", camera.getViewMatrix());
-    m_debugShader->setMat4("projection", camera.getProjectionMatrix(16.0f / 9.0f)); // TODO: Get actual aspect ratio
+    m_debugShader->setMat4("projection", camera.getProjectionMatrix(aspectRatio));
     m_debugShader->setVec4("color", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)); // Red points
     
     // Point size for visibility, configurable

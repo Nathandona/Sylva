@@ -15,9 +15,26 @@ find_package(tinyobjloader REQUIRED)
 find_package(OpenAL REQUIRED)
 find_package(EnTT REQUIRED)
 
-# Source files
-file(GLOB_RECURSE SOURCES 
-    ${PROJECT_SOURCE_DIR}/src/*.cpp
+# Source files (explicit list — globbing skips rebuild triggers on new files)
+set(SOURCES
+    src/main.cpp
+    src/engine.cpp
+    src/system_manager.cpp
+    src/audio/audio_system.cpp
+    src/core/config.cpp
+    src/core/logger.cpp
+    src/platform/input.cpp
+    src/platform/window.cpp
+    src/renderer/camera.cpp
+    src/renderer/shader.cpp
+    src/renderer/ui.cpp
+    src/world/block.cpp
+    src/world/player.cpp
+    src/world/voxel_world.cpp
+    src/world/chunk/chunk.cpp
+    src/world/generation/biome_generator.cpp
+    src/world/generation/feature_generator.cpp
+    src/world/generation/terrain_generator.cpp
 )
 
 # Define the executable

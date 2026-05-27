@@ -7,6 +7,15 @@
 
 namespace Sylva {
 
+namespace {
+// Config-driven cell size, cached after first read. Config is loaded before any
+// chunk is constructed, so the lazy-init via function-local static is safe.
+float cachedCellSize() {
+    static const float kCellSize = Config::getFloat("World.cell_size", 0.1f);
+    return kCellSize;
+}
+} // namespace
+
 // Chunk face vertices (for a unit cube at origin)
 // Each face consists of 4 vertices (positions only for now)
 // We'll add texture coordinates during mesh generation
@@ -365,7 +374,7 @@ void Chunk::render(Shader* shader, const glm::mat4& viewMatrix, const glm::mat4&
     modelMatrix = glm::translate(modelMatrix, worldPos);
     
     // Scale the chunk's local coordinates by cellSize
-    float cellSize = Config::getFloat("World.cell_size", 0.1f);
+    const float cellSize = cachedCellSize();
     modelMatrix = glm::scale(modelMatrix, glm::vec3(cellSize, cellSize, cellSize));
     
     shader->setMat4("model", modelMatrix);
@@ -385,7 +394,7 @@ void Chunk::render(Shader* shader, const glm::mat4& viewMatrix, const glm::mat4&
 
 glm::vec3 Chunk::chunkToWorldPos(const glm::ivec3& chunkPos) {
     // Get cell size from config or use default
-    float cellSize = Config::getFloat("World.cell_size", 0.1f);
+    const float cellSize = cachedCellSize();
     
     return glm::vec3(
         chunkPos.x * CHUNK_SIZE * cellSize,
@@ -396,7 +405,7 @@ glm::vec3 Chunk::chunkToWorldPos(const glm::ivec3& chunkPos) {
 
 glm::ivec3 Chunk::worldToChunkPos(const glm::vec3& worldPos) {
     // Get cell size from config or use default
-    float cellSize = Config::getFloat("World.cell_size", 0.1f);
+    const float cellSize = cachedCellSize();
     
     return glm::ivec3(
         static_cast<int>(floor(worldPos.x / (CHUNK_SIZE * cellSize))),
@@ -407,7 +416,7 @@ glm::ivec3 Chunk::worldToChunkPos(const glm::vec3& worldPos) {
 
 glm::ivec3 Chunk::worldToLocalPos(const glm::vec3& worldPos) {
     // Get cell size from config or use default
-    float cellSize = Config::getFloat("World.cell_size", 0.1f);
+    const float cellSize = cachedCellSize();
     
     glm::ivec3 chunkPos = worldToChunkPos(worldPos);
     return glm::ivec3(

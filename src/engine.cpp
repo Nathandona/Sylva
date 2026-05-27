@@ -155,17 +155,14 @@ void Engine::run() {
         };
         AudioSystem::setListenerPosition(cameraPos);
         AudioSystem::setListenerOrientation(cameraForward, cameraUp);
-        if (frames % 30 == 0) {
-            AudioSystem::playSound("footstep", false, 0.5f);
-        }
         glClearColor(0.5f, 0.7f, 0.9f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         float aspectRatio = static_cast<float>(m_window->getWidth()) / static_cast<float>(m_window->getHeight());
         glm::mat4 projectionMatrix = m_camera->getProjectionMatrix(aspectRatio);
         glm::mat4 viewMatrix = m_camera->getViewMatrix();
-        m_voxelWorld->render(*m_camera);
+        m_voxelWorld->render(*m_camera, aspectRatio);
         if (m_voxelWorld->isCollisionDebugEnabled()) {
-            m_voxelWorld->renderCollisionDebug(*m_camera, *m_player);
+            m_voxelWorld->renderCollisionDebug(*m_camera, *m_player, aspectRatio);
         }
         m_player->renderPlayer(*m_playerShader, viewMatrix, projectionMatrix);
         UI::renderCrosshair(*m_camera);
