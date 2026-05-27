@@ -48,7 +48,7 @@ bool UISystem::isReady() const {
     return m_ready;
 }
 
-void UISystem::updateCrosshairGeometry() {
+void UISystem::updateCrosshairGeometry() const {
     if (m_crosshairVAO == 0 || m_crosshairVBO == 0) {
         Logger::logWarning("Cannot update crosshair geometry, VAO/VBO not initialized");
         return;
@@ -91,7 +91,7 @@ void UISystem::updateCrosshairGeometry() {
     glBindVertexArray(m_crosshairVAO);
     glBindBuffer(GL_ARRAY_BUFFER, m_crosshairVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)nullptr);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);

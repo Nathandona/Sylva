@@ -27,7 +27,7 @@ Camera::Camera(const CameraParams& params) : m_params(params) {
 
 void Camera::updateRotation(const InputState& input) {
     // Get the mouse sensitivity from config if available
-    float mouseSensitivity = Config::getFloat("Input.mouse_sensitivity", 0.1f);
+    float const mouseSensitivity = Config::getFloat("Input.mouse_sensitivity", 0.1f);
 
     // Process mouse rotation - Cube World style camera movement
     // Scale by sensitivity and make rotation speed consistent regardless of frame rate
@@ -54,9 +54,9 @@ void Camera::updateZoom(const InputState& input) {
 
 void Camera::updatePosition() {
     // Calculate camera position based on orbit parameters (spherical coordinates)
-    float x = m_params.orbitDistance * std::sin(m_yaw) * std::cos(m_pitch);
-    float y = m_params.orbitDistance * std::sin(m_pitch);
-    float z = m_params.orbitDistance * std::cos(m_yaw) * std::cos(m_pitch);
+    float const x = m_params.orbitDistance * std::sin(m_yaw) * std::cos(m_pitch);
+    float const y = m_params.orbitDistance * std::sin(m_pitch);
+    float const z = m_params.orbitDistance * std::cos(m_yaw) * std::cos(m_pitch);
 
     // Set camera position relative to target
     m_position = m_target + Vec3(x, y, z);
@@ -69,9 +69,9 @@ void Camera::updateVectors() {
     m_up = glm::normalize(glm::cross(m_right, m_forward));
 }
 
-void Camera::updateOrbit(float deltaTime, const Player& player, const InputState& input) {
+void Camera::updateOrbit(float /*deltaTime*/, const Player& player, const InputState& input) {
     // Get player position and update target
-    Vec3 playerPos = player.getPosition();
+    Vec3 const playerPos = player.getPosition();
     m_target = playerPos + Vec3(0.0f, m_params.targetHeight, 0.0f);
 
     // Update camera components

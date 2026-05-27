@@ -39,7 +39,7 @@ public:
      * @brief Constructor with parameters
      * @param params World parameters to use
      */
-    VoxelWorld(const WorldParams& params);
+    explicit VoxelWorld(const WorldParams& params);
 
     /**
      * @brief Destructor

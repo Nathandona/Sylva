@@ -35,7 +35,7 @@ public:
      * @brief Constructor
      * @param position The position of the chunk in chunk coordinates
      */
-    Chunk(const glm::ivec3& position);
+    explicit Chunk(const glm::ivec3& position);
 
     /**
      * @brief Destructor
@@ -190,18 +190,18 @@ private:
     glm::ivec3 m_position;
 
     // 3D array of blocks stored in a 1D array
-    std::array<BlockType, CHUNK_VOLUME> m_blocks;
+    std::array<BlockType, CHUNK_VOLUME> m_blocks{};
 
     // Graphics resources
-    unsigned int m_vao;
-    unsigned int m_vbo;
-    unsigned int m_ebo;
-    unsigned int m_indexCount;
+    unsigned int m_vao{0};
+    unsigned int m_vbo{0};
+    unsigned int m_ebo{0};
+    unsigned int m_indexCount{0};
 
     // State flags
-    bool m_isEmpty;    // True if the chunk contains only air blocks
-    bool m_isModified; // True if the chunk has been modified since last mesh generation
-    bool m_hasMesh;    // True if the chunk has a generated mesh
+    bool m_isEmpty{true};    // True if the chunk contains only air blocks
+    bool m_isModified{true}; // True if the chunk has been modified since last mesh generation
+    bool m_hasMesh{false};   // True if the chunk has a generated mesh
 
     /**
      * @brief Calculate vertex positions for a face

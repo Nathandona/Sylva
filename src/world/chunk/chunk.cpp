@@ -55,8 +55,7 @@ const float FACE_NORMALS[6][3] = {
     {0.0f, 0.0f, -1.0f}  // -Z face
 };
 
-Chunk::Chunk(const glm::ivec3& position)
-    : m_position(position), m_vao(0), m_vbo(0), m_ebo(0), m_indexCount(0), m_isEmpty(true), m_isModified(true), m_hasMesh(false) {
+Chunk::Chunk(const glm::ivec3& position) : m_position(position) {
     // Initialize all blocks to AIR
     m_blocks.fill(BlockType::AIR);
 
@@ -81,11 +80,11 @@ void Chunk::setBlock(int x, int y, int z, BlockType type) {
         return; // Ignore out of bounds blocks
     }
 
-    int index = localPosToIndex(x, y, z);
+    int const index = localPosToIndex(x, y, z);
 
     // Only update if the block type is changing
     if (m_blocks[index] != type) {
-        BlockType oldType = m_blocks[index];
+        BlockType const oldType = m_blocks[index];
         m_blocks[index] = type;
         m_isModified = true;
 
@@ -112,7 +111,7 @@ float Chunk::calculateVertexAO(int vpX, int vpY, int vpZ, const BlockSampler& sa
     for (int dz = -1; dz <= 0; ++dz) {
         for (int dy = -1; dy <= 0; ++dy) {
             for (int dx = -1; dx <= 0; ++dx) {
-                BlockType b = sampler(vpX + dx, vpY + dy, vpZ + dz);
+                BlockType const b = sampler(vpX + dx, vpY + dy, vpZ + dz);
                 if (b != BlockType::AIR && BlockData::isSolid(b)) {
                     ++solidNeighbors;
                 }
@@ -147,7 +146,7 @@ void Chunk::generateVertexData(std::vector<float>& vertices, std::vector<unsigne
     for (int y = 0; y < CHUNK_SIZE; y++) {
         for (int z = 0; z < CHUNK_SIZE; z++) {
             for (int x = 0; x < CHUNK_SIZE; x++) {
-                BlockType blockType = getBlock(x, y, z);
+                BlockType const blockType = getBlock(x, y, z);
                 if (blockType == BlockType::AIR)
                     continue;
                 for (int face = 0; face < 6; face++) {
@@ -160,7 +159,7 @@ void Chunk::generateVertexData(std::vector<float>& vertices, std::vector<unsigne
     }
 }
 
-void Chunk::generateIndexData(std::vector<unsigned int>& indices, unsigned int baseVertex, unsigned int vertexCount) {
+void Chunk::generateIndexData(std::vector<unsigned int>& indices, unsigned int baseVertex, unsigned int /*vertexCount*/) {
     // Add indices for two triangles (6 indices total)
     indices.push_back(baseVertex + 0);
     indices.push_back(baseVertex + 1);
@@ -170,9 +169,9 @@ void Chunk::generateIndexData(std::vector<unsigned int>& indices, unsigned int b
     indices.push_back(baseVertex + 3);
 }
 
-void Chunk::uploadMeshToGPU(const std::vector<float>& vertices, const std::vector<unsigned int>& indices) {
+void Chunk::uploadMeshToGPU(const std::vector<float>& /*vertices*/, const std::vector<unsigned int>& indices) {
     // Position attribute (3 floats)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void*)nullptr);
     glEnableVertexAttribArray(0);
 
     // Color attribute (3 floats)
@@ -243,10 +242,10 @@ void Chunk::render(Shader* shader, const glm::mat4& viewMatrix, const glm::mat4&
     shader->use();
 
     // Set matrices
-    glm::mat4 modelMatrix = glm::mat4(1.0f); // Identity matrix
+    auto modelMatrix = glm::mat4(1.0f); // Identity matrix
 
     // Translate to chunk world position
-    glm::vec3 worldPos = chunkToWorldPos(m_position);
+    glm::vec3 const worldPos = chunkToWorldPos(m_position);
     modelMatrix = glm::translate(modelMatrix, worldPos);
 
     // Scale the chunk's local coordinates by cellSize
@@ -259,12 +258,12 @@ void Chunk::render(Shader* shader, const glm::mat4& viewMatrix, const glm::mat4&
 
     // Add camera position for enhanced lighting (view dependent effects)
     glm::mat4 invView = glm::inverse(viewMatrix);
-    glm::vec3 cameraPos = glm::vec3(invView[3]);
+    auto const cameraPos = glm::vec3(invView[3]);
     shader->setVec3("viewPos", cameraPos);
 
     // Draw chunk
     glBindVertexArray(m_vao);
-    glDrawElements(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_INT, nullptr);
     glBindVertexArray(0);
 }
 
@@ -290,7 +289,7 @@ glm::ivec3 Chunk::worldToLocalPos(const glm::vec3& worldPos) {
     // Get cell size from config or use default
     const float cellSize = cachedCellSize();
 
-    glm::ivec3 chunkPos = worldToChunkPos(worldPos);
+    glm::ivec3 const chunkPos = worldToChunkPos(worldPos);
     return glm::ivec3(static_cast<int>(floor(worldPos.x / cellSize)) - chunkPos.x * CHUNK_SIZE,
                       static_cast<int>(floor(worldPos.y / cellSize)) - chunkPos.y * CHUNK_SIZE,
                       static_cast<int>(floor(worldPos.z / cellSize)) - chunkPos.z * CHUNK_SIZE);
@@ -316,14 +315,14 @@ bool Chunk::shouldRenderFace(int x, int y, int z, int direction, const BlockSamp
 }
 
 glm::vec3 Chunk::calculateVertexPositions(int x, int y, int z, int direction, int i) const {
-    float vx = x + FACE_VERTICES[direction][i * 3 + 0];
-    float vy = y + FACE_VERTICES[direction][i * 3 + 1];
-    float vz = z + FACE_VERTICES[direction][i * 3 + 2];
+    float const vx = x + FACE_VERTICES[direction][i * 3 + 0];
+    float const vy = y + FACE_VERTICES[direction][i * 3 + 1];
+    float const vz = z + FACE_VERTICES[direction][i * 3 + 2];
     return glm::vec3(vx, vy, vz);
 }
 
 glm::vec3 Chunk::calculateVertexColors(BlockType blockType, int vx_local, int vy_local, int vz_local) const {
-    glm::ivec3 world_vertex_pos = m_position * CHUNK_SIZE + glm::ivec3(vx_local, vy_local, vz_local);
+    glm::ivec3 const world_vertex_pos = m_position * CHUNK_SIZE + glm::ivec3(vx_local, vy_local, vz_local);
     return BlockData::getBlockColor(blockType, world_vertex_pos.x, world_vertex_pos.y, world_vertex_pos.z);
 }
 
@@ -340,23 +339,23 @@ void Chunk::addFaceToMesh(std::vector<float>& vertices,
                           BlockType blockType,
                           const BlockSampler& sampler) {
     // Base index for the new vertices
-    unsigned int baseIndex = static_cast<unsigned int>(vertices.size() / 12); // 12 floats per vertex
+    auto const baseIndex = static_cast<unsigned int>(vertices.size() / 12); // 12 floats per vertex
 
     // Get face normal
-    glm::vec3 normal = calculateVertexNormals(direction);
+    glm::vec3 const normal = calculateVertexNormals(direction);
 
     // Add 4 vertices for this face
     for (int i = 0; i < 4; ++i) {
         // Calculate vertex position
-        glm::vec3 position = calculateVertexPositions(x, y, z, direction, i);
+        glm::vec3 const position = calculateVertexPositions(x, y, z, direction, i);
 
         // Calculate local vertex coordinates for AO and color
-        int vx_local = x + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 0]));
-        int vy_local = y + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 1]));
-        int vz_local = z + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 2]));
+        int const vx_local = x + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 0]));
+        int const vy_local = y + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 1]));
+        int const vz_local = z + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 2]));
 
         // Calculate vertex color
-        glm::vec3 color = calculateVertexColors(blockType, vx_local, vy_local, vz_local);
+        glm::vec3 const color = calculateVertexColors(blockType, vx_local, vy_local, vz_local);
 
         // Add vertex position
         vertices.push_back(position.x);
@@ -378,7 +377,7 @@ void Chunk::addFaceToMesh(std::vector<float>& vertices,
         vertices.push_back(normal.z);
 
         // Add ambient occlusion
-        float aoFactor = calculateVertexAO(vx_local, vy_local, vz_local, sampler);
+        float const aoFactor = calculateVertexAO(vx_local, vy_local, vz_local, sampler);
         vertices.push_back(aoFactor);
     }
 

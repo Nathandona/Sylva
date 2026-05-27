@@ -27,12 +27,12 @@ public:
      * @brief Constructor with parameters
      * @param params Player parameters to use
      */
-    Player(const PlayerParams& params);
+    explicit Player(const PlayerParams& params);
 
     /**
      * @brief Destructor
      */
-    ~Player();
+    ~Player() = default;
 
     /**
      * @brief Update player movement against the world.
@@ -61,7 +61,7 @@ public:
      * @param world VoxelWorld to check collision against
      * @return true if collision detected
      */
-    bool checkCollision(const VoxelWorld& world);
+    bool checkCollision(const VoxelWorld& world) const;
 
     /**
      * @brief Render the player

@@ -29,8 +29,6 @@ Player::Player(const PlayerParams& params)
     Logger::logDebug("Player initialized with custom parameters");
 }
 
-Player::~Player() = default;
-
 Vec3 Player::handlePlayerInput(const InputState& input, const Vec3& cameraForward, const Vec3& cameraRight) {
     // Project to horizontal plane and renormalize. Length() == 0 means the
     // caller passed a degenerate vector (e.g. looking straight up) — fall
@@ -60,7 +58,7 @@ Vec3 Player::handlePlayerInput(const InputState& input, const Vec3& cameraForwar
 
 Vec3 Player::updatePosition(float deltaTime, const Vec3& moveDirection, const VoxelWorld& world) {
     // Apply movement speed to horizontal movement
-    Vec3 scaledMove = moveDirection * m_params.moveSpeed * deltaTime;
+    Vec3 const scaledMove = moveDirection * m_params.moveSpeed * deltaTime;
 
     // Calculate new position
     Vec3 newPosition = m_position;
@@ -68,7 +66,7 @@ Vec3 Player::updatePosition(float deltaTime, const Vec3& moveDirection, const Vo
     newPosition.z += scaledMove.z;
 
     // Handle vertical movement
-    float terrainHeight = world.getHeightAt(newPosition.x, newPosition.z);
+    float const terrainHeight = world.getHeightAt(newPosition.x, newPosition.z);
 
     // Apply gravity when not grounded
     if (!m_params.isGrounded) {
@@ -99,9 +97,9 @@ bool Player::handleCollisions(const Vec3& newPosition, const VoxelWorld& world) 
         testPosition.z = newPosition.z;
 
         // Temporarily update position for collision check
-        Vec3 oldPosition = m_position;
+        Vec3 const oldPosition = m_position;
         m_position = testPosition;
-        bool collision = checkCollision(world);
+        bool const collision = checkCollision(world);
         m_position = oldPosition; // Restore position
 
         return collision;
@@ -121,7 +119,7 @@ void Player::updateMovement(float deltaTime,
                             const Vec3& cameraForward,
                             const Vec3& cameraRight,
                             const VoxelWorld& world) {
-    Vec3 moveDirection = handlePlayerInput(input, cameraForward, cameraRight);
+    Vec3 const moveDirection = handlePlayerInput(input, cameraForward, cameraRight);
 
     // Handle jumping
     if (input.jump && m_params.isGrounded) {
@@ -131,10 +129,10 @@ void Player::updateMovement(float deltaTime,
     }
 
     // Calculate new position based on movement and physics
-    Vec3 newPosition = updatePosition(deltaTime, moveDirection, world);
+    Vec3 const newPosition = updatePosition(deltaTime, moveDirection, world);
 
     // Check for collisions
-    bool collision = handleCollisions(newPosition, world);
+    bool const collision = handleCollisions(newPosition, world);
 
     // Apply movement if no collision, or just vertical movement if collision
     if (!collision) {
@@ -152,10 +150,10 @@ void Player::rotateToMovementDirection(const Vec3& moveDirection, float deltaTim
     if (glm::length(moveDirection) > 0.0f) {
         // Calculate the angle in radians using atan2
         // Add PI to make the front face (-Z in local coords) point in the movement direction
-        float targetRotation = atan2(moveDirection.x, moveDirection.z) + glm::pi<float>();
+        float const targetRotation = atan2(moveDirection.x, moveDirection.z) + glm::pi<float>();
 
         // Smoothly interpolate to the target rotation
-        float rotationDelta = m_params.rotationSpeed * deltaTime;
+        float const rotationDelta = m_params.rotationSpeed * deltaTime;
 
         // Find the shortest path to the target angle
         float angleDifference = targetRotation - m_rotation;
@@ -186,7 +184,7 @@ void Player::rotateToMovementDirection(const Vec3& moveDirection, float deltaTim
     }
 }
 
-bool Player::checkCollision(const VoxelWorld& world) {
+bool Player::checkCollision(const VoxelWorld& world) const {
     // Delegate to voxel world's collision checking
     return world.checkCollision(*this);
 }
@@ -194,7 +192,7 @@ bool Player::checkCollision(const VoxelWorld& world) {
 void Player::renderPlayer(Shader& shader, const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix) {
     shader.use();
 
-    glm::mat4 model = glm::mat4(1.0f);
+    auto model = glm::mat4(1.0f);
     model = glm::translate(model, m_position);
     model = glm::rotate(model, m_rotation, glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate around Y axis
 

@@ -5,14 +5,12 @@
 // Forward declaration instead of including the full header
 struct GLFWwindow;
 
-namespace Sylva {
-
 /**
  * @brief Input system
  *
  * Handles user input through GLFW and maintains the current input state.
  */
-namespace Input {
+namespace Sylva::Input {
 
 /**
  * @brief Initialize the input system
@@ -55,6 +53,4 @@ void shutdown();
  */
 void reset();
 
-} // namespace Input
-
-} // namespace Sylva
+} // namespace Sylva::Input

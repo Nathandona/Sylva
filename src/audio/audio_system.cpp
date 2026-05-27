@@ -38,7 +38,7 @@ const AudioTypeMeta& metaFor(AudioType t) {
 }
 
 bool checkALError(const std::string& operation) {
-    ALenum error = alGetError();
+    ALenum const error = alGetError();
     if (error == AL_NO_ERROR)
         return true;
     const char* msg = "Unknown OpenAL error";
@@ -95,11 +95,16 @@ std::optional<WavData> loadWavFile(const std::string& path) {
         return std::nullopt;
 
     WavData wav;
-    bool gotFmt = false, gotData = false;
+    bool gotFmt = false;
+    bool gotData = false;
     while (f.read(tag, 4) && readLE(f, size)) {
         if (std::strncmp(tag, "fmt ", 4) == 0) {
-            uint16_t audioFormat = 0, channels = 0, blockAlign = 0, bitsPerSample = 0;
-            uint32_t sampleRate = 0, byteRate = 0;
+            uint16_t audioFormat = 0;
+            uint16_t channels = 0;
+            uint16_t blockAlign = 0;
+            uint16_t bitsPerSample = 0;
+            uint32_t sampleRate = 0;
+            uint32_t byteRate = 0;
             readLE(f, audioFormat);
             readLE(f, channels);
             readLE(f, sampleRate);
@@ -196,17 +201,17 @@ struct OpenALAudioSystem::State {
     };
 
     struct Sound {
-        ALuint buffer;
+        ALuint buffer{};
         AudioType type;
         std::string filePath;
     };
     struct SoundInstance {
-        ALuint source;
+        ALuint source{};
         std::string name;
-        bool isPlaying;
-        bool isPaused;
-        bool isLooping;
-        float volume;
+        bool isPlaying{};
+        bool isPaused{};
+        bool isLooping{};
+        float volume{};
         AudioType type;
     };
 
@@ -244,7 +249,7 @@ OpenALAudioSystem::OpenALAudioSystem() : m_state(std::make_unique<State>()) {
     }
 
     {
-        std::lock_guard<std::mutex> lock(m_state->mutex);
+        std::lock_guard<std::mutex> const lock(m_state->mutex);
         m_state->masterVolume = std::clamp(Config::getFloat("Audio.master_volume", m_state->masterVolume), 0.0f, 1.0f);
         for (const auto& e : kAudioTypeMeta) {
             m_state->typeVolumes[e.type] =
@@ -262,7 +267,7 @@ OpenALAudioSystem::~OpenALAudioSystem() {
         return;
     if (m_state->ready) {
         {
-            std::lock_guard<std::mutex> lock(m_state->mutex);
+            std::lock_guard<std::mutex> const lock(m_state->mutex);
             for (auto& pair : m_state->activeSounds) {
                 alSourceStop(pair.second.source);
                 alDeleteSources(1, &pair.second.source);
@@ -298,7 +303,7 @@ bool OpenALAudioSystem::loadSound(const std::string& name, const std::string& fi
         Logger::logError("Cannot load sound, audio system not initialized");
         return false;
     }
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     if (m_state->soundLibrary.find(name) != m_state->soundLibrary.end()) {
         Logger::logWarning("Sound already loaded: " + name);
         return true;
@@ -320,7 +325,7 @@ bool OpenALAudioSystem::loadSound(const std::string& name, const std::string& fi
 void OpenALAudioSystem::unloadSound(const std::string& name) {
     if (!isReady())
         return;
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     auto it = m_state->soundLibrary.find(name);
     if (it == m_state->soundLibrary.end()) {
         Logger::logWarning("Cannot unload sound, not found: " + name);
@@ -334,7 +339,7 @@ void OpenALAudioSystem::unloadSound(const std::string& name) {
             toRemove.push_back(pair.first);
         }
     }
-    for (unsigned int id : toRemove) {
+    for (unsigned int const id : toRemove) {
         m_state->activeSounds.erase(id);
     }
     alDeleteBuffers(1, &it->second.buffer);
@@ -345,7 +350,7 @@ void OpenALAudioSystem::unloadSound(const std::string& name) {
 void OpenALAudioSystem::unloadAllSounds() {
     if (!isReady())
         return;
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     for (auto& pair : m_state->activeSounds) {
         alSourceStop(pair.second.source);
         alDeleteSources(1, &pair.second.source);
@@ -365,7 +370,7 @@ unsigned int OpenALAudioSystem::playSound(const std::string& name, bool loop, fl
         Logger::logError("Cannot play sound, audio system not initialized");
         return 0;
     }
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     auto it = m_state->soundLibrary.find(name);
     if (it == m_state->soundLibrary.end()) {
         Logger::logWarning("Sound not found: " + name);
@@ -395,7 +400,7 @@ unsigned int OpenALAudioSystem::playSound(const std::string& name, bool loop, fl
 void OpenALAudioSystem::stopSound(unsigned int soundId) {
     if (!isReady())
         return;
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     auto it = m_state->activeSounds.find(soundId);
     if (it == m_state->activeSounds.end())
         return;
@@ -407,7 +412,7 @@ void OpenALAudioSystem::stopSound(unsigned int soundId) {
 void OpenALAudioSystem::pauseSound(unsigned int soundId) {
     if (!isReady())
         return;
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     auto it = m_state->activeSounds.find(soundId);
     if (it == m_state->activeSounds.end() || it->second.isPaused)
         return;
@@ -419,7 +424,7 @@ void OpenALAudioSystem::pauseSound(unsigned int soundId) {
 void OpenALAudioSystem::resumeSound(unsigned int soundId) {
     if (!isReady())
         return;
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     auto it = m_state->activeSounds.find(soundId);
     if (it == m_state->activeSounds.end() || !it->second.isPaused)
         return;
@@ -433,10 +438,10 @@ void OpenALAudioSystem::resumeSound(unsigned int soundId) {
 void OpenALAudioSystem::setMasterVolume(float volume) {
     volume = std::clamp(volume, 0.0f, 1.0f);
     {
-        std::lock_guard<std::mutex> lock(m_state->mutex);
+        std::lock_guard<std::mutex> const lock(m_state->mutex);
         m_state->masterVolume = volume;
         for (auto& pair : m_state->activeSounds) {
-            float finalVolume = pair.second.volume * volume * m_state->typeVolumes[pair.second.type];
+            float const finalVolume = pair.second.volume * volume * m_state->typeVolumes[pair.second.type];
             alSourcef(pair.second.source, AL_GAIN, finalVolume);
         }
     }
@@ -444,18 +449,18 @@ void OpenALAudioSystem::setMasterVolume(float volume) {
 }
 
 float OpenALAudioSystem::getMasterVolume() const {
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     return m_state->masterVolume;
 }
 
 void OpenALAudioSystem::setTypeVolume(AudioType type, float volume) {
     volume = std::clamp(volume, 0.0f, 1.0f);
     {
-        std::lock_guard<std::mutex> lock(m_state->mutex);
+        std::lock_guard<std::mutex> const lock(m_state->mutex);
         m_state->typeVolumes[type] = volume;
         for (auto& pair : m_state->activeSounds) {
             if (pair.second.type == type) {
-                float finalVolume = pair.second.volume * m_state->masterVolume * volume;
+                float const finalVolume = pair.second.volume * m_state->masterVolume * volume;
                 alSourcef(pair.second.source, AL_GAIN, finalVolume);
             }
         }
@@ -464,7 +469,7 @@ void OpenALAudioSystem::setTypeVolume(AudioType type, float volume) {
 }
 
 float OpenALAudioSystem::getTypeVolume(AudioType type) const {
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     auto it = m_state->typeVolumes.find(type);
     return it != m_state->typeVolumes.end() ? it->second : 1.0f;
 }
@@ -475,7 +480,7 @@ void OpenALAudioSystem::setTypeMuted(AudioType type, bool muted) {
         return;
     }
     {
-        std::lock_guard<std::mutex> lock(m_state->mutex);
+        std::lock_guard<std::mutex> const lock(m_state->mutex);
         m_state->typeMuteStates[type] = muted;
         for (auto& pair : m_state->activeSounds) {
             if (pair.second.type != type)
@@ -499,7 +504,7 @@ void OpenALAudioSystem::setTypeMuted(AudioType type, bool muted) {
 bool OpenALAudioSystem::isTypeMuted(AudioType type) const {
     if (!isReady())
         return false;
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     auto it = m_state->typeMuteStates.find(type);
     return it != m_state->typeMuteStates.end() && it->second;
 }
@@ -545,7 +550,7 @@ void OpenALAudioSystem::setListenerOrientation(const float* forward, const float
 void OpenALAudioSystem::setSoundPosition(unsigned int soundId, const float* position) {
     if (!isReady())
         return;
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     auto it = m_state->activeSounds.find(soundId);
     if (it == m_state->activeSounds.end())
         return;
@@ -557,7 +562,7 @@ void OpenALAudioSystem::setSoundPosition(unsigned int soundId, const float* posi
 void OpenALAudioSystem::update() {
     if (!isReady())
         return;
-    std::lock_guard<std::mutex> lock(m_state->mutex);
+    std::lock_guard<std::mutex> const lock(m_state->mutex);
     std::vector<unsigned int> toRemove;
     for (auto& pair : m_state->activeSounds) {
         if (pair.second.isLooping)
@@ -569,7 +574,7 @@ void OpenALAudioSystem::update() {
             toRemove.push_back(pair.first);
         }
     }
-    for (unsigned int id : toRemove) {
+    for (unsigned int const id : toRemove) {
         m_state->activeSounds.erase(id);
     }
 }

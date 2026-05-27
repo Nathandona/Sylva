@@ -23,7 +23,7 @@ public:
      * @brief Constructor
      * @param params World parameters to use for generation.
      */
-    TerrainGenerator(const WorldParams& params);
+    explicit TerrainGenerator(const WorldParams& params);
 
     /**
      * @brief Generate the base terrain for a given chunk.

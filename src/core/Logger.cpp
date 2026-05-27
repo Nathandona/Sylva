@@ -46,7 +46,7 @@ void Logger::setLevel(LogLevel level) {
 }
 
 bool Logger::setFile(const std::string& filePath) {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard<std::mutex> const lock(m_mutex);
     if (m_fileStream.is_open()) {
         m_fileStream.close();
         m_fileLoggingEnabled = false;
@@ -82,10 +82,10 @@ void Logger::log(LogLevel level, const std::string& message) {
     std::stringstream formatted;
     formatted << "[" << timeStr.str() << "] [" << logLevelToString(level) << "] " << message;
 
-    std::lock_guard<std::mutex> lock(m_mutex);
-    std::cout << formatted.str() << std::endl;
+    std::lock_guard<std::mutex> const lock(m_mutex);
+    std::cout << formatted.str() << '\n';
     if (m_fileLoggingEnabled && m_fileStream.is_open()) {
-        m_fileStream << formatted.str() << std::endl;
+        m_fileStream << formatted.str() << '\n';
         m_fileStream.flush();
     }
 }

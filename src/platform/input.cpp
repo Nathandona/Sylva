@@ -3,8 +3,7 @@
 #include <glad/glad.h> // Include GLAD before GLFW
 #include <GLFW/glfw3.h>
 
-namespace Sylva {
-namespace Input {
+namespace Sylva::Input {
 
 // Internal static state
 static InputState s_inputState;
@@ -12,7 +11,7 @@ static GLFWwindow* s_window = nullptr;
 static bool s_cursorDisabled = true; // Track cursor state
 
 // Key callback function for GLFW
-static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+static void keyCallback(GLFWwindow* /*window*/, int key, int /*scancode*/, int action, int /*mods*/) {
     const bool down = (action != GLFW_RELEASE); // true on press OR repeat, false on release
     switch (key) {
     // Movement controls
@@ -62,7 +61,7 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 }
 
 // Mouse button callback
-static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+static void mouseButtonCallback(GLFWwindow* /*window*/, int button, int action, int /*mods*/) {
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         s_inputState.mouseLeftButton = (action == GLFW_PRESS);
     } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
@@ -71,7 +70,7 @@ static void mouseButtonCallback(GLFWwindow* window, int button, int action, int 
 }
 
 // Mouse movement callback
-static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
+static void cursorPosCallback(GLFWwindow* /*window*/, double xpos, double ypos) {
     static double lastX = xpos;
     static double lastY = ypos;
     static bool firstMouse = true;
@@ -92,7 +91,7 @@ static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
 }
 
 // Scroll callback for mouse wheel input
-static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+static void scrollCallback(GLFWwindow* /*window*/, double /*xoffset*/, double yoffset) {
     // Store the mouse wheel data for camera zooming
     s_inputState.mouseWheelDelta = static_cast<float>(yoffset);
 }
@@ -177,5 +176,4 @@ void reset() {
     s_cursorDisabled = true;
 }
 
-} // namespace Input
-} // namespace Sylva
+} // namespace Sylva::Input

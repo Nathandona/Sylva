@@ -36,7 +36,7 @@ bool Config::load(const std::string& path) {
     Logger::logInfo("Loading configuration from: " + path);
 
     Config& cfg = current();
-    std::lock_guard<std::mutex> lock(cfg.m_mutex);
+    std::lock_guard<std::mutex> const lock(cfg.m_mutex);
     auto& values = cfg.m_values;
 
     std::string line;
@@ -90,7 +90,7 @@ std::string Config::getString(const std::string& key) {
 
 std::string Config::getString(const std::string& key, const std::string& defaultValue) {
     Config& cfg = current();
-    std::lock_guard<std::mutex> lock(cfg.m_mutex);
+    std::lock_guard<std::mutex> const lock(cfg.m_mutex);
     auto it = cfg.m_values.find(key);
     if (it == cfg.m_values.end())
         return defaultValue;
@@ -107,7 +107,7 @@ std::string Config::getString(const std::string& key, const std::string& default
 
 int Config::getInt(const std::string& key, int defaultValue) {
     Config& cfg = current();
-    std::lock_guard<std::mutex> lock(cfg.m_mutex);
+    std::lock_guard<std::mutex> const lock(cfg.m_mutex);
     auto it = cfg.m_values.find(key);
     if (it == cfg.m_values.end())
         return defaultValue;
@@ -128,7 +128,7 @@ int Config::getInt(const std::string& key, int defaultValue) {
 
 float Config::getFloat(const std::string& key, float defaultValue) {
     Config& cfg = current();
-    std::lock_guard<std::mutex> lock(cfg.m_mutex);
+    std::lock_guard<std::mutex> const lock(cfg.m_mutex);
     auto it = cfg.m_values.find(key);
     if (it == cfg.m_values.end())
         return defaultValue;
@@ -149,7 +149,7 @@ float Config::getFloat(const std::string& key, float defaultValue) {
 
 bool Config::getBool(const std::string& key, bool defaultValue) {
     Config& cfg = current();
-    std::lock_guard<std::mutex> lock(cfg.m_mutex);
+    std::lock_guard<std::mutex> const lock(cfg.m_mutex);
     auto it = cfg.m_values.find(key);
     if (it == cfg.m_values.end())
         return defaultValue;
@@ -173,7 +173,7 @@ bool Config::getBool(const std::string& key, bool defaultValue) {
 
 template<typename T> void Config::set(const std::string& key, const T& value) {
     Config& cfg = current();
-    std::lock_guard<std::mutex> lock(cfg.m_mutex);
+    std::lock_guard<std::mutex> const lock(cfg.m_mutex);
     cfg.m_values[key] = value;
 }
 

@@ -10,7 +10,7 @@
 
 namespace Sylva {
 
-Shader::Shader(const char* vertexPath, const char* fragmentPath) : m_ID(0) {
+Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     Logger::logInfo("Loading shader: " + std::string(vertexPath) + " and " + std::string(fragmentPath));
 
     // 1. Retrieve vertex/fragment source code from filePath
@@ -29,7 +29,8 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) : m_ID(0) {
         fShaderFile.open(fragmentPath);
 
         // Read file's buffer contents into streams
-        std::stringstream vShaderStream, fShaderStream;
+        std::stringstream vShaderStream;
+        std::stringstream fShaderStream;
         vShaderStream << vShaderFile.rdbuf();
         fShaderStream << fShaderFile.rdbuf();
 
@@ -50,14 +51,14 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) : m_ID(0) {
 
     // 2. Compile shaders. checkCompileErrors throws on failure; we clean up
     // partially-created GL objects so a thrown ctor leaves no leaks.
-    GLuint vertex = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex, 1, &vShaderCode, NULL);
+    GLuint const vertex = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex, 1, &vShaderCode, nullptr);
     glCompileShader(vertex);
     try {
         checkCompileErrors(vertex, "VERTEX");
 
-        GLuint fragment = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragment, 1, &fShaderCode, NULL);
+        GLuint const fragment = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fragment, 1, &fShaderCode, nullptr);
         glCompileShader(fragment);
         try {
             checkCompileErrors(fragment, "FRAGMENT");
@@ -117,7 +118,7 @@ GLint Shader::getUniformLocation(const std::string& name) const {
     if (it != m_uniformCache.end()) {
         return it->second;
     }
-    GLint loc = glGetUniformLocation(m_ID, name.c_str());
+    GLint const loc = glGetUniformLocation(m_ID, name.c_str());
     m_uniformCache.emplace(name, loc); // cache misses too (-1) to avoid repeat lookups
     return loc;
 }
@@ -165,7 +166,7 @@ void Shader::checkCompileErrors(unsigned int shader, const std::string& type) {
     if (type != "PROGRAM") {
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
         if (!success) {
-            glGetShaderInfoLog(shader, 1024, NULL, infoLog);
+            glGetShaderInfoLog(shader, 1024, nullptr, infoLog);
             const std::string msg = "Shader compile error (" + type + "): " + infoLog;
             Logger::logError(msg);
             throw std::runtime_error(msg);
@@ -173,7 +174,7 @@ void Shader::checkCompileErrors(unsigned int shader, const std::string& type) {
     } else {
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
         if (!success) {
-            glGetProgramInfoLog(shader, 1024, NULL, infoLog);
+            glGetProgramInfoLog(shader, 1024, nullptr, infoLog);
             const std::string msg = "Shader program link error: " + std::string(infoLog);
             Logger::logError(msg);
             throw std::runtime_error(msg);

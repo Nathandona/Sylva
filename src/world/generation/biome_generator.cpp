@@ -7,11 +7,11 @@ namespace Sylva {
 
 BiomeGenerator::BiomeGenerator(const WorldParams& params) : m_params(params) {}
 
-std::pair<float, float> BiomeGenerator::generateBiomeData(float worldX, float worldZ, std::mt19937& rng) const {
-    float humiditySeed = (worldX * 0.01f) + (worldZ * 0.015f) + m_params.seed * 0.001f;
+std::pair<float, float> BiomeGenerator::generateBiomeData(float worldX, float worldZ, std::mt19937& /*rng*/) const {
+    float const humiditySeed = (worldX * 0.01f) + (worldZ * 0.015f) + m_params.seed * 0.001f;
     float humidity = glm::simplex(glm::vec2(worldX * 0.003f, worldZ * 0.003f) + humiditySeed);
     humidity = (humidity + 1.0f) * 0.5f;
-    float temperatureSeed = (worldX * 0.012f) + (worldZ * 0.01f) + m_params.seed * 0.002f;
+    float const temperatureSeed = (worldX * 0.012f) + (worldZ * 0.01f) + m_params.seed * 0.002f;
     float temperature = glm::simplex(glm::vec2(worldX * 0.002f, worldZ * 0.002f) + temperatureSeed);
     temperature = (temperature + 1.0f) * 0.5f;
     return {humidity, temperature};
@@ -26,14 +26,14 @@ void BiomeGenerator::applyEnvironmentalEffects(Chunk* chunk,
     if (chunk == nullptr)
         return;
     const glm::ivec3& chunkPos = chunk->getPosition();
-    float worldX = (chunkPos.x * CHUNK_SIZE) + x_local;
-    float worldZ = (chunkPos.z * CHUNK_SIZE) + z_local;
-    int terrainHeight = static_cast<int>(height);
-    int localTerrainHeight = terrainHeight - (chunkPos.y * CHUNK_SIZE);
+    float const worldX = (chunkPos.x * CHUNK_SIZE) + x_local;
+    float const worldZ = (chunkPos.z * CHUNK_SIZE) + z_local;
+    int const terrainHeight = static_cast<int>(height);
+    int const localTerrainHeight = terrainHeight - (chunkPos.y * CHUNK_SIZE);
     for (int y_local = 0; y_local < CHUNK_SIZE; y_local++) {
         if (y_local < localTerrainHeight) {
-            float materialNoise = glm::simplex(glm::vec2(worldX * 0.1f, worldZ * 0.1f));
-            float depthNoise = (materialNoise + 1.0f) * 0.5f;
+            float const materialNoise = glm::simplex(glm::vec2(worldX * 0.1f, worldZ * 0.1f));
+            float const depthNoise = (materialNoise + 1.0f) * 0.5f;
             if (y_local == localTerrainHeight - 1) {
                 if (height > m_params.maxHeight * 0.7f && depthNoise > 0.5f) {
                     chunk->setBlock(x_local, y_local, z_local, BlockType::STONE);
@@ -45,7 +45,7 @@ void BiomeGenerator::applyEnvironmentalEffects(Chunk* chunk,
                     chunk->setBlock(x_local, y_local, z_local, BlockType::GRASS);
                 }
             } else {
-                int dirtDepth = 2 + static_cast<int>(humidity * 3.0f + depthNoise * 2.0f);
+                int const dirtDepth = 2 + static_cast<int>(humidity * 3.0f + depthNoise * 2.0f);
                 if (y_local >= localTerrainHeight - dirtDepth) {
                     chunk->setBlock(x_local, y_local, z_local, BlockType::DIRT);
                 } else {
@@ -57,8 +57,8 @@ void BiomeGenerator::applyEnvironmentalEffects(Chunk* chunk,
                 }
             }
         } else {
-            float world_y = static_cast<float>(chunkPos.y * CHUNK_SIZE + y_local);
-            float waterLevel = m_params.maxHeight * 0.25f + m_params.maxHeight * 0.1f * humidity;
+            auto const world_y = static_cast<float>(chunkPos.y * CHUNK_SIZE + y_local);
+            float const waterLevel = m_params.maxHeight * 0.25f + m_params.maxHeight * 0.1f * humidity;
             if (world_y < waterLevel && y_local >= localTerrainHeight) {
                 chunk->setBlock(x_local, y_local, z_local, BlockType::WATER);
             }

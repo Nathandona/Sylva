@@ -98,7 +98,7 @@ void VoxelWorld::loadChunkIfMissing(const glm::ivec3& chunkPos) {
 void VoxelWorld::generateWorld(const glm::vec3& playerPosition) {
     Logger::logInfo("Generating micro-voxel world around player position (" + std::to_string(playerPosition.x) + ", " +
                     std::to_string(playerPosition.y) + ", " + std::to_string(playerPosition.z) + ")");
-    glm::ivec3 centerChunkPos = Chunk::worldToChunkPos(playerPosition);
+    glm::ivec3 const centerChunkPos = Chunk::worldToChunkPos(playerPosition);
     initializeWorldChunks(centerChunkPos);
     updateChunkMeshes(centerChunkPos);
     Logger::logInfo("Micro-voxel world generation complete");
@@ -121,8 +121,8 @@ void VoxelWorld::generateChunkFeatures(Chunk* chunk) {
 }
 
 bool VoxelWorld::updateChunkVisibility(const glm::ivec3& chunkPos, const glm::ivec3& playerChunkPos) const {
-    glm::ivec3 diff = chunkPos - playerChunkPos;
-    float distance = sqrt(diff.x * diff.x + diff.z * diff.z);
+    glm::ivec3 const diff = chunkPos - playerChunkPos;
+    float const distance = sqrt(diff.x * diff.x + diff.z * diff.z);
     return distance <= m_viewDistanceInChunks;
 }
 
@@ -138,7 +138,7 @@ void VoxelWorld::updateChunkLoading(const glm::ivec3& playerChunkPos) {
     for (int y = m_chunkYMin; y <= m_chunkYMax; y++) {
         for (int z = -m_viewDistanceInChunks; z <= m_viewDistanceInChunks; z++) {
             for (int x = -m_viewDistanceInChunks; x <= m_viewDistanceInChunks; x++) {
-                glm::ivec3 chunkPos = playerChunkPos + glm::ivec3(x, y, z);
+                glm::ivec3 const chunkPos = playerChunkPos + glm::ivec3(x, y, z);
                 if (updateChunkVisibility(chunkPos, playerChunkPos)) {
                     loadChunkIfMissing(chunkPos);
                 }
@@ -148,8 +148,8 @@ void VoxelWorld::updateChunkLoading(const glm::ivec3& playerChunkPos) {
     updateChunkMeshes(playerChunkPos);
 }
 
-void VoxelWorld::update(float deltaTime, const glm::vec3& playerPosition) {
-    glm::ivec3 playerChunkPos = Chunk::worldToChunkPos(playerPosition);
+void VoxelWorld::update(float /*deltaTime*/, const glm::vec3& playerPosition) {
+    glm::ivec3 const playerChunkPos = Chunk::worldToChunkPos(playerPosition);
     static glm::ivec3 lastPlayerChunkPos(-999999, -999999, -999999);
 
     if (updatePlayerChunkPosition(playerChunkPos, lastPlayerChunkPos)) {
@@ -162,17 +162,17 @@ void VoxelWorld::render(const Camera& camera, float aspectRatio) {
         Logger::logWarning("Cannot render voxel world, shader not initialized");
         return;
     }
-    glm::mat4 viewMatrix = camera.getViewMatrix();
-    glm::mat4 projectionMatrix = camera.getProjectionMatrix(aspectRatio);
-    glm::vec3 lightDir = glm::normalize(glm::vec3(0.5f, 1.0f, 0.3f));
+    glm::mat4 const viewMatrix = camera.getViewMatrix();
+    glm::mat4 const projectionMatrix = camera.getProjectionMatrix(aspectRatio);
+    glm::vec3 const lightDir = glm::normalize(glm::vec3(0.5f, 1.0f, 0.3f));
     m_shader->use();
     m_shader->setVec3("lightDir", lightDir);
-    glm::vec3 lightColor(Config::getFloat("Lighting.light_color.x", 1.0f),
-                         Config::getFloat("Lighting.light_color.y", 0.95f),
-                         Config::getFloat("Lighting.light_color.z", 0.8f));
-    glm::vec3 ambientColor(Config::getFloat("Lighting.ambient_color.x", 0.45f),
-                           Config::getFloat("Lighting.ambient_color.y", 0.45f),
-                           Config::getFloat("Lighting.ambient_color.z", 0.45f));
+    glm::vec3 const lightColor(Config::getFloat("Lighting.light_color.x", 1.0f),
+                               Config::getFloat("Lighting.light_color.y", 0.95f),
+                               Config::getFloat("Lighting.light_color.z", 0.8f));
+    glm::vec3 const ambientColor(Config::getFloat("Lighting.ambient_color.x", 0.45f),
+                                 Config::getFloat("Lighting.ambient_color.y", 0.45f),
+                                 Config::getFloat("Lighting.ambient_color.z", 0.45f));
     m_shader->setVec3("uniformLightColor", lightColor);
     m_shader->setVec3("uniformAmbientColor", ambientColor);
     for (const auto& pair : m_chunks) {
@@ -215,8 +215,8 @@ void VoxelWorld::updateChunkMeshes(const glm::ivec3& centerPos) {
         const glm::ivec3& chunkPos = pair.first;
         Chunk* chunk = pair.second.get();
 
-        glm::ivec3 diff = chunkPos - centerPos;
-        float distance = sqrt(static_cast<float>(diff.x * diff.x + diff.z * diff.z));
+        glm::ivec3 const diff = chunkPos - centerPos;
+        float const distance = sqrt(static_cast<float>(diff.x * diff.x + diff.z * diff.z));
         if (distance > m_viewDistanceInChunks) {
             continue;
         }
@@ -225,7 +225,7 @@ void VoxelWorld::updateChunkMeshes(const glm::ivec3& centerPos) {
         // diagonals) by resolving the owning chunk via VoxelWorld. Closes over
         // `this` and the chunk's own position; meshing is synchronous so the
         // capture is safe for the duration of the call.
-        BlockSampler sampler = [this, chunkPos](int lx, int ly, int lz) -> BlockType {
+        BlockSampler const sampler = [this, chunkPos](int lx, int ly, int lz) -> BlockType {
             glm::ivec3 cp = chunkPos;
             auto wrap = [](int& local, int& coord) {
                 while (local < 0) {
@@ -250,8 +250,8 @@ void VoxelWorld::updateChunkMeshes(const glm::ivec3& centerPos) {
 
 BlockType VoxelWorld::getBlockAt(const glm::vec3& worldPos) const {
     // Convert to chunk and local coordinates
-    glm::ivec3 chunkPos = Chunk::worldToChunkPos(worldPos);
-    glm::ivec3 localPos = Chunk::worldToLocalPos(worldPos);
+    glm::ivec3 const chunkPos = Chunk::worldToChunkPos(worldPos);
+    glm::ivec3 const localPos = Chunk::worldToLocalPos(worldPos);
 
     // Get the chunk
     Chunk* chunk = getChunk(chunkPos);
@@ -265,7 +265,7 @@ BlockType VoxelWorld::getBlockAt(const glm::vec3& worldPos) const {
 
 void VoxelWorld::setBlockAt(const glm::vec3& worldPos, BlockType type) {
     // Convert to chunk and local coordinates
-    glm::ivec3 chunkPos = Chunk::worldToChunkPos(worldPos);
+    glm::ivec3 const chunkPos = Chunk::worldToChunkPos(worldPos);
     glm::ivec3 localPos = Chunk::worldToLocalPos(worldPos);
 
     // Get or create the chunk
@@ -323,14 +323,14 @@ float VoxelWorld::getHeightAt(float x, float z) const {
 }
 
 bool VoxelWorld::checkCollision(const Player& player) const {
-    Vec3 playerPos = player.getPosition();
-    float playerSize = player.getCollisionRadius();
-    float stepSize = std::max(m_params.cellSize * 0.5f, 0.05f);
+    Vec3 const playerPos = player.getPosition();
+    float const playerSize = player.getCollisionRadius();
+    float const stepSize = std::max(m_params.cellSize * 0.5f, 0.05f);
     bool collision = false;
     for (float y = playerPos.y; y <= playerPos.y + player.getHeight(); y += stepSize) {
         for (float z = playerPos.z - playerSize; z <= playerPos.z + playerSize; z += stepSize) {
             for (float x = playerPos.x - playerSize; x <= playerPos.x + playerSize; x += stepSize) {
-                BlockType block = getBlockAt(glm::vec3(x, y, z));
+                BlockType const block = getBlockAt(glm::vec3(x, y, z));
                 if (block != BlockType::AIR && BlockData::isSolid(block)) {
                     collision = true;
                     if (!m_collisionDebugEnabled) {
@@ -347,7 +347,7 @@ void VoxelWorld::setWorldSize(int size) {
     m_worldSizeInChunks = size;
 }
 
-void VoxelWorld::renderCollisionDebug(const Camera& camera, const Player& player, float aspectRatio) {
+void VoxelWorld::renderCollisionDebug(const Camera& camera, const Player& /*player*/, float aspectRatio) {
     if (!m_collisionDebugEnabled || m_collisionDebugPoints.empty()) {
         return;
     }
@@ -361,7 +361,7 @@ void VoxelWorld::renderCollisionDebug(const Camera& camera, const Player& player
         glBindBuffer(GL_ARRAY_BUFFER, m_debugVBO);
 
         // Position attribute
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)nullptr);
         glEnableVertexAttribArray(0);
 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -392,11 +392,11 @@ void VoxelWorld::renderCollisionDebug(const Camera& camera, const Player& player
     m_debugShader->setVec4("color", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)); // Red points
 
     // Point size for visibility, configurable
-    float pointSize = Config::getFloat("Debug.collision_point_size", 5.0f);
+    float const pointSize = Config::getFloat("Debug.collision_point_size", 5.0f);
     glPointSize(pointSize);
 
     // Disable depth test temporarily to make points visible through blocks
-    GLboolean depthEnabled;
+    GLboolean depthEnabled = 0;
     glGetBooleanv(GL_DEPTH_TEST, &depthEnabled);
     glDisable(GL_DEPTH_TEST);
 

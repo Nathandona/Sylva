@@ -91,7 +91,7 @@ bool Engine::initialize(const std::string& configPath) {
         return false;
     }
     // Enable collision debug visualization if specified in config
-    bool collisionDebug = Config::getBool("Debug.collision_visualization", false);
+    bool const collisionDebug = Config::getBool("Debug.collision_visualization", false);
     m_voxelWorld->setCollisionDebugEnabled(collisionDebug);
     Logger::logInfo("Collision debug visualization: " + std::string(collisionDebug ? "enabled" : "disabled"));
     // Player visual params (mesh + shader live elsewhere now).

@@ -7,7 +7,7 @@ namespace Sylva {
 
 class FeatureGenerator {
 public:
-    FeatureGenerator(const WorldParams& params);
+    explicit FeatureGenerator(const WorldParams& params);
     void generateTrees(class Chunk* chunk, std::mt19937& rng, std::uniform_int_distribution<int>& randPos);
     void generateRocks(class Chunk* chunk, std::mt19937& rng, std::uniform_int_distribution<int>& randPos);
     void generateVegetation(class Chunk* chunk, std::mt19937& rng, std::uniform_int_distribution<int>& randPos);

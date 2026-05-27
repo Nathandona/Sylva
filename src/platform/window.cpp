@@ -5,6 +5,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <utility>
 
 namespace Sylva {
 
@@ -19,7 +20,7 @@ static void glfwErrorCallback(int error, const char* description) {
 // GLFW framebuffer size callback function (for window resizing)
 static void glfwFramebufferSizeCallback(GLFWwindow* window, int width, int height) {
     // Retrieve Window instance from GLFW user pointer
-    Window* userWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    auto* userWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
     if (userWindow && userWindow->getGLFWwindow() == window) {
         // Update OpenGL viewport
         glViewport(0, 0, width, height);
@@ -117,7 +118,7 @@ bool Window::create(int width, int height, const std::string& title, bool fullsc
     setupCallbacks();
 
     // Set vsync based on config
-    bool vsync = Config::getBool("Graphics.vsync", true);
+    bool const vsync = Config::getBool("Graphics.vsync", true);
     setVSync(vsync);
 
     // Initialize time tracking
@@ -160,7 +161,7 @@ void Window::swapBuffers() {
         glfwSwapBuffers(m_window);
 
         // Update delta time
-        float currentTime = static_cast<float>(glfwGetTime());
+        auto const currentTime = static_cast<float>(glfwGetTime());
         m_deltaTime = currentTime - m_lastFrameTime;
         m_lastFrameTime = currentTime;
     }
@@ -199,7 +200,7 @@ float Window::getDeltaTime() const {
 }
 
 void Window::setResizeCallback(std::function<void(int, int)> callback) {
-    m_resizeCallback = callback;
+    m_resizeCallback = std::move(callback);
 }
 
 std::function<void(int, int)> Window::getResizeCallback() const {

@@ -93,19 +93,19 @@ glm::vec3 BlockData::getBlockColor(BlockType type, int world_vx, int world_vy, i
         initialize();
     }
 
-    glm::vec3 baseColor = s_appearances[static_cast<size_t>(type)].color;
+    glm::vec3 const baseColor = s_appearances[static_cast<size_t>(type)].color;
 
     // Per-vertex subtle hue/color offset variation based on world vertex coordinates
     // Using a simple hash-like function of world vertex coordinates for deterministic randomness
-    unsigned int hash_base_x = static_cast<unsigned int>(world_vx * 73856093);
-    unsigned int hash_base_y = static_cast<unsigned int>(world_vy * 19349663);
-    unsigned int hash_base_z = static_cast<unsigned int>(world_vz * 83492791);
+    auto const hash_base_x = static_cast<unsigned int>(world_vx * 73856093);
+    auto const hash_base_y = static_cast<unsigned int>(world_vy * 19349663);
+    auto const hash_base_z = static_cast<unsigned int>(world_vz * 83492791);
 
     // Generate small offsets for R, G, B channels
     // The range of offsets should be subtle, e.g., +/- 0.02 to 0.05
-    float r_offset = ((hash_base_x ^ hash_base_y ^ hash_base_z) % 50) / 1000.0f - 0.025f; // Approx [-0.025, +0.025]
-    float g_offset = ((hash_base_x >> 2 ^ hash_base_y >> 1 ^ hash_base_z << 1) % 50) / 1000.0f - 0.025f;
-    float b_offset = ((hash_base_x << 1 ^ hash_base_y >> 2 ^ hash_base_z) % 50) / 1000.0f - 0.025f;
+    float const r_offset = ((hash_base_x ^ hash_base_y ^ hash_base_z) % 50) / 1000.0f - 0.025f; // Approx [-0.025, +0.025]
+    float const g_offset = ((hash_base_x >> 2 ^ hash_base_y >> 1 ^ hash_base_z << 1) % 50) / 1000.0f - 0.025f;
+    float const b_offset = ((hash_base_x << 1 ^ hash_base_y >> 2 ^ hash_base_z) % 50) / 1000.0f - 0.025f;
 
     glm::vec3 finalColor;
     finalColor.r = std::max(0.0f, std::min(1.0f, baseColor.r + r_offset));

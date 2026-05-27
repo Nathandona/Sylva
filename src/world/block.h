@@ -28,10 +28,10 @@ struct BlockAppearance {
     bool emissive = false; // Whether the block emits light
 
     // Default constructor for a solid white block
-    BlockAppearance() : color(1.0f, 1.0f, 1.0f), opacity(1.0f), emissive(false) {}
+    BlockAppearance() : color(1.0f, 1.0f, 1.0f) {}
 
     // Constructor with parameters
-    BlockAppearance(const glm::vec3& col, float op = 1.0f, bool emit = false)
+    explicit BlockAppearance(const glm::vec3& col, float op = 1.0f, bool emit = false)
         : color(col), opacity(op), emissive(emit) {}
 };
 

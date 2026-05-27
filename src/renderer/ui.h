@@ -38,7 +38,7 @@ public:
     bool isReady() const;
 
 private:
-    void updateCrosshairGeometry();
+    void updateCrosshairGeometry() const;
 
     UIParams m_params{};
     int m_windowWidth = 1280;

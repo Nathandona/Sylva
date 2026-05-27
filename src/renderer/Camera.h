@@ -27,7 +27,7 @@ public:
      * @brief Constructor with parameters
      * @param params Camera parameters to use
      */
-    Camera(const CameraParams& params);
+    explicit Camera(const CameraParams& params);
 
     /**
      * @brief Update the camera based on player position and input

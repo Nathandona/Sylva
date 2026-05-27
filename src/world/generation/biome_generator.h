@@ -8,7 +8,7 @@ namespace Sylva {
 
 class BiomeGenerator {
 public:
-    BiomeGenerator(const WorldParams& params);
+    explicit BiomeGenerator(const WorldParams& params);
     std::pair<float, float> generateBiomeData(float worldX, float worldZ, std::mt19937& rng) const;
     void applyEnvironmentalEffects(class Chunk* chunk,
                                    int x_local,
