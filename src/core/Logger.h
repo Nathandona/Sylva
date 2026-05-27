@@ -4,6 +4,7 @@
 #include <fstream>
 #include <mutex>
 #include <memory>
+#include <atomic>
 
 namespace Sylva {
 
@@ -80,8 +81,8 @@ private:
     // Log a message with a specific level
     void log(LogLevel level, const std::string& message);
 
-    // Current minimum log level
-    LogLevel m_currentLevel = LogLevel::INFO;
+    // Current minimum log level (atomic — read on every log call from any thread)
+    std::atomic<LogLevel> m_currentLevel{LogLevel::INFO};
     
     // File output stream
     std::ofstream m_fileStream;

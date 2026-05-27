@@ -29,6 +29,25 @@ std::unordered_map<AudioType, bool> AudioSystem::typeMuteStates = {
 namespace {
     ALCdevice* audioDevice = nullptr;
     ALCcontext* audioContext = nullptr;
+
+    struct AudioTypeMeta {
+        AudioType type;
+        const char* name;
+        const char* volumeKey;
+        const char* muteKey;
+    };
+    constexpr AudioTypeMeta kAudioTypeMeta[] = {
+        {AudioType::SOUND_EFFECT, "SOUND_EFFECT", "Audio.sound_effect_volume", "Audio.mute_sound_effects"},
+        {AudioType::MUSIC,        "MUSIC",        "Audio.music_volume",        "Audio.mute_music"},
+        {AudioType::AMBIENT,      "AMBIENT",      "Audio.ambient_volume",      "Audio.mute_ambient"},
+        {AudioType::VOICE,        "VOICE",        "Audio.voice_volume",        "Audio.mute_voice"},
+    };
+    const AudioTypeMeta& metaFor(AudioType t) {
+        for (const auto& e : kAudioTypeMeta) {
+            if (e.type == t) return e;
+        }
+        return kAudioTypeMeta[0];
+    }
     
     struct Sound {
         ALuint buffer;
@@ -126,38 +145,11 @@ bool AudioSystem::initialize() {
         return false;
     }
     
-    // Initialize volumes from config if available
-    if (Config::getFloat("Audio.master_volume", masterVolume)) {
-        masterVolume = std::clamp(masterVolume, 0.0f, 1.0f);
-    }
-    
-    float typeVolume = 1.0f;  // Initialize with default value
-    if (Config::getFloat("Audio.sound_effect_volume", typeVolume)) {
-        typeVolumes[AudioType::SOUND_EFFECT] = std::clamp(typeVolume, 0.0f, 1.0f);
-    }
-    if (Config::getFloat("Audio.music_volume", typeVolume)) {
-        typeVolumes[AudioType::MUSIC] = std::clamp(typeVolume, 0.0f, 1.0f);
-    }
-    if (Config::getFloat("Audio.ambient_volume", typeVolume)) {
-        typeVolumes[AudioType::AMBIENT] = std::clamp(typeVolume, 0.0f, 1.0f);
-    }
-    if (Config::getFloat("Audio.voice_volume", typeVolume)) {
-        typeVolumes[AudioType::VOICE] = std::clamp(typeVolume, 0.0f, 1.0f);
-    }
-    
-    // Initialize mute states from config if available
-    bool typeMuted = false;
-    if (Config::getBool("Audio.mute_sound_effects", typeMuted)) {
-        typeMuteStates[AudioType::SOUND_EFFECT] = typeMuted;
-    }
-    if (Config::getBool("Audio.mute_music", typeMuted)) {
-        typeMuteStates[AudioType::MUSIC] = typeMuted;
-    }
-    if (Config::getBool("Audio.mute_ambient", typeMuted)) {
-        typeMuteStates[AudioType::AMBIENT] = typeMuted;
-    }
-    if (Config::getBool("Audio.mute_voice", typeMuted)) {
-        typeMuteStates[AudioType::VOICE] = typeMuted;
+    // Initialize volumes + mute states from config (per-type table-driven).
+    masterVolume = std::clamp(Config::getFloat("Audio.master_volume", masterVolume), 0.0f, 1.0f);
+    for (const auto& e : kAudioTypeMeta) {
+        typeVolumes[e.type]    = std::clamp(Config::getFloat(e.volumeKey, typeVolumes[e.type]), 0.0f, 1.0f);
+        typeMuteStates[e.type] = Config::getBool(e.muteKey, typeMuteStates[e.type]);
     }
     
     initialized = true;
@@ -413,18 +405,7 @@ void AudioSystem::setTypeVolume(AudioType type, float volume) {
         }
     }
     
-    // Save to config if possible
-    std::string configKey;
-    switch (type) {
-        case AudioType::SOUND_EFFECT: configKey = "Audio.sound_effect_volume"; break;
-        case AudioType::MUSIC: configKey = "Audio.music_volume"; break;
-        case AudioType::AMBIENT: configKey = "Audio.ambient_volume"; break;
-        case AudioType::VOICE: configKey = "Audio.voice_volume"; break;
-    }
-    
-    if (!configKey.empty()) {
-        Config::set(configKey, volume);
-    }
+    Config::set(metaFor(type).volumeKey, volume);
 }
 
 float AudioSystem::getTypeVolume(AudioType type) {
@@ -525,31 +506,9 @@ void AudioSystem::setTypeMuted(AudioType type, bool muted) {
         }
     }
     
-    // Save to config
-    std::string configKey;
-    switch (type) {
-        case AudioType::SOUND_EFFECT:
-            configKey = "Audio.mute_sound_effects";
-            break;
-        case AudioType::MUSIC:
-            configKey = "Audio.mute_music";
-            break;
-        case AudioType::AMBIENT:
-            configKey = "Audio.mute_ambient";
-            break;
-        case AudioType::VOICE:
-            configKey = "Audio.mute_voice";
-            break;
-    }
-    
-    Config::set<bool>(configKey, muted);
-    
-    Logger::logInfo(std::string("Audio type ") + 
-                   (type == AudioType::SOUND_EFFECT ? "SOUND_EFFECT" :
-                    type == AudioType::MUSIC ? "MUSIC" :
-                    type == AudioType::AMBIENT ? "AMBIENT" :
-                    "VOICE") + 
-                   (muted ? " muted" : " unmuted"));
+    const auto& meta = metaFor(type);
+    Config::set<bool>(meta.muteKey, muted);
+    Logger::logInfo(std::string("Audio type ") + meta.name + (muted ? " muted" : " unmuted"));
 }
 
 bool AudioSystem::isTypeMuted(AudioType type) {

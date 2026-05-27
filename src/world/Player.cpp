@@ -4,20 +4,15 @@
 #include "core/config.h"
 #include "renderer/shader.h"
 #include "renderer/camera.h"
-#include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <cmath>
 
 namespace Sylva {
 
-Player::Player() 
-    : m_rotation(0.0f), 
-      m_position(0.0f, 0.0f, 0.0f), 
-      m_velocity(0.0f, 0.0f, 0.0f)
-      // m_vao(0), // Managed by Mesh component
-      // m_vbo(0), // Managed by Mesh component
-      // m_shader(nullptr) // Provided by ShaderManager
-{
+Player::Player()
+    : m_position(0.0f, 0.0f, 0.0f),
+      m_rotation(0.0f),
+      m_velocity(0.0f, 0.0f, 0.0f) {
     // Load player parameters from config if available
     m_params.moveSpeed = Config::getFloat("Player.move_speed", m_params.moveSpeed);
     m_params.rotationSpeed = Config::getFloat("Player.rotation_speed", m_params.rotationSpeed);
@@ -35,52 +30,21 @@ Player::Player()
                     std::to_string(m_position.z));
 }
 
-Player::Player(const PlayerParams& params) 
-    : m_params(params), 
-      m_rotation(0.0f), 
-      m_position(0.0f, 0.0f, 0.0f), 
-      m_velocity(0.0f, 0.0f, 0.0f)
-      // m_vao(0), // Managed by Mesh component
-      // m_vbo(0), // Managed by Mesh component
-      // m_shader(nullptr) // Provided by ShaderManager
-{
+Player::Player(const PlayerParams& params)
+    : m_params(params),
+      m_position(0.0f, 0.0f, 0.0f),
+      m_rotation(0.0f),
+      m_velocity(0.0f, 0.0f, 0.0f) {
     Logger::logDebug("Player initialized with custom parameters");
 }
 
-Player::~Player() {
-    // cleanupGraphics(); // Handled by Mesh component and ShaderManager
-}
+Player::~Player() = default;
 
 bool Player::initializeGraphics() {
-    Logger::logInfo("Initializing player graphics (conceptual setup)");
-    
-    // Shader creation is now handled by a ShaderManager
-    // VAO/VBO and vertex data are now handled by a Mesh component
-
-    // Example: Define player's visual properties if needed for a procedural mesh later
-    // m_playerVisual.setColor(Vec4(0.2f, 0.5f, 1.0f, 1.0f));
-    // m_playerVisual.setDimensions(m_params.width, m_params.height, m_params.depth);
-
-    Logger::logInfo("Player graphics conceptually initialized. Mesh and Shader to be managed externally.");
+    // Mesh + shader are owned externally (Engine creates the colored shader,
+    // future Mesh component will own the player mesh). Nothing to do here yet.
     return true;
 }
-
-// void Player::cleanupGraphics() { // Handled by Mesh component and ShaderManager
-//     if (m_vao != 0) {
-//         glDeleteVertexArrays(1, &m_vao);
-//         m_vao = 0;
-//     }
-//     
-//     if (m_vbo != 0) {
-//         glDeleteBuffers(1, &m_vbo);
-//         m_vbo = 0;
-//     }
-//     
-//     if (m_shader != nullptr) {
-//         delete m_shader;
-//         m_shader = nullptr;
-//     }
-// }
 
 Vec3 Player::handlePlayerInput(const InputState& input, const Camera& camera) {
     // Get camera forward and right vectors (for camera-relative movement)
@@ -279,15 +243,7 @@ void Player::renderPlayer(Shader& shader, const glm::mat4& viewMatrix, const glm
     shader.setMat4("model", model);
     shader.setMat4("view", viewMatrix);
     shader.setMat4("projection", projectionMatrix);
-    // shader.setVec4("color", m_params.color); // Assuming color is part of PlayerParams or a visual component
-
-    // TODO: Draw player mesh here using the provided shader and a Mesh component.
-    // Example: if (m_mesh) m_mesh->draw(shader);
-    
-    // Removed direct OpenGL draw calls:
-    // glBindVertexArray(m_vao);
-    // glDrawArrays(GL_TRIANGLES, 0, 36); // 36 vertices for a cube (12 triangles * 3 vertices)
-    // glBindVertexArray(0);
+    // TODO: draw via a Mesh component once introduced.
 }
 
 void Player::setMoveSpeed(float speed) {

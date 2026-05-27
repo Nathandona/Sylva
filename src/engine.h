@@ -29,6 +29,7 @@ private:
     std::unique_ptr<VoxelWorld> m_voxelWorld;
     std::unique_ptr<Shader> m_playerShader;
     unsigned int m_musicId = 0;
+    bool m_shutdownComplete = false;
 };
 
 } // namespace Sylva

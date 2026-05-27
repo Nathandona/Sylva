@@ -19,7 +19,6 @@ find_package(EnTT REQUIRED)
 set(SOURCES
     src/main.cpp
     src/engine.cpp
-    src/system_manager.cpp
     src/audio/audio_system.cpp
     src/core/config.cpp
     src/core/logger.cpp

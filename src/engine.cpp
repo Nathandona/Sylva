@@ -11,6 +11,7 @@
 #include "audio/audio_system.h"
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <string>
 #include <thread>
 #include <chrono>
@@ -25,6 +26,34 @@ Engine::~Engine() {
 }
 
 bool Engine::initialize(const std::string& configPath) {
+    // Config: default required, user overrides optional.
+    if (!Config::load(configPath)) {
+        Logger::logError("Failed to load default configuration!");
+        return false;
+    }
+    Config::load("config/user_config.ini");
+
+    // Logger: level + optional file output, both config-driven.
+    const std::string levelStr = Config::getString("Logging.level");
+    Logger::setLogLevel(
+        levelStr == "DEBUG"   ? LogLevel::DEBUG :
+        levelStr == "WARNING" ? LogLevel::WARNING :
+        levelStr == "ERROR"   ? LogLevel::ERROR :
+                                LogLevel::INFO
+    );
+    const std::string logFile = Config::getString("Logging.file");
+    if (!logFile.empty()) {
+        Logger::setLogFile(logFile);
+    }
+    Logger::logInfo("Sylva Engine starting...");
+    Logger::logInfo("Version: 0.1.0");
+
+    // GLFW (one-shot init for the process).
+    if (!Window::initialize()) {
+        Logger::logError("Failed to initialize GLFW!");
+        return false;
+    }
+
     m_window = std::make_unique<Window>();
     if (!m_window->create(
         Config::getInt("Window.width"),
@@ -138,23 +167,11 @@ void Engine::run() {
         f1KeyDown = f1KeyPressed;
         Input::update();
         AudioSystem::update();
-        float cameraPos[3] = {
-            m_camera->getPosition().x,
-            m_camera->getPosition().y,
-            m_camera->getPosition().z
-        };
-        float cameraForward[3] = {
-            m_camera->getForward().x,
-            m_camera->getForward().y,
-            m_camera->getForward().z
-        };
-        float cameraUp[3] = {
-            m_camera->getUp().x,
-            m_camera->getUp().y,
-            m_camera->getUp().z
-        };
-        AudioSystem::setListenerPosition(cameraPos);
-        AudioSystem::setListenerOrientation(cameraForward, cameraUp);
+        const glm::vec3 camPos = m_camera->getPosition();
+        const glm::vec3 camFwd = m_camera->getForward();
+        const glm::vec3 camUp  = m_camera->getUp();
+        AudioSystem::setListenerPosition(glm::value_ptr(camPos));
+        AudioSystem::setListenerOrientation(glm::value_ptr(camFwd), glm::value_ptr(camUp));
         glClearColor(0.5f, 0.7f, 0.9f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         float aspectRatio = static_cast<float>(m_window->getWidth()) / static_cast<float>(m_window->getHeight());
@@ -179,9 +196,7 @@ void Engine::run() {
 }
 
 void Engine::shutdown() {
-    if (!m_window && !m_player && !m_camera && !m_voxelWorld && !m_playerShader) {
-        return; // already shut down (idempotent)
-    }
+    if (m_shutdownComplete) return;
     Logger::logInfo("Cleaning up...");
     if (m_musicId != 0) {
         AudioSystem::stopSound(m_musicId);
@@ -198,6 +213,9 @@ void Engine::shutdown() {
         m_window->shutdown();
         m_window.reset();
     }
+    // Audio is context-independent; tear it down last.
+    AudioSystem::shutdown();
+    m_shutdownComplete = true;
     Logger::logInfo("Sylva Engine shut down.");
 }
 

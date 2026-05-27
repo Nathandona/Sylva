@@ -40,7 +40,7 @@ void Logger::logError(const std::string& message) {
 }
 
 void Logger::setLogLevel(LogLevel level) {
-    getInstance().m_currentLevel = level;
+    getInstance().m_currentLevel.store(level, std::memory_order_relaxed);
 }
 
 bool Logger::setLogFile(const std::string& filePath) {
@@ -65,7 +65,7 @@ bool Logger::setLogFile(const std::string& filePath) {
 
 void Logger::log(LogLevel level, const std::string& message) {
     // Skip if level is below current log level
-    if (level < m_currentLevel) {
+    if (level < m_currentLevel.load(std::memory_order_relaxed)) {
         return;
     }
     

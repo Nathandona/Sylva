@@ -185,14 +185,6 @@ private:
     Vec3 m_position;     // Position in world space
     float m_rotation;    // Rotation in radians
     Vec3 m_velocity;     // Current velocity
-    
-    // Graphics objects
-    // unsigned int m_vao;  // Vertex Array Object - To be replaced by a Mesh component
-    // unsigned int m_vbo;  // Vertex Buffer Object - To be replaced by a Mesh component
-    // Shader* m_shader;    // Player shader - To be provided by a ShaderManager
-    
-    // Cleanup graphics objects
-    // void cleanupGraphics(); // Handled by Mesh component and ShaderManager
 };
 
 } // namespace Sylva 

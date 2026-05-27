@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 #include <glm/glm.hpp>
 #include <glad/glad.h>
 
@@ -116,8 +117,14 @@ private:
      */
     void checkCompileErrors(unsigned int shader, const std::string& type);
 
+    /// Cached uniform location lookup; misses fall through to glGetUniformLocation.
+    GLint getUniformLocation(const std::string& name) const;
+
     // OpenGL program ID (0 == invalid/moved-from)
     unsigned int m_ID = 0;
+
+    // Uniform-name -> location cache. mutable so const setters can populate it.
+    mutable std::unordered_map<std::string, GLint> m_uniformCache;
 };
 
 } // namespace Sylva 
