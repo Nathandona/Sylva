@@ -10,9 +10,6 @@
 #include <cmath>
 #include <random>
 #include "generation/terrain_generator.h"
-#include "voxel_world_generation.h"
-#include "voxel_world_rendering.h"
-#include "voxel_world_physics.h"
 
 namespace Sylva {
 
@@ -30,11 +27,8 @@ VoxelWorld::VoxelWorld() {
     m_params.terrainSmoothness = Config::getFloat("World.terrain_smoothness", 0.6f);
     
     m_terrainGenerator = std::make_unique<TerrainGenerator>(m_params);
-    m_generation = std::make_unique<VoxelWorldGeneration>(m_terrainGenerator.get());
-    m_rendering = std::make_unique<VoxelWorldRendering>();
-    m_physics = std::make_unique<VoxelWorldPhysics>();
-    
-    Logger::logInfo("Micro-voxel world created with size " + std::to_string(m_worldSizeInChunks) + 
+
+    Logger::logInfo("Micro-voxel world created with size " + std::to_string(m_worldSizeInChunks) +
                    " chunks and view distance " + std::to_string(m_viewDistanceInChunks) + " chunks");
 }
 
@@ -43,10 +37,7 @@ VoxelWorld::VoxelWorld(const WorldParams& params)
     m_worldSizeInChunks = Config::getInt("World.size_in_chunks", m_worldSizeInChunks);
     m_viewDistanceInChunks = Config::getInt("World.view_distance", m_viewDistanceInChunks);
     m_terrainGenerator = std::make_unique<TerrainGenerator>(m_params);
-    m_generation = std::make_unique<VoxelWorldGeneration>(m_terrainGenerator.get());
-    m_rendering = std::make_unique<VoxelWorldRendering>();
-    m_physics = std::make_unique<VoxelWorldPhysics>();
-    
+
     Logger::logInfo("VoxelWorld created with custom parameters");
 }
 
@@ -100,16 +91,30 @@ void VoxelWorld::initializeWorldChunks(const glm::ivec3& centerPos) {
 }
 
 void VoxelWorld::generateWorld(const glm::vec3& playerPosition) {
-    m_generation->generateWorld(this, playerPosition);
-    updateChunkMeshes(Chunk::worldToChunkPos(playerPosition));
+    Logger::logInfo("Generating micro-voxel world around player position (" +
+                   std::to_string(playerPosition.x) + ", " +
+                   std::to_string(playerPosition.y) + ", " +
+                   std::to_string(playerPosition.z) + ")");
+    glm::ivec3 centerChunkPos = Chunk::worldToChunkPos(playerPosition);
+    initializeWorldChunks(centerChunkPos);
+    updateChunkMeshes(centerChunkPos);
+    Logger::logInfo("Micro-voxel world generation complete");
 }
 
 void VoxelWorld::generateChunkTerrain(Chunk* chunk) {
-    m_generation->generateChunkTerrain(chunk);
+    if (chunk == nullptr) {
+        Logger::logWarning("Attempted to generate terrain for null chunk");
+        return;
+    }
+    m_terrainGenerator->generateTerrain(chunk);
 }
 
 void VoxelWorld::generateChunkFeatures(Chunk* chunk) {
-    m_generation->generateChunkFeatures(chunk);
+    if (chunk == nullptr) {
+        Logger::logWarning("Attempted to generate features for null chunk");
+        return;
+    }
+    m_terrainGenerator->generateFeatures(chunk);
 }
 
 bool VoxelWorld::updateChunkVisibility(const glm::ivec3& chunkPos, const glm::ivec3& playerChunkPos) const {
@@ -156,7 +161,31 @@ void VoxelWorld::update(float deltaTime, const glm::vec3& playerPosition) {
 }
 
 void VoxelWorld::render(const Camera& camera) {
-    m_rendering->render(this, camera);
+    if (!m_shader) {
+        Logger::logWarning("Cannot render voxel world, shader not initialized");
+        return;
+    }
+    glm::mat4 viewMatrix = camera.getViewMatrix();
+    glm::mat4 projectionMatrix = camera.getProjectionMatrix(16.0f / 9.0f); // TODO: actual aspect ratio
+    glm::vec3 lightDir = glm::normalize(glm::vec3(0.5f, 1.0f, 0.3f));
+    m_shader->use();
+    m_shader->setVec3("lightDir", lightDir);
+    glm::vec3 lightColor(
+        Config::getFloat("Lighting.light_color.x", 1.0f),
+        Config::getFloat("Lighting.light_color.y", 0.95f),
+        Config::getFloat("Lighting.light_color.z", 0.8f)
+    );
+    glm::vec3 ambientColor(
+        Config::getFloat("Lighting.ambient_color.x", 0.45f),
+        Config::getFloat("Lighting.ambient_color.y", 0.45f),
+        Config::getFloat("Lighting.ambient_color.z", 0.45f)
+    );
+    m_shader->setVec3("uniformLightColor", lightColor);
+    m_shader->setVec3("uniformAmbientColor", ambientColor);
+    for (const auto& pair : m_chunks) {
+        pair.second->render(m_shader.get(), viewMatrix, projectionMatrix);
+    }
+    Logger::logDebug("Voxel world rendered with " + std::to_string(m_chunks.size()) + " chunks");
 }
 
 Chunk* VoxelWorld::getChunk(const glm::ivec3& chunkPos) const {
@@ -295,11 +324,36 @@ void VoxelWorld::setBlockAt(const glm::vec3& worldPos, BlockType type) {
 }
 
 float VoxelWorld::getHeightAt(float x, float z) const {
-    return m_physics->getHeightAt(this, x, z);
+    const float maxHeight = m_params.maxHeight;
+    const float heightIncrement = m_params.cellSize;
+    for (float y = maxHeight; y >= 0.0f; y -= heightIncrement) {
+        BlockType block = getBlockAt(glm::vec3(x, y, z));
+        if (block != BlockType::AIR && BlockData::isSolid(block)) {
+            return y + m_params.cellSize;
+        }
+    }
+    return 0.0f;
 }
 
 bool VoxelWorld::checkCollision(const Player& player) const {
-    return m_physics->checkCollision(this, player);
+    Vec3 playerPos = player.getPosition();
+    float playerSize = player.getCollisionRadius();
+    float stepSize = std::max(m_params.cellSize * 0.5f, 0.05f);
+    bool collision = false;
+    for (float y = playerPos.y; y <= playerPos.y + player.getHeight(); y += stepSize) {
+        for (float z = playerPos.z - playerSize; z <= playerPos.z + playerSize; z += stepSize) {
+            for (float x = playerPos.x - playerSize; x <= playerPos.x + playerSize; x += stepSize) {
+                BlockType block = getBlockAt(glm::vec3(x, y, z));
+                if (block != BlockType::AIR && BlockData::isSolid(block)) {
+                    collision = true;
+                    if (!m_collisionDebugEnabled) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return collision;
 }
 
 void VoxelWorld::setWorldSize(int size) {
