@@ -3,6 +3,7 @@
 #include "../block.h"
 #include <array>
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <vector>
 #include <functional>
@@ -47,11 +48,33 @@ enum class ChunkState : int {
 };
 
 /**
+ * @brief Packed per-vertex attributes for the voxel shader. 12 bytes.
+ *
+ * Previous format was 12 floats = 48 bytes (pos3 + color3 + uv2 + normal3 +
+ * ao1). UVs were declared but never sampled, normal is one of 6 axis-aligned
+ * directions, and voxel positions inside a chunk fit easily in a byte
+ * (CHUNK_SIZE=32, face verts reach 32, all < 256).
+ *
+ * Layout — keep field order in sync with uploadMeshToGPU's attribute setup
+ * and with voxel.vert. position uses glVertexAttribIPointer (integer
+ * preserved); color/AO use glVertexAttribPointer with GL_UNSIGNED_BYTE +
+ * normalized=true.
+ */
+struct PackedVertex {
+    uint8_t position[3]; // 0..CHUNK_SIZE chunk-local voxel coords
+    uint8_t normal;      // face index 0..5 — vertex shader looks up vec3
+    uint8_t color[4];    // RGBA, A unused; normalized to vec4 in shader
+    uint8_t occlusion;   // 0..255 → 0..1 ambient occlusion
+    uint8_t pad[3];      // align stride to 12
+};
+static_assert(sizeof(PackedVertex) == 12, "PackedVertex must stay 12 bytes — voxel.vert/uploadMeshToGPU depend on it");
+
+/**
  * @brief CPU-side mesh data produced by a worker, consumed by the main
  *        thread on GL upload. Owned by Chunk::m_pendingMesh.
  */
 struct MeshCpuData {
-    std::vector<float> vertices;
+    std::vector<PackedVertex> vertices;
     std::vector<unsigned int> indices;
 };
 
@@ -210,7 +233,7 @@ private:
     /**
      * @brief Add a block face to the mesh.
      */
-    void addFaceToMesh(std::vector<float>& vertices,
+    void addFaceToMesh(std::vector<PackedVertex>& vertices,
                        std::vector<unsigned int>& indices,
                        int x,
                        int y,
@@ -227,12 +250,14 @@ private:
     /**
      * @brief Initialize OpenGL buffers for mesh data
      */
-    void initializeMeshBuffers(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
+    void initializeMeshBuffers(const std::vector<PackedVertex>& vertices, const std::vector<unsigned int>& indices);
 
     /**
      * @brief Generate vertex data for the chunk mesh.
      */
-    void generateVertexData(std::vector<float>& vertices, std::vector<unsigned int>& indices, const BlockSampler& sampler);
+    void generateVertexData(std::vector<PackedVertex>& vertices,
+                            std::vector<unsigned int>& indices,
+                            const BlockSampler& sampler);
 
     /**
      * @brief Generate index data for the chunk mesh
@@ -247,7 +272,7 @@ private:
      * @param vertices The vertex data to upload
      * @param indices The index data to upload
      */
-    void uploadMeshToGPU(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
+    void uploadMeshToGPU(const std::vector<PackedVertex>& vertices, const std::vector<unsigned int>& indices);
 
     // The position of this chunk in chunk coordinates
     glm::ivec3 m_position;

@@ -121,27 +121,29 @@ float Chunk::calculateVertexAO(int vx_local, int vy_local, int vz_local, const B
     return 1.0f - (static_cast<float>(solidNeighbors) / 8.0f);
 }
 
-void Chunk::initializeMeshBuffers(const std::vector<float>& vertices, const std::vector<unsigned int>& indices) {
-    // Create OpenGL objects
+void Chunk::initializeMeshBuffers(const std::vector<PackedVertex>& vertices, const std::vector<unsigned int>& indices) {
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
     glGenBuffers(1, &m_ebo);
 
-    // Bind VAO first
     glBindVertexArray(m_vao);
 
-    // Set up vertex buffer
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(vertices.size() * sizeof(PackedVertex)),
+                 vertices.data(), GL_STATIC_DRAW);
 
-    // Set up index buffer
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(indices.size() * sizeof(unsigned int)),
+                 indices.data(), GL_STATIC_DRAW);
 }
 
-void Chunk::generateVertexData(std::vector<float>& vertices, std::vector<unsigned int>& indices, const BlockSampler& sampler) {
-    vertices.reserve(static_cast<size_t>(CHUNK_VOLUME) * 24);
-    indices.reserve(static_cast<size_t>(CHUNK_VOLUME) * 36);
+void Chunk::generateVertexData(std::vector<PackedVertex>& vertices,
+                               std::vector<unsigned int>& indices,
+                               const BlockSampler& sampler) {
+    // Tuned guess: ~2 visible verts per voxel on average for terrain. Worst
+    // case (chess-pattern) is 24, but reserves are only hints.
+    vertices.reserve(static_cast<size_t>(CHUNK_VOLUME) * 2);
+    indices.reserve(static_cast<size_t>(CHUNK_VOLUME) * 3);
 
     for (int y = 0; y < CHUNK_SIZE; y++) {
         for (int z = 0; z < CHUNK_SIZE; z++) {
@@ -160,7 +162,6 @@ void Chunk::generateVertexData(std::vector<float>& vertices, std::vector<unsigne
 }
 
 void Chunk::generateIndexData(std::vector<unsigned int>& indices, unsigned int baseVertex, unsigned int /*vertexCount*/) {
-    // Add indices for two triangles (6 indices total)
     indices.push_back(baseVertex + 0);
     indices.push_back(baseVertex + 1);
     indices.push_back(baseVertex + 2);
@@ -169,31 +170,31 @@ void Chunk::generateIndexData(std::vector<unsigned int>& indices, unsigned int b
     indices.push_back(baseVertex + 3);
 }
 
-void Chunk::uploadMeshToGPU(const std::vector<float>& /*vertices*/, const std::vector<unsigned int>& indices) {
-    // glVertexAttribPointer takes the byte offset as a const void* — the
-    // canonical OpenGL idiom. tidy flags the int->pointer conversion, but
-    // it's required by the GL ABI. Suppress per call.
-    const GLsizei kStride = 12 * sizeof(float);
+void Chunk::uploadMeshToGPU(const std::vector<PackedVertex>& /*vertices*/,
+                            const std::vector<unsigned int>& indices) {
+    // glVertexAttribPointer takes the byte offset as a const void* — required
+    // by the GL ABI; clang-tidy's int-to-ptr warning is suppressed per call.
+    const GLsizei kStride = sizeof(PackedVertex);
     auto byteOffset = [](size_t bytes) -> const void* {
         return reinterpret_cast<const void*>(bytes); // NOLINT(performance-no-int-to-ptr)
     };
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, kStride, byteOffset(0)); // position
+    // loc 0 — position: 3x uint8, integer-preserved (cast to uvec3 in shader).
+    glVertexAttribIPointer(0, 3, GL_UNSIGNED_BYTE, kStride, byteOffset(offsetof(PackedVertex, position)));
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, kStride, byteOffset(3 * sizeof(float))); // color
+    // loc 1 — normal: 1x uint8, integer face index 0..5 (cast to uint in shader).
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_BYTE, kStride, byteOffset(offsetof(PackedVertex, normal)));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, kStride, byteOffset(6 * sizeof(float))); // uv
+    // loc 2 — color: 4x uint8 normalized to vec4 (0..1).
+    glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, kStride, byteOffset(offsetof(PackedVertex, color)));
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, kStride, byteOffset(8 * sizeof(float))); // normal
+    // loc 3 — AO: 1x uint8 normalized to float (0..1).
+    glVertexAttribPointer(3, 1, GL_UNSIGNED_BYTE, GL_TRUE, kStride, byteOffset(offsetof(PackedVertex, occlusion)));
     glEnableVertexAttribArray(3);
-    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, kStride, byteOffset(11 * sizeof(float))); // AO
-    glEnableVertexAttribArray(4);
 
-    // Unbind
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    // Store index count for rendering
     m_indexCount = static_cast<unsigned int>(indices.size());
 }
 
@@ -209,7 +210,7 @@ void Chunk::generateMesh(const BlockSampler& sampler) {
         return;
     }
 
-    std::vector<float> vertices;
+    std::vector<PackedVertex> vertices;
     std::vector<unsigned int> indices;
     generateVertexData(vertices, indices, sampler);
 
@@ -227,7 +228,7 @@ void Chunk::generateMesh(const BlockSampler& sampler) {
     m_isModified = false;
     m_hasMesh = true;
 
-    Logger::logDebug("Chunk mesh generated with " + std::to_string(vertices.size() / 12) + " vertices and " +
+    Logger::logDebug("Chunk mesh generated with " + std::to_string(vertices.size()) + " vertices and " +
                      std::to_string(m_indexCount) + " indices");
 }
 
@@ -347,7 +348,7 @@ glm::vec3 Chunk::calculateVertexNormals(int direction) const {
     return glm::vec3(FACE_NORMALS[direction][0], FACE_NORMALS[direction][1], FACE_NORMALS[direction][2]);
 }
 
-void Chunk::addFaceToMesh(std::vector<float>& vertices,
+void Chunk::addFaceToMesh(std::vector<PackedVertex>& vertices,
                           std::vector<unsigned int>& indices,
                           int x,
                           int y,
@@ -355,50 +356,44 @@ void Chunk::addFaceToMesh(std::vector<float>& vertices,
                           int direction,
                           BlockType blockType,
                           const BlockSampler& sampler) {
-    // Base index for the new vertices
-    auto const baseIndex = static_cast<unsigned int>(vertices.size() / 12); // 12 floats per vertex
+    auto const baseIndex = static_cast<unsigned int>(vertices.size());
 
-    // Get face normal
-    glm::vec3 const normal = calculateVertexNormals(direction);
+    auto toByteColor = [](float c) -> uint8_t {
+        // Clamp + scale to 0..255. Voxel colors are in 0..1 range; rare
+        // outliers from the procedural color noise clamp safely.
+        const float clamped = std::max(0.0f, std::min(1.0f, c));
+        return static_cast<uint8_t>(clamped * 255.0f + 0.5f);
+    };
 
-    // Add 4 vertices for this face
     for (int i = 0; i < 4; ++i) {
-        // Calculate vertex position
-        glm::vec3 const position = calculateVertexPositions(x, y, z, direction, i);
+        // Compute integer face-vertex offset; values are 0 or 1 in the static
+        // FACE_VERTICES table, so a direct truncation is exact.
+        const int dx = static_cast<int>(FACE_VERTICES[direction][i * 3 + 0]);
+        const int dy = static_cast<int>(FACE_VERTICES[direction][i * 3 + 1]);
+        const int dz = static_cast<int>(FACE_VERTICES[direction][i * 3 + 2]);
+        const int vx_local = x + dx;
+        const int vy_local = y + dy;
+        const int vz_local = z + dz;
 
-        // Calculate local vertex coordinates for AO and color
-        int const vx_local = x + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 0]));
-        int const vy_local = y + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 1]));
-        int const vz_local = z + static_cast<int>(std::round(FACE_VERTICES[direction][i * 3 + 2]));
-
-        // Calculate vertex color
         glm::vec3 const color = calculateVertexColors(blockType, vx_local, vy_local, vz_local);
-
-        // Add vertex position
-        vertices.push_back(position.x);
-        vertices.push_back(position.y);
-        vertices.push_back(position.z);
-
-        // Add vertex color
-        vertices.push_back(color.r);
-        vertices.push_back(color.g);
-        vertices.push_back(color.b);
-
-        // Add texture coordinates
-        vertices.push_back(FACE_UVS[i * 2 + 0]);
-        vertices.push_back(FACE_UVS[i * 2 + 1]);
-
-        // Add normal
-        vertices.push_back(normal.x);
-        vertices.push_back(normal.y);
-        vertices.push_back(normal.z);
-
-        // Add ambient occlusion
         float const aoFactor = calculateVertexAO(vx_local, vy_local, vz_local, sampler);
-        vertices.push_back(aoFactor);
+
+        PackedVertex v{};
+        // Position: chunk-local 0..CHUNK_SIZE; CHUNK_SIZE=32 fits in a byte.
+        v.position[0] = static_cast<uint8_t>(vx_local);
+        v.position[1] = static_cast<uint8_t>(vy_local);
+        v.position[2] = static_cast<uint8_t>(vz_local);
+        v.normal = static_cast<uint8_t>(direction);
+        v.color[0] = toByteColor(color.r);
+        v.color[1] = toByteColor(color.g);
+        v.color[2] = toByteColor(color.b);
+        v.color[3] = 255; // alpha unused but keep set for any future blend
+        v.occlusion = toByteColor(aoFactor);
+        // pad[] stays zero from value-init
+
+        vertices.push_back(v);
     }
 
-    // Add indices for the face
     generateIndexData(indices, baseIndex, 4);
 }
 

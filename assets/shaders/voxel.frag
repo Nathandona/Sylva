@@ -1,6 +1,5 @@
 #version 330 core
 in vec3 ourColor;    // Base color from vertex attributes
-in vec2 TexCoord;
 in vec3 Normal;      // World-space normal
 in vec3 FragPos;     // World-space fragment position
 in float Occlusion;  // Received AO factor from vertex shader
