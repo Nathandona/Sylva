@@ -9,6 +9,7 @@ namespace Sylva {
 // Forward declarations
 class Player;
 struct InputState;
+class VoxelWorld;
 
 /**
  * @brief Third-person orbit camera system
@@ -30,12 +31,15 @@ public:
     explicit Camera(const CameraParams& params);
 
     /**
-     * @brief Update the camera based on player position and input
-     * @param deltaTime Time since last frame
-     * @param player The player object to track
-     * @param input Current input state
+     * @brief Update the camera based on player position and input.
+     * @param deltaTime Time since last frame.
+     * @param player    Player to track.
+     * @param input     Current input state.
+     * @param world     Voxel world, used for camera-collision (pulls the
+     *                  camera in when the ideal orbit position is inside
+     *                  an opaque block).
      */
-    void updateOrbit(float deltaTime, const Player& player, const InputState& input);
+    void updateOrbit(float deltaTime, const Player& player, const InputState& input, const VoxelWorld& world);
 
     /**
      * @brief Set the target height (the height at which the camera looks at the player)

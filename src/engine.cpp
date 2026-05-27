@@ -148,7 +148,7 @@ void Engine::run() {
 void Engine::tick(float deltaTime) {
     const InputState& inputState = Input::getState();
     m_player->updateMovement(deltaTime, inputState, m_camera->getForward(), m_camera->getRight(), *m_voxelWorld);
-    m_camera->updateOrbit(deltaTime, *m_player, inputState);
+    m_camera->updateOrbit(deltaTime, *m_player, inputState, *m_voxelWorld);
     m_voxelWorld->update(deltaTime, m_player->getPosition());
     handleDebugToggles();
     Input::update();

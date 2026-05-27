@@ -1,7 +1,9 @@
 #include "camera.h"
 #include "core/logger.h"
 #include "core/config.h"
+#include "world/block.h"
 #include "world/player.h"
+#include "world/voxel_world.h"
 #include <glm/gtc/matrix_transform.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
@@ -63,7 +65,7 @@ void Camera::updateVectors() {
     m_up = glm::normalize(glm::cross(m_right, m_forward));
 }
 
-void Camera::updateOrbit(float deltaTime, const Player& player, const InputState& input) {
+void Camera::updateOrbit(float deltaTime, const Player& player, const InputState& input, const VoxelWorld& world) {
     // Smooth the camera target toward the player's head position. Snapping
     // (the previous behavior) caused visible jitter on jumps and rapid
     // movement; exponential damping keeps the camera responsive while
@@ -76,6 +78,31 @@ void Camera::updateOrbit(float deltaTime, const Player& player, const InputState
     updateRotation(input);
     updateZoom(input);
     updatePosition();
+
+    // Camera collision: march from target toward the freshly-computed
+    // orbit position. If we hit an opaque solid (anything that isn't AIR /
+    // WATER / LEAVES), pull the camera in just shy of the block face so
+    // the view doesn't get buried inside terrain or trunks.
+    const Vec3 toCam = m_position - m_target;
+    const float orbitDist = glm::length(toCam);
+    if (orbitDist > 0.0001f) {
+        const Vec3 dir = toCam / orbitDist;
+        constexpr float kStep = 0.1f;        // world-y; finer than cellSize=0.25 for accuracy
+        constexpr float kFaceMargin = 0.15f; // pull back so we don't clip into the face
+        constexpr float kMinDist = 0.5f;     // never collapse fully onto the player
+        for (float s = kStep; s < orbitDist; s += kStep) {
+            const Vec3 sample = m_target + dir * s;
+            const BlockType b = world.getBlockAt(sample);
+            // Transparent blocks (leaves, water, air) don't occlude — only
+            // opaque solids pull the camera in.
+            if (b != BlockType::AIR && BlockData::isSolid(b) && !BlockData::isTransparent(b)) {
+                const float clamped = std::max(kMinDist, s - kFaceMargin);
+                m_position = m_target + dir * clamped;
+                break;
+            }
+        }
+    }
+
     updateVectors();
 }
 
