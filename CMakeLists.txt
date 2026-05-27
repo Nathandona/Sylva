@@ -28,6 +28,7 @@ set(SOURCES
     src/renderer/shader.cpp
     src/renderer/ui.cpp
     src/world/block.cpp
+    src/world/character_model.cpp
     src/world/player.cpp
     src/world/voxel_world.cpp
     src/world/chunk_job_system.cpp

@@ -1,9 +1,9 @@
 #include "player.h"
 #include "voxel_world.h"
+#include "character_model.h"
 #include "core/logger.h"
 #include "core/config.h"
 #include "renderer/shader.h"
-#include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <cmath>
 
@@ -32,77 +32,8 @@ Player::Player(const PlayerParams& params)
 }
 
 Player::~Player() {
-    if (m_ebo != 0) {
-        glDeleteBuffers(1, &m_ebo);
-    }
-    if (m_vbo != 0) {
-        glDeleteBuffers(1, &m_vbo);
-    }
-    if (m_vao != 0) {
-        glDeleteVertexArrays(1, &m_vao);
-    }
-}
-
-void Player::ensureMesh() {
-    if (m_vao != 0) {
-        return; // Already built.
-    }
-
-    // Unit cube: base at y=0, top at y=1, x/z centered. Model matrix scales
-    // by (width, height, depth). Per-vertex color is baked from m_params.color
-    // since the colored shader writes vertex color straight to FragColor.
-    const float w2 = 0.5f;
-    const float h = 1.0f;
-    const float d2 = 0.5f;
-    const float r = m_params.color.r;
-    const float g = m_params.color.g;
-    const float b = m_params.color.b;
-
-    const float vertices[] = {
-        -w2, 0.0f, -d2, r, g, b, 0.0f, 0.0f, // 0  back-bottom-left
-        +w2, 0.0f, -d2, r, g, b, 1.0f, 0.0f, // 1  back-bottom-right
-        +w2, h,    -d2, r, g, b, 1.0f, 1.0f, // 2  back-top-right
-        -w2, h,    -d2, r, g, b, 0.0f, 1.0f, // 3  back-top-left
-        -w2, 0.0f, +d2, r, g, b, 0.0f, 0.0f, // 4  front-bottom-left
-        +w2, 0.0f, +d2, r, g, b, 1.0f, 0.0f, // 5  front-bottom-right
-        +w2, h,    +d2, r, g, b, 1.0f, 1.0f, // 6  front-top-right
-        -w2, h,    +d2, r, g, b, 0.0f, 1.0f, // 7  front-top-left
-    };
-    const unsigned int indices[] = {
-        0, 1, 2, 0, 2, 3, // -Z back
-        5, 4, 7, 5, 7, 6, // +Z front
-        4, 0, 3, 4, 3, 7, // -X left
-        1, 5, 6, 1, 6, 2, // +X right
-        4, 5, 1, 4, 1, 0, // -Y bottom
-        3, 2, 6, 3, 6, 7, // +Y top
-    };
-    m_indexCount = sizeof(indices) / sizeof(indices[0]);
-
-    glGenVertexArrays(1, &m_vao);
-    glGenBuffers(1, &m_vbo);
-    glGenBuffers(1, &m_ebo);
-
-    glBindVertexArray(m_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    const GLsizei stride = 8 * sizeof(float);
-    // NOLINTNEXTLINE(performance-no-int-to-ptr) — GL byte-offset ABI.
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(0));
-    glEnableVertexAttribArray(0);
-    // NOLINTNEXTLINE(performance-no-int-to-ptr) — GL byte-offset ABI.
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    // NOLINTNEXTLINE(performance-no-int-to-ptr) — GL byte-offset ABI.
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    Logger::logInfo("Player cube mesh built");
+    // m_model destroyed via unique_ptr; Engine::shutdown order ensures the
+    // GL context still exists when this dtor runs.
 }
 
 Vec3 Player::handlePlayerInput(const InputState& input, const Vec3& cameraForward, const Vec3& cameraRight) {
@@ -208,6 +139,10 @@ void Player::updateAnimation(float deltaTime, const Vec3& moveDirection) {
     if (glm::length(moveDirection) > 0.0f) {
         rotateToMovementDirection(moveDirection, deltaTime);
     }
+    if (m_model) {
+        const auto state = (glm::length(moveDirection) > 0.0f) ? CharacterAnimState::Walk : CharacterAnimState::Idle;
+        m_model->update(deltaTime, state);
+    }
 }
 
 void Player::updateMovement(float deltaTime,
@@ -290,21 +225,19 @@ bool Player::checkCollision(const VoxelWorld& world) const {
 }
 
 void Player::renderPlayer(Shader& shader, const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix) {
-    ensureMesh();
-    shader.use();
+    // Lazy-init the character model on first render (needs a live GL context;
+    // can't be done in the constructor because Engine creates Player before
+    // it owns a window).
+    if (!m_model) {
+        m_model = std::make_unique<CharacterModel>();
+    }
 
-    auto model = glm::mat4(1.0f);
-    model = glm::translate(model, m_position);
-    model = glm::rotate(model, m_rotation, glm::vec3(0.0f, 1.0f, 0.0f));
-    model = glm::scale(model, glm::vec3(m_params.width, m_params.height, m_params.depth));
+    // Root transform: translate to player position, then yaw. The character
+    // model lives in world units (~1.8m tall) so no scale is applied.
+    glm::mat4 root = glm::translate(glm::mat4(1.0f), m_position);
+    root = glm::rotate(root, m_rotation, glm::vec3(0.0f, 1.0f, 0.0f));
 
-    shader.setMat4("model", model);
-    shader.setMat4("view", viewMatrix);
-    shader.setMat4("projection", projectionMatrix);
-
-    glBindVertexArray(m_vao);
-    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(m_indexCount), GL_UNSIGNED_INT, nullptr);
-    glBindVertexArray(0);
+    m_model->render(shader, root, viewMatrix, projectionMatrix);
 }
 
 void Player::setMoveSpeed(float speed) {

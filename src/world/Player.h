@@ -2,6 +2,7 @@
 
 #include "core/types.h"
 #include <glm/glm.hpp>
+#include <memory>
 
 namespace Sylva {
 
@@ -9,6 +10,7 @@ namespace Sylva {
 struct InputState;
 class Shader;
 class VoxelWorld;
+class CharacterModel;
 
 /**
  * @brief Player system
@@ -190,15 +192,9 @@ private:
     float m_rotation; // Rotation in radians
     Vec3 m_velocity;  // Current velocity
 
-    /// Lazy-builds the GPU cube mesh on first render (needs a live GL context).
-    void ensureMesh();
-
-    // GPU resources for the placeholder cube model. Built on first render,
-    // released in the destructor before the Engine tears down the window.
-    unsigned int m_vao = 0;
-    unsigned int m_vbo = 0;
-    unsigned int m_ebo = 0;
-    unsigned int m_indexCount = 0;
+    /// Lazy-built voxel character model (6-part rigid skeleton). Destroyed
+    /// before the GL context tears down via Engine's shutdown ordering.
+    std::unique_ptr<CharacterModel> m_model;
 };
 
 } // namespace Sylva
