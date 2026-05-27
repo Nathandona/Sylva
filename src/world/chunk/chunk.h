@@ -2,6 +2,8 @@
 
 #include "../block.h"
 #include <array>
+#include <atomic>
+#include <memory>
 #include <vector>
 #include <functional>
 #include <glm/glm.hpp>
@@ -19,6 +21,39 @@ class Shader;
  * via the owning world. Out-of-world queries return BlockType::AIR.
  */
 using BlockSampler = std::function<BlockType(int x, int y, int z)>;
+
+/**
+ * @brief Lifecycle stages of a chunk under async generation.
+ *
+ * Pending → Generating → Ready → MeshingCpu → BufferReady → Meshed.
+ *
+ * - Pending: just constructed, blocks all AIR.
+ * - Generating: worker is writing terrain/features into m_blocks.
+ * - Ready: blocks finalized (release-stored); safe to read from any thread.
+ * - MeshingCpu: worker is building vertex/index vectors from m_blocks.
+ * - BufferReady: m_pendingMesh holds CPU-side mesh data, awaiting GL upload.
+ * - Meshed: VBO/EBO populated, renderable.
+ *
+ * Synchronization via std::atomic acquire/release on m_state. Block-array
+ * reads from any thread require state >= Ready.
+ */
+enum class ChunkState : int {
+    Pending = 0,
+    Generating = 1,
+    Ready = 2,
+    MeshingCpu = 3,
+    BufferReady = 4,
+    Meshed = 5
+};
+
+/**
+ * @brief CPU-side mesh data produced by a worker, consumed by the main
+ *        thread on GL upload. Owned by Chunk::m_pendingMesh.
+ */
+struct MeshCpuData {
+    std::vector<float> vertices;
+    std::vector<unsigned int> indices;
+};
 
 /**
  * @brief Size constants for chunks
@@ -78,7 +113,8 @@ public:
     bool isEmpty() const { return m_isEmpty; }
 
     /**
-     * @brief Generate the chunk mesh based on current blocks
+     * @brief Generate the chunk mesh based on current blocks (synchronous,
+     *        main-thread-only: does CPU vertex build AND GL upload).
      * @param sampler Callback returning the block at any chunk-local coordinate;
      *                resolves to neighbor chunks (including diagonals) for
      *                out-of-bounds queries.
@@ -86,12 +122,26 @@ public:
     void generateMesh(const BlockSampler& sampler);
 
     /**
-     * @brief Render the chunk
-     * @param shader The shader to use for rendering
-     * @param viewMatrix The camera view matrix
-     * @param projectionMatrix The camera projection matrix
+     * @brief Build CPU-side vertex + index data only — no GL calls. Safe to
+     *        call from a worker thread. Result is moved into m_pendingMesh,
+     *        ready for a later uploadPendingMesh() on the main thread.
      */
-    void render(Shader* shader, const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix);
+    void buildMeshCpu(const BlockSampler& sampler);
+
+    /**
+     * @brief Take whatever's in m_pendingMesh and upload it to GL. Main thread
+     *        only. Clears m_pendingMesh and marks the chunk as having a mesh.
+     * @return true if there was pending data to upload; false if none.
+     */
+    bool uploadPendingMesh();
+
+    /**
+     * @brief Render the chunk. Per-frame uniforms (view/projection/viewPos)
+     *        are set once by the caller; this only sets the chunk's model
+     *        matrix and issues the draw call.
+     * @param shader The shader to use for rendering (must already be active).
+     */
+    void render(Shader* shader);
 
     /**
      * @brief Check if the chunk has been modified since last mesh generation
@@ -103,6 +153,14 @@ public:
      * @brief Mark the chunk as modified, forcing a mesh rebuild on next update.
      */
     void markModified() { m_isModified = true; }
+
+    /**
+     * @brief Atomic state used to synchronize main thread reads (mesh/render)
+     *        with worker thread block writes. Use acquire on reads, release
+     *        on writes.
+     */
+    ChunkState getState() const { return m_state.load(std::memory_order_acquire); }
+    void setState(ChunkState s) { m_state.store(s, std::memory_order_release); }
 
     /**
      * @brief Convert chunk coordinates to world coordinates
@@ -207,6 +265,16 @@ private:
     bool m_isEmpty{true};    // True if the chunk contains only air blocks
     bool m_isModified{true}; // True if the chunk has been modified since last mesh generation
     bool m_hasMesh{false};   // True if the chunk has a generated mesh
+
+    // Lifecycle state — see ChunkState. Workers write blocks then store Ready
+    // (release); main thread loads (acquire) before reading blocks or meshing.
+    std::atomic<ChunkState> m_state{ChunkState::Pending};
+
+    // CPU mesh data produced by a worker (state MeshingCpu→BufferReady),
+    // consumed by the main thread in uploadPendingMesh() (BufferReady→Meshed).
+    // Access is gated by the state transitions — release on worker write,
+    // acquire on main read.
+    std::unique_ptr<MeshCpuData> m_pendingMesh;
 
     /**
      * @brief Calculate vertex positions for a face

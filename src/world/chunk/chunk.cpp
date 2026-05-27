@@ -231,36 +231,54 @@ void Chunk::generateMesh(const BlockSampler& sampler) {
                      std::to_string(m_indexCount) + " indices");
 }
 
-void Chunk::render(Shader* shader, const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix) {
-    // Skip if no mesh or empty
+void Chunk::buildMeshCpu(const BlockSampler& sampler) {
+    // Pure CPU — no GL calls. Safe to run on a worker thread.
+    // m_isEmpty is set during terrain gen (also worker), already released by
+    // the state flip to Ready before this runs.
+    auto data = std::make_unique<MeshCpuData>();
+    if (!m_isEmpty) {
+        generateVertexData(data->vertices, data->indices, sampler);
+    }
+    m_pendingMesh = std::move(data);
+}
+
+bool Chunk::uploadPendingMesh() {
+    // Main thread only — touches GL.
+    if (!m_pendingMesh) {
+        return false;
+    }
+
+    cleanupGraphics();
+
+    const bool hasGeometry = !m_pendingMesh->indices.empty();
+    if (hasGeometry) {
+        initializeMeshBuffers(m_pendingMesh->vertices, m_pendingMesh->indices);
+        uploadMeshToGPU(m_pendingMesh->vertices, m_pendingMesh->indices);
+        m_hasMesh = true;
+    } else {
+        // Empty chunk (all AIR or fully occluded). Still consume the pending
+        // data; render() skips it via m_hasMesh / m_isEmpty.
+        m_hasMesh = false;
+    }
+    m_isModified = false;
+    m_pendingMesh.reset();
+    return true;
+}
+
+void Chunk::render(Shader* shader) {
     if (!m_hasMesh || m_isEmpty) {
         return;
     }
 
-    // Use shader
-    shader->use();
-
-    // Set matrices
-    auto modelMatrix = glm::mat4(1.0f); // Identity matrix
-
-    // Translate to chunk world position
+    // Only model matrix changes per chunk — view/projection/viewPos are set
+    // once per frame by VoxelWorld::render before this loop runs.
+    auto modelMatrix = glm::mat4(1.0f);
     glm::vec3 const worldPos = chunkToWorldPos(m_position);
     modelMatrix = glm::translate(modelMatrix, worldPos);
-
-    // Scale the chunk's local coordinates by cellSize
     const float cellSize = cachedCellSize();
     modelMatrix = glm::scale(modelMatrix, glm::vec3(cellSize, cellSize, cellSize));
-
     shader->setMat4("model", modelMatrix);
-    shader->setMat4("view", viewMatrix);
-    shader->setMat4("projection", projectionMatrix);
 
-    // Add camera position for enhanced lighting (view dependent effects)
-    glm::mat4 invView = glm::inverse(viewMatrix);
-    auto const cameraPos = glm::vec3(invView[3]);
-    shader->setVec3("viewPos", cameraPos);
-
-    // Draw chunk
     glBindVertexArray(m_vao);
     glDrawElements(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_INT, nullptr);
     glBindVertexArray(0);

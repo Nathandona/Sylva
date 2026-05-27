@@ -25,11 +25,13 @@ set(SOURCES
     src/platform/input.cpp
     src/platform/window.cpp
     src/renderer/camera.cpp
+    src/renderer/frustum.cpp
     src/renderer/shader.cpp
     src/renderer/ui.cpp
     src/world/block.cpp
     src/world/player.cpp
     src/world/voxel_world.cpp
+    src/world/chunk_job_system.cpp
     src/world/chunk/chunk.cpp
     src/world/generation/biome_generator.cpp
     src/world/generation/feature_generator.cpp

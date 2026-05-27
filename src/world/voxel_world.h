@@ -1,6 +1,7 @@
 #pragma once
 
 #include "chunk/chunk.h"
+#include "chunk_job_system.h"
 #include "core/types.h"
 #include "generation/terrain_generator.h"
 #include <unordered_map>
@@ -191,9 +192,17 @@ private:
     Chunk* createChunk(const glm::ivec3& chunkPos);
 
     /**
-     * @brief Create + generate a chunk at the given position if not already loaded.
+     * @brief Create chunk + run terrain/features synchronously on the main
+     *        thread. Used for chunks the player needs immediately (spawn).
      */
-    void loadChunkIfMissing(const glm::ivec3& chunkPos);
+    void loadChunkSync(const glm::ivec3& chunkPos);
+
+    /**
+     * @brief Create chunk + enqueue terrain/features on the worker pool.
+     *        Returns immediately; chunk's blocks are not safe to read until
+     *        its ChunkState reaches Ready.
+     */
+    void loadChunkAsync(const glm::ivec3& chunkPos);
 
     /**
      * @brief Update chunk meshes around a position
@@ -230,6 +239,10 @@ private:
     unsigned int m_debugVBO = 0;
 
     std::unique_ptr<TerrainGenerator> m_terrainGenerator;
+
+    // Worker pool for off-thread terrain+features generation. Declared LAST
+    // so it's destroyed FIRST — joins workers before chunks / generators die.
+    std::unique_ptr<ChunkJobSystem> m_jobs;
 };
 
 } // namespace Sylva

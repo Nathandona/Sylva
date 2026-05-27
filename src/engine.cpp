@@ -161,7 +161,12 @@ void Engine::tick(float deltaTime) {
 }
 
 void Engine::renderFrame(float aspectRatio) {
-    glClearColor(0.5f, 0.7f, 0.9f, 1.0f);
+    // Clear color matches voxel-shader fog so chunks fade into the sky at
+    // the view-distance edge instead of cutting off against the background.
+    glClearColor(Config::getFloat("Fog.color.x", 0.5f),
+                 Config::getFloat("Fog.color.y", 0.7f),
+                 Config::getFloat("Fog.color.z", 0.9f),
+                 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     const glm::mat4 view = m_camera->getViewMatrix();
     const glm::mat4 proj = m_camera->getProjectionMatrix(aspectRatio);

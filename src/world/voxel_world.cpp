@@ -2,11 +2,13 @@
 #include "core/config.h"
 #include "core/logger.h"
 #include "renderer/camera.h"
+#include "renderer/frustum.h"
 #include "renderer/shader.h"
 #include "player.h"
 #include <glad/glad.h>
 #include <glm/gtc/noise.hpp>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <random>
 #include "generation/terrain_generator.h"
@@ -30,6 +32,7 @@ VoxelWorld::VoxelWorld() {
     m_params.plateauWidthVoxels = Config::getInt("World.plateau_width_voxels", m_params.plateauWidthVoxels);
 
     m_terrainGenerator = std::make_unique<TerrainGenerator>(m_params);
+    m_jobs = std::make_unique<ChunkJobSystem>();
 
     Logger::logInfo("Micro-voxel world created with size " + std::to_string(m_worldSizeInChunks) +
                     " chunks and view distance " + std::to_string(m_viewDistanceInChunks) + " chunks");
@@ -41,11 +44,15 @@ VoxelWorld::VoxelWorld(const WorldParams& params) : m_params(params) {
     m_chunkYMin = Config::getInt("World.chunk_y_min", m_chunkYMin);
     m_chunkYMax = Config::getInt("World.chunk_y_max", m_chunkYMax);
     m_terrainGenerator = std::make_unique<TerrainGenerator>(m_params);
+    m_jobs = std::make_unique<ChunkJobSystem>();
 
     Logger::logInfo("VoxelWorld created with custom parameters");
 }
 
 VoxelWorld::~VoxelWorld() {
+    // Join workers BEFORE destroying chunks / generators they reference.
+    m_jobs.reset();
+
     if (m_debugVAO != 0) {
         glDeleteVertexArrays(1, &m_debugVAO);
         m_debugVAO = 0;
@@ -79,30 +86,73 @@ bool VoxelWorld::createShader() {
 }
 
 void VoxelWorld::initializeWorldChunks(const glm::ivec3& centerPos) {
+    // Async — enqueue every chunk in range; main thread keeps moving.
     for (int y = m_chunkYMin; y <= m_chunkYMax; y++) {
         for (int z = -m_worldSizeInChunks; z <= m_worldSizeInChunks; z++) {
             for (int x = -m_worldSizeInChunks; x <= m_worldSizeInChunks; x++) {
-                loadChunkIfMissing(centerPos + glm::ivec3(x, y, z));
+                loadChunkAsync(centerPos + glm::ivec3(x, y, z));
             }
         }
     }
 }
 
-void VoxelWorld::loadChunkIfMissing(const glm::ivec3& chunkPos) {
+void VoxelWorld::loadChunkSync(const glm::ivec3& chunkPos) {
     if (getChunk(chunkPos) != nullptr)
         return;
     Chunk* chunk = createChunk(chunkPos);
+    chunk->setState(ChunkState::Generating);
     generateChunkTerrain(chunk);
     generateChunkFeatures(chunk);
+    chunk->setState(ChunkState::Ready);
+}
+
+void VoxelWorld::loadChunkAsync(const glm::ivec3& chunkPos) {
+    if (getChunk(chunkPos) != nullptr)
+        return;
+    Chunk* chunk = createChunk(chunkPos); // main-thread map insert; chunk in Pending
+    if (!m_jobs) {
+        // Fallback: pool not constructed yet (shouldn't happen post-ctor).
+        chunk->setState(ChunkState::Generating);
+        generateChunkTerrain(chunk);
+        generateChunkFeatures(chunk);
+        chunk->setState(ChunkState::Ready);
+        return;
+    }
+    TerrainGenerator* gen = m_terrainGenerator.get();
+    m_jobs->submit([chunk, gen]() {
+        chunk->setState(ChunkState::Generating);
+        gen->generateTerrain(chunk);
+        gen->generateFeatures(chunk);
+        // Release: makes all m_blocks writes visible to any thread that
+        // does an acquire-load and sees Ready.
+        chunk->setState(ChunkState::Ready);
+    });
 }
 
 void VoxelWorld::generateWorld(const glm::vec3& playerPosition) {
     Logger::logInfo("Generating micro-voxel world around player position (" + std::to_string(playerPosition.x) + ", " +
                     std::to_string(playerPosition.y) + ", " + std::to_string(playerPosition.z) + ")");
     glm::ivec3 const centerChunkPos = Chunk::worldToChunkPos(playerPosition);
+
+    // Sync-load player-local chunks so the player spawns on solid ground and
+    // collision/getBlockAt see real terrain immediately. Manhattan-1 in XZ
+    // across the full Y range gives a 3x3 column of chunks under/around the
+    // player — enough for footing and basic look-ahead.
+    for (int y = m_chunkYMin; y <= m_chunkYMax; y++) {
+        for (int z = -1; z <= 1; z++) {
+            for (int x = -1; x <= 1; x++) {
+                loadChunkSync(centerChunkPos + glm::ivec3(x, y, z));
+            }
+        }
+    }
+
+    // Everything else streams in via worker pool — no startup freeze.
     initializeWorldChunks(centerChunkPos);
+
+    // Mesh the chunks already Ready (the sync-loaded ring). Async ones will
+    // be picked up by updateChunkMeshes() each frame as their state flips.
     updateChunkMeshes(centerChunkPos);
-    Logger::logInfo("Micro-voxel world generation complete");
+    Logger::logInfo("Micro-voxel world generation kicked off (sync ring meshed; rest streaming)");
 }
 
 void VoxelWorld::generateChunkTerrain(Chunk* chunk) {
@@ -141,7 +191,7 @@ void VoxelWorld::updateChunkLoading(const glm::ivec3& playerChunkPos) {
             for (int x = -m_viewDistanceInChunks; x <= m_viewDistanceInChunks; x++) {
                 glm::ivec3 const chunkPos = playerChunkPos + glm::ivec3(x, y, z);
                 if (updateChunkVisibility(chunkPos, playerChunkPos)) {
-                    loadChunkIfMissing(chunkPos);
+                    loadChunkAsync(chunkPos);
                 }
             }
         }
@@ -155,6 +205,10 @@ void VoxelWorld::update(float /*deltaTime*/, const glm::vec3& playerPosition) {
 
     if (updatePlayerChunkPosition(playerChunkPos, lastPlayerChunkPos)) {
         updateChunkLoading(playerChunkPos);
+    } else {
+        // Player didn't cross a chunk boundary, but async workers may have
+        // finished new chunks since last frame — drain them.
+        updateChunkMeshes(playerChunkPos);
     }
 }
 
@@ -167,6 +221,16 @@ void VoxelWorld::render(const Camera& camera, float aspectRatio) {
     glm::mat4 const projectionMatrix = camera.getProjectionMatrix(aspectRatio);
     glm::vec3 const lightDir = glm::normalize(glm::vec3(0.5f, 1.0f, 0.3f));
     m_shader->use();
+
+    // Per-frame uniforms — set ONCE here, not per chunk. view/projection/
+    // viewPos / lighting / fog don't change between chunks; setting them in
+    // Chunk::render meant N redundant uniform writes per frame.
+    m_shader->setMat4("view", viewMatrix);
+    m_shader->setMat4("projection", projectionMatrix);
+    glm::mat4 invView = glm::inverse(viewMatrix);
+    auto const cameraPos = glm::vec3(invView[3]);
+    m_shader->setVec3("viewPos", cameraPos);
+
     m_shader->setVec3("lightDir", lightDir);
     glm::vec3 const lightColor(Config::getFloat("Lighting.light_color.x", 1.0f),
                                Config::getFloat("Lighting.light_color.y", 0.95f),
@@ -176,10 +240,48 @@ void VoxelWorld::render(const Camera& camera, float aspectRatio) {
                                  Config::getFloat("Lighting.ambient_color.z", 0.45f));
     m_shader->setVec3("uniformLightColor", lightColor);
     m_shader->setVec3("uniformAmbientColor", ambientColor);
+
+    // Distance fog — match the GL clear color so far chunks blend with the
+    // sky rather than reading as a visible cutoff plane.
+    glm::vec3 const fogColor(Config::getFloat("Fog.color.x", 0.5f),
+                             Config::getFloat("Fog.color.y", 0.7f),
+                             Config::getFloat("Fog.color.z", 0.9f));
+    const float fogStart = Config::getFloat("Fog.start", 12.0f);
+    const float fogEnd = Config::getFloat("Fog.end", 22.0f);
+    m_shader->setVec3("fogColor", fogColor);
+    m_shader->setFloat("fogStart", fogStart);
+    m_shader->setFloat("fogEnd", fogEnd);
+
+    // Frustum cull — extract planes once, test each chunk's AABB before
+    // issuing a draw call. With view_distance=3 we hold ~49 chunks; only
+    // ~6-12 are typically in the camera frustum.
+    Frustum frustum;
+    frustum.extractFromMatrix(projectionMatrix * viewMatrix);
+
+    const float cellSize = Config::getFloat("World.cell_size", 0.25f);
+    const float chunkWorldSize = static_cast<float>(CHUNK_SIZE) * cellSize;
+
+    int drawn = 0;
     for (const auto& pair : m_chunks) {
-        pair.second->render(m_shader.get(), viewMatrix, projectionMatrix);
+        const Chunk* chunk = pair.second.get();
+        // Chunk::render also early-outs on !m_hasMesh / m_isEmpty, but the
+        // explicit check here lets us skip the AABB test for known-empties.
+        // Don't gate on ChunkState — mid-rebuild chunks should keep drawing
+        // their previous mesh until the new upload completes (no blink).
+
+        const glm::vec3 aabbMin(static_cast<float>(pair.first.x) * chunkWorldSize,
+                                static_cast<float>(pair.first.y) * chunkWorldSize,
+                                static_cast<float>(pair.first.z) * chunkWorldSize);
+        const glm::vec3 aabbMax = aabbMin + glm::vec3(chunkWorldSize);
+        if (!frustum.aabbVisible(aabbMin, aabbMax)) {
+            continue;
+        }
+
+        pair.second->render(m_shader.get());
+        ++drawn;
     }
-    Logger::logDebug("Voxel world rendered with " + std::to_string(m_chunks.size()) + " chunks");
+    Logger::logDebug("Voxel world rendered " + std::to_string(drawn) + " / " +
+                     std::to_string(m_chunks.size()) + " chunks");
 }
 
 Chunk* VoxelWorld::getChunk(const glm::ivec3& chunkPos) const {
@@ -211,41 +313,195 @@ Chunk* VoxelWorld::createChunk(const glm::ivec3& chunkPos) {
     return chunkPtr;
 }
 
-void VoxelWorld::updateChunkMeshes(const glm::ivec3& centerPos) {
-    for (auto& pair : m_chunks) {
-        const glm::ivec3& chunkPos = pair.first;
-        Chunk* chunk = pair.second.get();
+namespace {
+// Index into a flat 3x3x3 neighbor-pointer array. (0,0,0) = center = 13.
+// Offsets each in {-1, 0, 1}.
+constexpr int neighborIdx(int dx, int dy, int dz) {
+    return ((dz + 1) * 9) + ((dy + 1) * 3) + (dx + 1);
+}
 
-        glm::ivec3 const diff = chunkPos - centerPos;
-        float const distance = sqrt(static_cast<float>(diff.x * diff.x + diff.z * diff.z));
-        if (distance > m_viewDistanceInChunks) {
+// Sampler that resolves any chunk-local coord (incl. wraps into ±1 neighbor)
+// against a pre-fetched 27-pointer Moore neighborhood — no map access. Built
+// on the main thread, then captured by the worker's CPU mesh job.
+BlockSampler makeNeighborhoodSampler(std::array<Chunk*, 27> neighborhood) {
+    return [nb = neighborhood](int lx, int ly, int lz) -> BlockType {
+        int dx = 0;
+        int dy = 0;
+        int dz = 0;
+        auto wrap = [](int& local, int& coord) {
+            while (local < 0) {
+                local += CHUNK_SIZE;
+                --coord;
+            }
+            while (local >= CHUNK_SIZE) {
+                local -= CHUNK_SIZE;
+                ++coord;
+            }
+        };
+        wrap(lx, dx);
+        wrap(ly, dy);
+        wrap(lz, dz);
+        // Outside the prefetched 3x3x3? Treat as AIR — face will reappear when
+        // the missing neighbor lands and triggers a remesh.
+        if (dx < -1 || dx > 1 || dy < -1 || dy > 1 || dz < -1 || dz > 1) {
+            return BlockType::AIR;
+        }
+        Chunk* c = nb[neighborIdx(dx, dy, dz)];
+        if (!c) {
+            return BlockType::AIR;
+        }
+        return c->getBlock(lx, ly, lz);
+    };
+}
+} // namespace
+
+void VoxelWorld::updateChunkMeshes(const glm::ivec3& centerPos) {
+    static constexpr glm::ivec3 kFaceOffsets[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0},
+                                                   {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+
+    const int uploadBudget = std::max(1, Config::getInt("World.mesh_builds_per_frame", 2));
+    const int dispatchBudget = std::max(1, Config::getInt("World.mesh_dispatches_per_frame", 8));
+
+    // --- Phase A: upload BufferReady chunks (main thread, GL). -----------
+    // Cheaper than full mesh build because the heavy CPU work is already
+    // done — this is just glBufferData + glVertexAttribPointer. Still cap
+    // it so a stack of finished jobs doesn't stall the frame.
+    struct UploadCand {
+        Chunk* chunk;
+        glm::ivec3 pos;
+        float dist;
+    };
+    std::vector<UploadCand> uploads;
+    uploads.reserve(m_chunks.size());
+    for (auto& pair : m_chunks) {
+        if (pair.second->getState() != ChunkState::BufferReady) {
+            continue;
+        }
+        glm::ivec3 const d = pair.first - centerPos;
+        float const dist = sqrt(static_cast<float>(d.x * d.x + d.z * d.z));
+        if (dist > m_viewDistanceInChunks) {
+            continue;
+        }
+        uploads.push_back({pair.second.get(), pair.first, dist});
+    }
+    std::sort(uploads.begin(), uploads.end(),
+              [](const UploadCand& a, const UploadCand& b) { return a.dist < b.dist; });
+
+    int uploaded = 0;
+    for (const auto& u : uploads) {
+        if (uploaded >= uploadBudget) {
+            break;
+        }
+        u.chunk->uploadPendingMesh();
+        u.chunk->setState(ChunkState::Meshed);
+        // Freshly meshed → adjacent Meshed chunks may need a re-mesh so their
+        // shared face stops drawing AIR-assumed quads. Mark them dirty.
+        for (const auto& off : kFaceOffsets) {
+            if (Chunk* n = getChunk(u.pos + off)) {
+                if (n->getState() == ChunkState::Meshed) {
+                    n->markModified();
+                }
+            }
+        }
+        ++uploaded;
+    }
+
+    // --- Phase B: dispatch CPU mesh jobs for Ready chunks (and dirty Meshed
+    // chunks that need a rebuild). Workers do the heavy AO/face work; main
+    // thread just hands off the prefetched neighborhood and reads results
+    // back via BufferReady → Phase A upload next frame.
+    if (!m_jobs) {
+        return;
+    }
+
+    struct DispatchCand {
+        Chunk* chunk;
+        glm::ivec3 pos;
+        float dist;
+    };
+    std::vector<DispatchCand> dispatches;
+    dispatches.reserve(m_chunks.size());
+    for (auto& pair : m_chunks) {
+        Chunk* chunk = pair.second.get();
+        const ChunkState state = chunk->getState();
+
+        const bool needsFirstMesh = (state == ChunkState::Ready);
+        const bool needsRemesh = (state == ChunkState::Meshed && chunk->isModified());
+        if (!needsFirstMesh && !needsRemesh) {
             continue;
         }
 
-        // Build a sampler that handles arbitrary chunk-local offsets (incl.
-        // diagonals) by resolving the owning chunk via VoxelWorld. Closes over
-        // `this` and the chunk's own position; meshing is synchronous so the
-        // capture is safe for the duration of the call.
-        BlockSampler const sampler = [this, chunkPos](int lx, int ly, int lz) -> BlockType {
-            glm::ivec3 cp = chunkPos;
-            auto wrap = [](int& local, int& coord) {
-                while (local < 0) {
-                    local += CHUNK_SIZE;
-                    --coord;
-                }
-                while (local >= CHUNK_SIZE) {
-                    local -= CHUNK_SIZE;
-                    ++coord;
-                }
-            };
-            wrap(lx, cp.x);
-            wrap(ly, cp.y);
-            wrap(lz, cp.z);
-            Chunk* c = getChunk(cp);
-            return c ? c->getBlock(lx, ly, lz) : BlockType::AIR;
-        };
+        glm::ivec3 const d = pair.first - centerPos;
+        float const dist = sqrt(static_cast<float>(d.x * d.x + d.z * d.z));
+        if (dist > m_viewDistanceInChunks) {
+            continue;
+        }
+        dispatches.push_back({chunk, pair.first, dist});
+    }
+    std::sort(dispatches.begin(), dispatches.end(),
+              [](const DispatchCand& a, const DispatchCand& b) { return a.dist < b.dist; });
 
-        chunk->generateMesh(sampler);
+    int dispatched = 0;
+    for (const auto& d : dispatches) {
+        if (dispatched >= dispatchBudget) {
+            break;
+        }
+
+        // Defer dispatch until every face neighbor that actually exists in
+        // the map has reached Ready. Otherwise the sampler would treat that
+        // neighbor's blocks as AIR, and we'd draw bogus boundary faces +
+        // wrong AO. Those would correct themselves once the neighbor lands
+        // and triggers a re-mesh, but the brief seam shows up as a visible
+        // grid of bright lines between chunks. Neighbors genuinely missing
+        // from the map (edge of loaded world) don't block — they'll be
+        // fixed by markModified when they later arrive.
+        bool waitForNeighbor = false;
+        for (const auto& off : kFaceOffsets) {
+            Chunk* fn = getChunk(d.pos + off);
+            if (fn && fn->getState() < ChunkState::Ready) {
+                waitForNeighbor = true;
+                break;
+            }
+        }
+        if (waitForNeighbor) {
+            continue;
+        }
+
+        // Prefetch the 27 neighbor chunk pointers on the main thread. Workers
+        // never touch m_chunks, so an insert by the main thread can't race
+        // with their reads. Only include neighbors whose state >= Ready so
+        // m_blocks reads are safe.
+        std::array<Chunk*, 27> nb{};
+        for (int dz = -1; dz <= 1; ++dz) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    Chunk* c = getChunk(d.pos + glm::ivec3(dx, dy, dz));
+                    if (c && c->getState() >= ChunkState::Ready) {
+                        nb[neighborIdx(dx, dy, dz)] = c;
+                    } else {
+                        nb[neighborIdx(dx, dy, dz)] = nullptr;
+                    }
+                }
+            }
+        }
+
+        // Mark this chunk MeshingCpu BEFORE dispatch so a subsequent frame
+        // doesn't enqueue it again (idempotent dispatch).
+        d.chunk->setState(ChunkState::MeshingCpu);
+        // Clear the dirty bit pre-emptively. If another mutation happens
+        // while the worker runs, m_isModified will be set again and Phase B
+        // will pick the chunk up after it transitions back to Meshed.
+        d.chunk->markModified(); // ensure true → cleared by uploadPendingMesh
+
+        Chunk* chunk = d.chunk;
+        BlockSampler sampler = makeNeighborhoodSampler(nb);
+        m_jobs->submit([chunk, sampler = std::move(sampler)]() {
+            chunk->buildMeshCpu(sampler);
+            // Release-store: makes m_pendingMesh visible to the main thread
+            // once it sees BufferReady via its acquire-load.
+            chunk->setState(ChunkState::BufferReady);
+        });
+        ++dispatched;
     }
 }
 
@@ -258,6 +514,13 @@ BlockType VoxelWorld::getBlockAt(const glm::vec3& worldPos) const {
     Chunk* chunk = getChunk(chunkPos);
     if (chunk == nullptr) {
         return BlockType::AIR; // Assume air for non-existent chunks
+    }
+
+    // Don't read m_blocks while a worker may still be writing it. Acquire-load
+    // pairs with the worker's release on Ready/Meshed; chunks below Ready are
+    // treated as empty for queries (collision / sampler).
+    if (chunk->getState() < ChunkState::Ready) {
+        return BlockType::AIR;
     }
 
     // Get the block from the chunk
@@ -273,6 +536,9 @@ void VoxelWorld::setBlockAt(const glm::vec3& worldPos, BlockType type) {
     Chunk* chunk = getChunk(chunkPos);
     if (chunk == nullptr) {
         chunk = createChunk(chunkPos);
+        // Player-edit chunks skip terrain gen; mark Ready so meshing picks
+        // them up on the next updateChunkMeshes pass.
+        chunk->setState(ChunkState::Ready);
     }
 
     // Set the block in the chunk
