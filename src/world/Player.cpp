@@ -133,31 +133,32 @@ Vec3 Player::handlePlayerInput(const InputState& input, const Vec3& cameraForwar
 }
 
 Vec3 Player::updatePosition(float deltaTime, const Vec3& moveDirection, const VoxelWorld& world) {
-    // Apply movement speed to horizontal movement
-    Vec3 const scaledMove = moveDirection * m_params.moveSpeed * deltaTime;
+    const Vec3 scaledMove = moveDirection * m_params.moveSpeed * deltaTime;
 
-    // Calculate new position
     Vec3 newPosition = m_position;
     newPosition.x += scaledMove.x;
     newPosition.z += scaledMove.z;
 
-    // Handle vertical movement
-    float const terrainHeight = world.getHeightAt(newPosition.x, newPosition.z);
+    const float terrainHeight = world.getHeightAt(newPosition.x, newPosition.z);
+    const bool wasGrounded = m_params.isGrounded;
 
-    // Apply gravity when not grounded
     if (!m_params.isGrounded) {
         m_velocity.y -= m_params.gravity * deltaTime;
     }
-
-    // Update vertical position with velocity
     newPosition.y += m_velocity.y * deltaTime;
 
-    // Check if player is on or below ground
     if (newPosition.y <= terrainHeight) {
         newPosition.y = terrainHeight;
         m_velocity.y = 0.0f;
         m_params.isGrounded = true;
     } else {
+        // Just transitioned from grounded to airborne via a ledge step-off.
+        // Without a starting downward velocity, gravity has to ramp from zero
+        // and the player visibly hangs in the air for ~0.18s before falling
+        // one voxel. Seed the fall so it feels instant.
+        if (wasGrounded && m_velocity.y >= 0.0f) {
+            m_velocity.y = -2.0f; // ~1-voxel drop in ~130ms before gravity adds more
+        }
         m_params.isGrounded = false;
     }
 
