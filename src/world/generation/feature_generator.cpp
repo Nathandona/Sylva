@@ -21,88 +21,94 @@ int findGroundY(Chunk* chunk, int x, int z) {
 FeatureGenerator::FeatureGenerator(const WorldParams& params) : m_params(params) {}
 
 void FeatureGenerator::generateTrees(Chunk* chunk, std::mt19937& rng, std::uniform_int_distribution<int>& /*randPos*/) {
+    // Tree silhouette tuned for micro-voxel scale (cellSize=0.25, player 1.8m):
+    //   trunk radius 1 voxel  → ~0.5m thick
+    //   trunk height ~16 vox  → ~4m tall (~2.2x player)
+    //   crown radius  ~6 vox  → ~1.5m wide canopy
+    // Previously: 5-10 voxel trunk × 30-51 voxel height with 18-25 voxel leaf
+    // radius → 9-12m wide leaf clouds dominated the world.
+    constexpr int kTrunkRadius = 1;
+    constexpr int kTrunkHeightBase = 16;
+    constexpr int kTrunkHeightJitter = 6; // ±3 around base
+    constexpr int kCrownRadiusBase = 6;
+    constexpr int kCrownRadiusJitter = 4; // ±2
+
     std::uniform_real_distribution<float> rand01(0.0f, 1.0f);
-    float const treeChance = 0.20f;
-    if (rand01(rng) < treeChance) {
-        int const numTrees = 1 + static_cast<int>(rand01(rng) * 2.0f);
-        for (int i = 0; i < numTrees; i++) {
-            int const currentTrunkBaseSideLength = 5 + static_cast<int>(rand01(rng) * 5.0f);
-            std::uniform_int_distribution<int> randPosTree(3, CHUNK_SIZE - (3 + currentTrunkBaseSideLength));
-            int const treeX = randPosTree(rng);
-            int const treeZ = randPosTree(rng);
-            int groundY = -1;
-            bool canPlaceTrunk = true;
-            int minGroundY = CHUNK_SIZE;
-            for (int dx = 0; dx < currentTrunkBaseSideLength; ++dx) {
-                for (int dz = 0; dz < currentTrunkBaseSideLength; ++dz) {
-                    int const currentGroundY = findGroundY(chunk, treeX + dx, treeZ + dz);
-                    if (currentGroundY == -1 ||
-                        chunk->getBlock(treeX + dx, currentGroundY, treeZ + dz) != BlockType::GRASS) {
-                        canPlaceTrunk = false;
-                        break;
-                    }
-                    minGroundY = std::min(minGroundY, currentGroundY);
-                }
-                if (!canPlaceTrunk)
-                    break;
-            }
-            groundY = minGroundY;
-            if (canPlaceTrunk && groundY >= 0) {
-                int const trunkHeight = 30 + static_cast<int>(rand01(rng) * 21.0f);
-                float const trunkRadius = (currentTrunkBaseSideLength - 1) / 2.0f;
-                float const trunkCenterX = (currentTrunkBaseSideLength - 1) / 2.0f;
-                float const trunkCenterZ = (currentTrunkBaseSideLength - 1) / 2.0f;
-                for (int y_offset = 1; y_offset <= trunkHeight; y_offset++) {
-                    if (groundY + y_offset >= CHUNK_SIZE)
-                        break;
-                    for (int dz_local = 0; dz_local < currentTrunkBaseSideLength; ++dz_local) {
-                        for (int dx_local = 0; dx_local < currentTrunkBaseSideLength; ++dx_local) {
-                            float const distFromTrunkCenter = std::sqrt(
-                                (dx_local - trunkCenterX) * (dx_local - trunkCenterX) +
-                                (dz_local - trunkCenterZ) * (dz_local - trunkCenterZ));
-                            if (distFromTrunkCenter <= trunkRadius + 0.5f) {
-                                if (treeX + dx_local < CHUNK_SIZE && treeZ + dz_local < CHUNK_SIZE) {
-                                    chunk->setBlock(treeX + dx_local, groundY + y_offset, treeZ + dz_local, BlockType::WOOD);
-                                }
-                            }
-                        }
-                    }
-                }
-                int const leavesStart = trunkHeight - 8;
-                int const leavesEnd = trunkHeight + 20 + static_cast<int>(rand01(rng) * 16.0f);
-                bool const isRoundTop = rand01(rng) > 0.4f;
-                float const foliageCenterX = treeX + (currentTrunkBaseSideLength - 1) / 2.0f;
-                float const foliageCenterZ = treeZ + (currentTrunkBaseSideLength - 1) / 2.0f;
-                for (int ly = leavesStart; ly <= leavesEnd; ly++) {
-                    if (groundY + ly < 0 || groundY + ly >= CHUNK_SIZE)
+    // ~40% of chunks contain trees; 1-2 trees each.
+    if (rand01(rng) > 0.40f) {
+        return;
+    }
+    const int numTrees = 1 + static_cast<int>(rand01(rng) * 2.0f);
+
+    // Keep crown fully inside the chunk to avoid clipped foliage at borders.
+    const int margin = kCrownRadiusBase + kCrownRadiusJitter / 2 + 1;
+    if (CHUNK_SIZE - 2 * margin < 1) {
+        return; // chunk too small for the configured crown
+    }
+    std::uniform_int_distribution<int> spawnXZ(margin, CHUNK_SIZE - margin - 1);
+
+    for (int t = 0; t < numTrees; ++t) {
+        const int cx = spawnXZ(rng);
+        const int cz = spawnXZ(rng);
+
+        const int groundY = findGroundY(chunk, cx, cz);
+        if (groundY < 0) {
+            continue; // no terrain here
+        }
+        if (chunk->getBlock(cx, groundY, cz) != BlockType::GRASS) {
+            continue; // only grow on grass
+        }
+
+        const int trunkHeight = kTrunkHeightBase + static_cast<int>(rand01(rng) * kTrunkHeightJitter) -
+                                kTrunkHeightJitter / 2;
+        const int crownRadius =
+            std::max(2, kCrownRadiusBase + static_cast<int>(rand01(rng) * kCrownRadiusJitter) - kCrownRadiusJitter / 2);
+        const int crownRSq = crownRadius * crownRadius;
+        const int trunkRSq = kTrunkRadius * kTrunkRadius;
+
+        // Trunk: vertical cylinder of WOOD from just above ground up trunkHeight voxels.
+        const int trunkTopY = std::min(groundY + trunkHeight, CHUNK_SIZE - 1);
+        for (int y = groundY + 1; y <= trunkTopY; ++y) {
+            for (int dz = -kTrunkRadius; dz <= kTrunkRadius; ++dz) {
+                for (int dx = -kTrunkRadius; dx <= kTrunkRadius; ++dx) {
+                    if (dx * dx + dz * dz > trunkRSq) {
                         continue;
-                    float heightPosition = static_cast<float>(ly - leavesStart) / (leavesEnd - leavesStart);
-                    heightPosition = std::max(0.0f, std::min(1.0f, heightPosition));
-                    int baseLeafRadius = isRoundTop ? 18 + static_cast<int>(7.0f * sin(heightPosition * 3.14159f))
-                                                    : 25 - static_cast<int>(10.0f * heightPosition);
-                    baseLeafRadius = std::max(1, baseLeafRadius);
-                    for (int lz_offset = -baseLeafRadius; lz_offset <= baseLeafRadius; lz_offset++) {
-                        for (int lx_offset = -baseLeafRadius; lx_offset <= baseLeafRadius; lx_offset++) {
-                            int const blockX = static_cast<int>(foliageCenterX + lx_offset);
-                            int const blockY = groundY + ly;
-                            int const blockZ = static_cast<int>(foliageCenterZ + lz_offset);
-                            if (ly < leavesEnd - 3 && blockX >= treeX && blockX < treeX + currentTrunkBaseSideLength &&
-                                blockZ >= treeZ && blockZ < treeZ + currentTrunkBaseSideLength) {
-                                if (ly < trunkHeight + (currentTrunkBaseSideLength > 3 ? 2 : 1))
-                                    continue;
-                            }
-                            float const dist = std::sqrt(lx_offset * lx_offset + lz_offset * lz_offset);
-                            if (dist > baseLeafRadius + (rand01(rng) * 1.0f - 0.5f))
-                                continue;
-                            if (dist > baseLeafRadius - 1.5f && rand01(rng) < 0.30f)
-                                continue;
-                            if (blockX < 0 || blockX >= CHUNK_SIZE || blockZ < 0 || blockZ >= CHUNK_SIZE)
-                                continue;
-                            if (chunk->getBlock(blockX, blockY, blockZ) != BlockType::AIR)
-                                continue;
-                            chunk->setBlock(blockX, blockY, blockZ, BlockType::LEAVES);
-                        }
                     }
+                    const int x = cx + dx;
+                    const int z = cz + dz;
+                    if (x < 0 || x >= CHUNK_SIZE || z < 0 || z >= CHUNK_SIZE) {
+                        continue;
+                    }
+                    chunk->setBlock(x, y, z, BlockType::WOOD);
+                }
+            }
+        }
+
+        // Crown: sphere of LEAVES centered at the trunk top, with light edge
+        // noise so the silhouette doesn't read as a perfect ball.
+        const int crownCenterY = trunkTopY;
+        for (int dy = -crownRadius; dy <= crownRadius; ++dy) {
+            for (int dz = -crownRadius; dz <= crownRadius; ++dz) {
+                for (int dx = -crownRadius; dx <= crownRadius; ++dx) {
+                    const int dSq = dx * dx + dy * dy + dz * dz;
+                    if (dSq > crownRSq) {
+                        continue;
+                    }
+                    // Punch ~30% of voxels near the outer shell to break the
+                    // smooth ball into something foliage-shaped.
+                    if (dSq > crownRSq - crownRadius * 2 && rand01(rng) < 0.30f) {
+                        continue;
+                    }
+                    const int x = cx + dx;
+                    const int y = crownCenterY + dy;
+                    const int z = cz + dz;
+                    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_SIZE || z < 0 || z >= CHUNK_SIZE) {
+                        continue;
+                    }
+                    if (chunk->getBlock(x, y, z) != BlockType::AIR) {
+                        continue; // don't overwrite trunk or other blocks
+                    }
+                    chunk->setBlock(x, y, z, BlockType::LEAVES);
                 }
             }
         }
