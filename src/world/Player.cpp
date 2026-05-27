@@ -215,30 +215,25 @@ void Player::updateMovement(float deltaTime,
     } else if (m_params.isGrounded && m_params.autoStepHeight > 0.0f &&
                (newPosition.x != m_position.x || newPosition.z != m_position.z)) {
         // Auto-step: the desired horizontal move is blocked, but the obstacle
-        // might be a single-voxel ledge we can climb. Probe the same XZ at
-        // (current Y + step height); if that clears, snap up onto it.
-        Vec3 stepped = newPosition;
-        stepped.y = m_position.y + m_params.autoStepHeight;
-        const Vec3 oldPos = m_position;
-        m_position = stepped;
-        const bool steppedBlocked = checkCollision(world);
-        m_position = oldPos;
-        if (!steppedBlocked) {
-            // Land on whatever surface is actually there at the new XZ. The
-            // probe only proved the body fits at stepped.y — terrain may be
-            // lower (we'll fall to it next frame via gravity) or exactly at
-            // the step height.
+        // might be a low ledge. updatePosition has already computed where
+        // the new ground sits — step exactly to that height (no overshoot,
+        // no fall-back-down jitter on subsequent frames).
+        const float climb = newPosition.y - m_position.y;
+        if (climb > 0.0f && climb <= m_params.autoStepHeight) {
+            const Vec3 stepped = newPosition; // X/Z + exact terrain Y at the new XZ
+            const Vec3 oldPos = m_position;
             m_position = stepped;
-            const float terrainY = world.getHeightAt(m_position.x, m_position.z);
-            if (m_position.y <= terrainY) {
-                m_position.y = terrainY;
+            const bool steppedBlocked = checkCollision(world);
+            if (!steppedBlocked) {
                 m_velocity.y = 0.0f;
                 m_params.isGrounded = true;
+                updateAnimation(deltaTime, moveDirection);
+                return;
             }
-        } else {
-            // Still blocked above — accept vertical motion only (existing behavior).
-            m_position.y = newPosition.y;
+            m_position = oldPos;
         }
+        // Climb too tall, or there is something solid where the body would land.
+        m_position.y = newPosition.y;
     } else {
         // Apply vertical motion only.
         m_position.y = newPosition.y;
