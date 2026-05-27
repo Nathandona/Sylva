@@ -116,12 +116,7 @@ bool Engine::initialize(const std::string& configPath) {
     bool collisionDebug = Config::getBool("Debug.collision_visualization", false);
     m_voxelWorld->setCollisionDebugEnabled(collisionDebug);
     Logger::logInfo("Collision debug visualization: " + std::string(collisionDebug ? "enabled" : "disabled"));
-    // Initialize player graphics
-    if (!m_player->initializeGraphics()) {
-        Logger::logError("Failed to initialize player graphics");
-        return false;
-    }
-    // Initialize player parameters
+    // Player visual params (mesh + shader live elsewhere now).
     m_player->setSize(1.0f, 1.0f);
     m_player->setColor({1.0f, 1.0f, 1.0f, 1.0f});
     // Set up camera
@@ -155,7 +150,7 @@ void Engine::run() {
         float deltaTime = m_window->getDeltaTime();
         m_window->pollEvents();
         const InputState& inputState = Input::getState();
-        m_player->updateMovement(deltaTime, inputState, *m_voxelWorld, *m_camera);
+        m_player->updateMovement(deltaTime, inputState, m_camera->getForward(), m_camera->getRight(), *m_voxelWorld);
         m_camera->updateOrbit(deltaTime, *m_player, inputState);
         m_voxelWorld->update(deltaTime, m_player->getPosition());
         bool f1KeyPressed = Input::isKeyPressed(GLFW_KEY_F1);

@@ -6,10 +6,8 @@
 namespace Sylva {
 
 // Forward declarations
-class World;
 struct InputState;
 class Shader;
-class Camera;
 class VoxelWorld;
 
 /**
@@ -37,29 +35,22 @@ public:
     ~Player();
 
     /**
-     * @brief Initialize player graphics
-     * @return true if initialization successful
+     * @brief Update player movement against the world.
+     * @param deltaTime  Time since last update.
+     * @param input      Current input state.
+     * @param cameraForward Horizontal forward vector from the camera (any Y is zeroed).
+     * @param cameraRight   Horizontal right vector from the camera.
+     * @param world      World to query for terrain height and collision.
+     *
+     * Player no longer depends on the Camera class — only on the two basis
+     * vectors it needs, supplied by the caller.
      */
-    bool initializeGraphics();
+    void updateMovement(float deltaTime, const InputState& input,
+                        const Vec3& cameraForward, const Vec3& cameraRight,
+                        const VoxelWorld& world);
 
     /**
-     * @brief Update player movement with VoxelWorld
-     * @param deltaTime Time since last update
-     * @param input Input state
-     * @param world VoxelWorld to check collisions against
-     * @param camera Camera to use for relative movement
-     */
-    void updateMovement(float deltaTime, const InputState& input, const VoxelWorld& world, const Camera& camera);
-
-    /**
-     * @brief Rotate to face movement direction
-     */
-    void rotateToMovementDirection();
-
-    /**
-     * @brief Rotate to face a specific movement direction
-     * @param moveDirection The movement direction to face
-     * @param deltaTime Time since last frame for smooth rotation
+     * @brief Rotate to face a movement direction with smooth interpolation.
      */
     void rotateToMovementDirection(const Vec3& moveDirection, float deltaTime);
 
@@ -147,12 +138,13 @@ public:
 
 private:
     /**
-     * @brief Process player input and calculate movement direction
-     * @param input Current input state
-     * @param camera Camera for relative movement calculation
-     * @return Normalized movement direction vector
+     * @brief Process player input and calculate movement direction.
+     * @param input Current input state.
+     * @param cameraForward Horizontal camera-forward basis.
+     * @param cameraRight   Horizontal camera-right basis.
+     * @return Normalized movement direction vector.
      */
-    Vec3 handlePlayerInput(const InputState& input, const Camera& camera);
+    Vec3 handlePlayerInput(const InputState& input, const Vec3& cameraForward, const Vec3& cameraRight);
 
     /**
      * @brief Update player position based on movement and physics

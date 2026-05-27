@@ -3,7 +3,6 @@
 #include "core/logger.h"
 #include "core/config.h"
 #include "renderer/shader.h"
-#include "renderer/camera.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <cmath>
 
@@ -40,50 +39,26 @@ Player::Player(const PlayerParams& params)
 
 Player::~Player() = default;
 
-bool Player::initializeGraphics() {
-    // Mesh + shader are owned externally (Engine creates the colored shader,
-    // future Mesh component will own the player mesh). Nothing to do here yet.
-    return true;
-}
+Vec3 Player::handlePlayerInput(const InputState& input, const Vec3& cameraForward, const Vec3& cameraRight) {
+    // Project to horizontal plane and renormalize. Length() == 0 means the
+    // caller passed a degenerate vector (e.g. looking straight up) — fall
+    // back to zero contribution rather than dividing by zero.
+    auto flatten = [](Vec3 v) {
+        v.y = 0.0f;
+        const float len = glm::length(v);
+        return (len > 0.0f) ? v / len : Vec3(0.0f);
+    };
+    const Vec3 forward = flatten(cameraForward);
+    const Vec3 right   = flatten(cameraRight);
 
-Vec3 Player::handlePlayerInput(const InputState& input, const Camera& camera) {
-    // Get camera forward and right vectors (for camera-relative movement)
-    Vec3 forward = camera.getForward();
-    Vec3 right = camera.getRight();
-    
-    // We only want horizontal movement, so zero out the Y component
-    forward.y = 0.0f;
-    right.y = 0.0f;
-    
-    // Normalize the vectors after zeroing out Y
-    if (glm::length(forward) > 0.0f) {
-        forward = glm::normalize(forward);
-    }
-    if (glm::length(right) > 0.0f) {
-        right = glm::normalize(right);
-    }
-    
-    // Calculate movement direction relative to camera orientation
-    Vec3 moveDirection(0.0f, 0.0f, 0.0f);
-    
-    if (input.moveForward) {
-        moveDirection += forward;
-    }
-    if (input.moveBackward) {
-        moveDirection -= forward;
-    }
-    if (input.moveLeft) {
-        moveDirection -= right;
-    }
-    if (input.moveRight) {
-        moveDirection += right;
-    }
-    
-    // Normalize movement vector if not zero
+    Vec3 moveDirection(0.0f);
+    if (input.moveForward)  moveDirection += forward;
+    if (input.moveBackward) moveDirection -= forward;
+    if (input.moveLeft)     moveDirection -= right;
+    if (input.moveRight)    moveDirection += right;
     if (glm::length(moveDirection) > 0.0f) {
         moveDirection = glm::normalize(moveDirection);
     }
-    
     return moveDirection;
 }
 
@@ -153,9 +128,10 @@ void Player::updateAnimation(float deltaTime, const Vec3& moveDirection) {
                     (m_params.isGrounded ? " (grounded)" : " (in air)"));
 }
 
-void Player::updateMovement(float deltaTime, const InputState& input, const VoxelWorld& world, const Camera& camera) {
-    // Process input and get movement direction
-    Vec3 moveDirection = handlePlayerInput(input, camera);
+void Player::updateMovement(float deltaTime, const InputState& input,
+                            const Vec3& cameraForward, const Vec3& cameraRight,
+                            const VoxelWorld& world) {
+    Vec3 moveDirection = handlePlayerInput(input, cameraForward, cameraRight);
     
     // Handle jumping
     if (input.jump && m_params.isGrounded) {
@@ -179,12 +155,6 @@ void Player::updateMovement(float deltaTime, const InputState& input, const Voxe
     
     // Update animation state
     updateAnimation(deltaTime, moveDirection);
-}
-
-void Player::rotateToMovementDirection() {
-    // This is the old method signature, kept for compatibility
-    // The actual implementation is in the overloaded method below
-    Logger::logDebug("Player rotated to movement direction");
 }
 
 void Player::rotateToMovementDirection(const Vec3& moveDirection, float deltaTime) {
