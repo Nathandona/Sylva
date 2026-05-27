@@ -20,6 +20,7 @@ Player::Player() : m_position(0.0f, 0.0f, 0.0f), m_rotation(0.0f), m_velocity(0.
     m_params.jumpHeight = Config::getFloat("Player.jump_height", m_params.jumpHeight);
     m_params.jumpForce = Config::getFloat("Player.jump_force", m_params.jumpForce);
     m_params.gravity = Config::getFloat("Player.gravity", m_params.gravity);
+    m_params.autoStepHeight = Config::getFloat("Player.auto_step_height", m_params.autoStepHeight);
 
     Logger::logDebug("Player initialized at position: " + std::to_string(m_position.x) + ", " +
                      std::to_string(m_position.y) + ", " + std::to_string(m_position.z));
@@ -204,15 +205,42 @@ void Player::updateMovement(float deltaTime,
     }
 
     // Calculate new position based on movement and physics
-    Vec3 const newPosition = updatePosition(deltaTime, moveDirection, world);
+    const Vec3 newPosition = updatePosition(deltaTime, moveDirection, world);
 
     // Check for collisions
-    bool const collision = handleCollisions(newPosition, world);
+    const bool collision = handleCollisions(newPosition, world);
 
-    // Apply movement if no collision, or just vertical movement if collision
     if (!collision) {
         m_position = newPosition;
+    } else if (m_params.isGrounded && m_params.autoStepHeight > 0.0f &&
+               (newPosition.x != m_position.x || newPosition.z != m_position.z)) {
+        // Auto-step: the desired horizontal move is blocked, but the obstacle
+        // might be a single-voxel ledge we can climb. Probe the same XZ at
+        // (current Y + step height); if that clears, snap up onto it.
+        Vec3 stepped = newPosition;
+        stepped.y = m_position.y + m_params.autoStepHeight;
+        const Vec3 oldPos = m_position;
+        m_position = stepped;
+        const bool steppedBlocked = checkCollision(world);
+        m_position = oldPos;
+        if (!steppedBlocked) {
+            // Land on whatever surface is actually there at the new XZ. The
+            // probe only proved the body fits at stepped.y — terrain may be
+            // lower (we'll fall to it next frame via gravity) or exactly at
+            // the step height.
+            m_position = stepped;
+            const float terrainY = world.getHeightAt(m_position.x, m_position.z);
+            if (m_position.y <= terrainY) {
+                m_position.y = terrainY;
+                m_velocity.y = 0.0f;
+                m_params.isGrounded = true;
+            }
+        } else {
+            // Still blocked above — accept vertical motion only (existing behavior).
+            m_position.y = newPosition.y;
+        }
     } else {
+        // Apply vertical motion only.
         m_position.y = newPosition.y;
     }
 

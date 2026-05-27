@@ -49,6 +49,7 @@ struct PlayerParams {
     float jumpForce = 8.0f;       // Initial jump velocity
     float gravity = 15.0f;        // Gravity acceleration
     bool isGrounded = true;       // Whether the player is on the ground
+    float autoStepHeight = 0.30f; // Max vertical step the player climbs automatically (world-y; ~1 voxel at cellSize=0.25)
     // Cuboid representation with larger blocks
     float width = 1.6f;                    // Increased width for visual contrast with micro-voxels
     float depth = 1.6f;                    // Increased depth for visual contrast with micro-voxels
