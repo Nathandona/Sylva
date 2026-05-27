@@ -3,12 +3,22 @@
 #include "../block.h"
 #include <array>
 #include <vector>
+#include <functional>
 #include <glm/glm.hpp>
 
 namespace Sylva {
 
 // Forward declarations
 class Shader;
+
+/**
+ * @brief Block sampler callback used during meshing.
+ *
+ * Coordinates are chunk-local for the chunk being meshed and may go outside
+ * [0, CHUNK_SIZE). The sampler resolves neighboring chunks (including diagonals)
+ * via the owning world. Out-of-world queries return BlockType::AIR.
+ */
+using BlockSampler = std::function<BlockType(int x, int y, int z)>;
 
 /**
  * @brief Size constants for chunks
@@ -64,10 +74,11 @@ public:
     
     /**
      * @brief Generate the chunk mesh based on current blocks
-     * @param surroundingChunks Pointers to the 6 neighboring chunks (order: +X, -X, +Y, -Y, +Z, -Z)
-     * Note: Any of the surrounding chunks can be nullptr if not loaded
+     * @param sampler Callback returning the block at any chunk-local coordinate;
+     *                resolves to neighbor chunks (including diagonals) for
+     *                out-of-bounds queries.
      */
-    void generateMesh(const Chunk* surroundingChunks[6]);
+    void generateMesh(const BlockSampler& sampler);
     
     /**
      * @brief Render the chunk
@@ -129,53 +140,31 @@ private:
     int localPosToIndex(int x, int y, int z) const;
     
     /**
-     * @brief Check if a face should be rendered based on the neighboring block
-     * @param x Local X coordinate
-     * @param y Local Y coordinate
-     * @param z Local Z coordinate
-     * @param direction The face direction to check (0 to 5 for +X, -X, +Y, -Y, +Z, -Z)
-     * @param surroundingChunks Pointers to the 6 neighboring chunks
-     * @return True if the face should be rendered, false otherwise
+     * @brief Check if a face should be rendered based on the neighboring block.
      */
-    bool shouldRenderFace(int x, int y, int z, int direction, const Chunk* surroundingChunks[6]) const;
-    
+    bool shouldRenderFace(int x, int y, int z, int direction, const BlockSampler& sampler) const;
+
     /**
-     * @brief Add a block face to the mesh
-     * @param vertices The vertex buffer to add to
-     * @param indices The index buffer to add to
-     * @param x Local X coordinate
-     * @param y Local Y coordinate
-     * @param z Local Z coordinate
-     * @param direction The face direction (0 to 5 for +X, -X, +Y, -Y, +Z, -Z)
-     * @param blockType The type of block
-     * @param surroundingChunks Pointers to the 6 neighboring chunks
+     * @brief Add a block face to the mesh.
      */
-    void addFaceToMesh(std::vector<float>& vertices, std::vector<unsigned int>& indices, 
-                        int x, int y, int z, int direction, BlockType blockType,
-                        const Chunk* surroundingChunks[6]);
-    
+    void addFaceToMesh(std::vector<float>& vertices, std::vector<unsigned int>& indices,
+                       int x, int y, int z, int direction, BlockType blockType,
+                       const BlockSampler& sampler);
+
     /**
      * @brief Clean up GPU resources
      */
     void cleanupGraphics();
-    
-    // Added private static helper for AO calculation
-    static float calculateVertexAO(const Chunk* chunk, int vpX, int vpY, int vpZ, const Chunk* surroundingChunks[6]);
-    
+
     /**
      * @brief Initialize OpenGL buffers for mesh data
-     * @param vertices The vertex data to upload
-     * @param indices The index data to upload
      */
     void initializeMeshBuffers(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
 
     /**
-     * @brief Generate vertex data for the chunk mesh
-     * @param vertices Output vector for vertex data
-     * @param indices Output vector for index data
-     * @param surroundingChunks Array of pointers to surrounding chunks
+     * @brief Generate vertex data for the chunk mesh.
      */
-    void generateVertexData(std::vector<float>& vertices, std::vector<unsigned int>& indices, const Chunk* surroundingChunks[6]);
+    void generateVertexData(std::vector<float>& vertices, std::vector<unsigned int>& indices, const BlockSampler& sampler);
 
     /**
      * @brief Generate index data for the chunk mesh
@@ -238,14 +227,11 @@ private:
     glm::vec3 calculateVertexNormals(int direction) const;
 
     /**
-     * @brief Calculate ambient occlusion for a vertex
-     * @param vx_local Local X coordinate of vertex
-     * @param vy_local Local Y coordinate of vertex
-     * @param vz_local Local Z coordinate of vertex
-     * @param surroundingChunks Array of pointers to surrounding chunks
-     * @return The AO factor (0-1)
+     * @brief Calculate ambient occlusion for a vertex. Samples the 8 voxel
+     *        positions that share this vertex; handles diagonal neighbors
+     *        because the sampler resolves any chunk-local coordinate.
      */
-    float calculateVertexAO(int vx_local, int vy_local, int vz_local, const Chunk* surroundingChunks[6]) const;
+    float calculateVertexAO(int vx_local, int vy_local, int vz_local, const BlockSampler& sampler) const;
 };
 
 } // namespace Sylva 

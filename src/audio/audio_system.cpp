@@ -6,6 +6,7 @@
 #include <AL/alc.h>
 #include <glm/glm.hpp>
 #include <algorithm>
+#include <mutex>
 
 namespace Sylva {
 
@@ -68,6 +69,11 @@ namespace {
     std::unordered_map<std::string, Sound> soundLibrary;
     std::unordered_map<unsigned int, SoundInstance> activeSounds;
     unsigned int nextSoundId = 1;
+
+    // Protects soundLibrary, activeSounds, nextSoundId, typeVolumes, typeMuteStates,
+    // and masterVolume against concurrent access (e.g. update() running while
+    // playSound() inserts).
+    std::mutex audioMutex;
     
     // Helper function to check for OpenAL errors
     bool checkALError(const std::string& operation) {
@@ -146,12 +152,15 @@ bool AudioSystem::initialize() {
     }
     
     // Initialize volumes + mute states from config (per-type table-driven).
-    masterVolume = std::clamp(Config::getFloat("Audio.master_volume", masterVolume), 0.0f, 1.0f);
-    for (const auto& e : kAudioTypeMeta) {
-        typeVolumes[e.type]    = std::clamp(Config::getFloat(e.volumeKey, typeVolumes[e.type]), 0.0f, 1.0f);
-        typeMuteStates[e.type] = Config::getBool(e.muteKey, typeMuteStates[e.type]);
+    {
+        std::lock_guard<std::mutex> lock(audioMutex);
+        masterVolume = std::clamp(Config::getFloat("Audio.master_volume", masterVolume), 0.0f, 1.0f);
+        for (const auto& e : kAudioTypeMeta) {
+            typeVolumes[e.type]    = std::clamp(Config::getFloat(e.volumeKey, typeVolumes[e.type]), 0.0f, 1.0f);
+            typeMuteStates[e.type] = Config::getBool(e.muteKey, typeMuteStates[e.type]);
+        }
     }
-    
+
     initialized = true;
     Logger::logInfo("Audio system initialized");
     return true;
@@ -161,19 +170,19 @@ void AudioSystem::shutdown() {
     if (!initialized) {
         return;
     }
-    
-    // Stop all active sounds
-    for (auto& pair : activeSounds) {
-        alSourceStop(pair.second.source);
-        alDeleteSources(1, &pair.second.source);
+
+    {
+        std::lock_guard<std::mutex> lock(audioMutex);
+        for (auto& pair : activeSounds) {
+            alSourceStop(pair.second.source);
+            alDeleteSources(1, &pair.second.source);
+        }
+        activeSounds.clear();
+        for (auto& pair : soundLibrary) {
+            alDeleteBuffers(1, &pair.second.buffer);
+        }
+        soundLibrary.clear();
     }
-    activeSounds.clear();
-    
-    // Unload all sounds
-    for (auto& pair : soundLibrary) {
-        alDeleteBuffers(1, &pair.second.buffer);
-    }
-    soundLibrary.clear();
     
     // Destroy OpenAL context and close device
     alcMakeContextCurrent(nullptr);
@@ -195,8 +204,8 @@ bool AudioSystem::loadSound(const std::string& name, const std::string& filePath
         Logger::logError("Cannot load sound, audio system not initialized");
         return false;
     }
-    
-    // Check if sound already exists
+
+    std::lock_guard<std::mutex> lock(audioMutex);
     if (soundLibrary.find(name) != soundLibrary.end()) {
         Logger::logWarning("Sound already loaded: " + name);
         return true;
@@ -228,7 +237,8 @@ void AudioSystem::unloadSound(const std::string& name) {
     if (!initialized) {
         return;
     }
-    
+
+    std::lock_guard<std::mutex> lock(audioMutex);
     auto it = soundLibrary.find(name);
     if (it == soundLibrary.end()) {
         Logger::logWarning("Cannot unload sound, not found: " + name);
@@ -260,8 +270,8 @@ void AudioSystem::unloadAllSounds() {
     if (!initialized) {
         return;
     }
-    
-    // Stop and delete all sources
+
+    std::lock_guard<std::mutex> lock(audioMutex);
     for (auto& pair : activeSounds) {
         alSourceStop(pair.second.source);
         alDeleteSources(1, &pair.second.source);
@@ -282,7 +292,8 @@ unsigned int AudioSystem::playSound(const std::string& name, bool loop, float vo
         Logger::logError("Cannot play sound, audio system not initialized");
         return 0;
     }
-    
+
+    std::lock_guard<std::mutex> lock(audioMutex);
     auto it = soundLibrary.find(name);
     if (it == soundLibrary.end()) {
         Logger::logWarning("Sound not found: " + name);
@@ -331,45 +342,30 @@ unsigned int AudioSystem::playSound(const std::string& name, bool loop, float vo
 }
 
 void AudioSystem::stopSound(unsigned int soundId) {
-    if (!initialized) {
-        return;
-    }
-    
+    if (!initialized) return;
+    std::lock_guard<std::mutex> lock(audioMutex);
     auto it = activeSounds.find(soundId);
-    if (it == activeSounds.end()) {
-        return;
-    }
-    
+    if (it == activeSounds.end()) return;
     alSourceStop(it->second.source);
     alDeleteSources(1, &it->second.source);
     activeSounds.erase(it);
 }
 
 void AudioSystem::pauseSound(unsigned int soundId) {
-    if (!initialized) {
-        return;
-    }
-    
+    if (!initialized) return;
+    std::lock_guard<std::mutex> lock(audioMutex);
     auto it = activeSounds.find(soundId);
-    if (it == activeSounds.end() || it->second.isPaused) {
-        return;
-    }
-    
+    if (it == activeSounds.end() || it->second.isPaused) return;
     alSourcePause(it->second.source);
     it->second.isPaused = true;
     it->second.isPlaying = false;
 }
 
 void AudioSystem::resumeSound(unsigned int soundId) {
-    if (!initialized) {
-        return;
-    }
-    
+    if (!initialized) return;
+    std::lock_guard<std::mutex> lock(audioMutex);
     auto it = activeSounds.find(soundId);
-    if (it == activeSounds.end() || !it->second.isPaused) {
-        return;
-    }
-    
+    if (it == activeSounds.end() || !it->second.isPaused) return;
     alSourcePlay(it->second.source);
     it->second.isPaused = false;
     it->second.isPlaying = true;
@@ -377,38 +373,39 @@ void AudioSystem::resumeSound(unsigned int soundId) {
 
 void AudioSystem::setMasterVolume(float volume) {
     volume = std::clamp(volume, 0.0f, 1.0f);
-    masterVolume = volume;
-    
-    // Update all active sound volumes
-    for (auto& pair : activeSounds) {
-        float finalVolume = pair.second.volume * masterVolume * typeVolumes[pair.second.type];
-        alSourcef(pair.second.source, AL_GAIN, finalVolume);
+    {
+        std::lock_guard<std::mutex> lock(audioMutex);
+        masterVolume = volume;
+        for (auto& pair : activeSounds) {
+            float finalVolume = pair.second.volume * masterVolume * typeVolumes[pair.second.type];
+            alSourcef(pair.second.source, AL_GAIN, finalVolume);
+        }
     }
-    
-    // Save to config if possible
     Config::set("Audio.master_volume", volume);
 }
 
 float AudioSystem::getMasterVolume() {
+    std::lock_guard<std::mutex> lock(audioMutex);
     return masterVolume;
 }
 
 void AudioSystem::setTypeVolume(AudioType type, float volume) {
     volume = std::clamp(volume, 0.0f, 1.0f);
-    typeVolumes[type] = volume;
-    
-    // Update all active sounds of this type
-    for (auto& pair : activeSounds) {
-        if (pair.second.type == type) {
-            float finalVolume = pair.second.volume * masterVolume * volume;
-            alSourcef(pair.second.source, AL_GAIN, finalVolume);
+    {
+        std::lock_guard<std::mutex> lock(audioMutex);
+        typeVolumes[type] = volume;
+        for (auto& pair : activeSounds) {
+            if (pair.second.type == type) {
+                float finalVolume = pair.second.volume * masterVolume * volume;
+                alSourcef(pair.second.source, AL_GAIN, finalVolume);
+            }
         }
     }
-    
     Config::set(metaFor(type).volumeKey, volume);
 }
 
 float AudioSystem::getTypeVolume(AudioType type) {
+    std::lock_guard<std::mutex> lock(audioMutex);
     return typeVolumes[type];
 }
 
@@ -435,15 +432,10 @@ void AudioSystem::setListenerOrientation(const float* forward, const float* up) 
 }
 
 void AudioSystem::setSoundPosition(unsigned int soundId, const float* position) {
-    if (!initialized) {
-        return;
-    }
-    
+    if (!initialized) return;
+    std::lock_guard<std::mutex> lock(audioMutex);
     auto it = activeSounds.find(soundId);
-    if (it == activeSounds.end()) {
-        return;
-    }
-    
+    if (it == activeSounds.end()) return;
     alSource3f(it->second.source, AL_POSITION, position[0], position[1], position[2]);
 }
 
@@ -452,26 +444,19 @@ bool AudioSystem::isInitialized() {
 }
 
 void AudioSystem::update() {
-    if (!initialized) {
-        return;
-    }
-    
-    // Check for sounds that have finished playing
+    if (!initialized) return;
+    std::lock_guard<std::mutex> lock(audioMutex);
     std::vector<unsigned int> toRemove;
-    
     for (auto& pair : activeSounds) {
         if (!pair.second.isLooping) {
-            ALint state;
+            ALint state = 0;
             alGetSourcei(pair.second.source, AL_SOURCE_STATE, &state);
-            
             if (state == AL_STOPPED) {
                 alDeleteSources(1, &pair.second.source);
                 toRemove.push_back(pair.first);
             }
         }
     }
-    
-    // Remove finished sounds
     for (unsigned int id : toRemove) {
         activeSounds.erase(id);
     }
@@ -483,21 +468,17 @@ void AudioSystem::setTypeMuted(AudioType type, bool muted) {
         Logger::logWarning("Cannot set mute state, audio system not initialized");
         return;
     }
-    
-    // Set the mute state
-    typeMuteStates[type] = muted;
-    
-    // Update all active sounds of this type
-    for (auto& pair : activeSounds) {
-        if (pair.second.type == type) {
+    {
+        std::lock_guard<std::mutex> lock(audioMutex);
+        typeMuteStates[type] = muted;
+        for (auto& pair : activeSounds) {
+            if (pair.second.type != type) continue;
             if (muted) {
-                // If muting, stop the sound
                 if (pair.second.isPlaying && !pair.second.isPaused) {
                     alSourceStop(pair.second.source);
                     pair.second.isPlaying = false;
                 }
             } else {
-                // If unmuting and it was playing before, resume it
                 if (!pair.second.isPaused) {
                     alSourcePlay(pair.second.source);
                     pair.second.isPlaying = true;
@@ -505,7 +486,6 @@ void AudioSystem::setTypeMuted(AudioType type, bool muted) {
             }
         }
     }
-    
     const auto& meta = metaFor(type);
     Config::set<bool>(meta.muteKey, muted);
     Logger::logInfo(std::string("Audio type ") + meta.name + (muted ? " muted" : " unmuted"));
@@ -516,7 +496,7 @@ bool AudioSystem::isTypeMuted(AudioType type) {
         Logger::logWarning("Cannot check mute state, audio system not initialized");
         return false;
     }
-    
+    std::lock_guard<std::mutex> lock(audioMutex);
     return typeMuteStates[type];
 }
 

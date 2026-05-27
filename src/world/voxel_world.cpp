@@ -219,32 +219,34 @@ Chunk* VoxelWorld::createChunk(const glm::ivec3& chunkPos) {
 }
 
 void VoxelWorld::updateChunkMeshes(const glm::ivec3& centerPos) {
-    // For each chunk in the view distance
     for (auto& pair : m_chunks) {
         const glm::ivec3& chunkPos = pair.first;
         Chunk* chunk = pair.second.get();
-        
-        // Calculate distance from center
+
         glm::ivec3 diff = chunkPos - centerPos;
-        float distance = sqrt(diff.x * diff.x + diff.z * diff.z);
-        
-        // Skip chunks outside view distance
+        float distance = sqrt(static_cast<float>(diff.x * diff.x + diff.z * diff.z));
         if (distance > m_viewDistanceInChunks) {
             continue;
         }
-        
-        // Get pointers to the 6 surrounding chunks (+X, -X, +Y, -Y, +Z, -Z)
-        const Chunk* surroundingChunks[6] = {
-            getChunk(chunkPos + glm::ivec3(1, 0, 0)),
-            getChunk(chunkPos + glm::ivec3(-1, 0, 0)),
-            getChunk(chunkPos + glm::ivec3(0, 1, 0)),
-            getChunk(chunkPos + glm::ivec3(0, -1, 0)),
-            getChunk(chunkPos + glm::ivec3(0, 0, 1)),
-            getChunk(chunkPos + glm::ivec3(0, 0, -1))
+
+        // Build a sampler that handles arbitrary chunk-local offsets (incl.
+        // diagonals) by resolving the owning chunk via VoxelWorld. Closes over
+        // `this` and the chunk's own position; meshing is synchronous so the
+        // capture is safe for the duration of the call.
+        BlockSampler sampler = [this, chunkPos](int lx, int ly, int lz) -> BlockType {
+            glm::ivec3 cp = chunkPos;
+            auto wrap = [](int& local, int& coord) {
+                while (local < 0)            { local += CHUNK_SIZE; --coord; }
+                while (local >= CHUNK_SIZE)  { local -= CHUNK_SIZE; ++coord; }
+            };
+            wrap(lx, cp.x);
+            wrap(ly, cp.y);
+            wrap(lz, cp.z);
+            Chunk* c = getChunk(cp);
+            return c ? c->getBlock(lx, ly, lz) : BlockType::AIR;
         };
-        
-        // Generate mesh for this chunk
-        chunk->generateMesh(surroundingChunks);
+
+        chunk->generateMesh(sampler);
     }
 }
 
