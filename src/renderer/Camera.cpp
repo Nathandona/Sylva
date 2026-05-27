@@ -26,29 +26,23 @@ Camera::Camera(const CameraParams& params) : m_params(params) {
 }
 
 void Camera::updateRotation(const InputState& input) {
-    // Get the mouse sensitivity from config if available
-    float const mouseSensitivity = Config::getFloat("Input.mouse_sensitivity", 0.1f);
-
-    // Process mouse rotation - Cube World style camera movement
-    // Scale by sensitivity and make rotation speed consistent regardless of frame rate
+    // Mouse delta is the sum of pixel motion since the previous frame (the
+    // platform callback accumulates), so framerate cancels out: total yaw per
+    // physical mouse movement is identical at 60Hz and 144Hz.
+    const float mouseSensitivity = Config::getFloat("Input.mouse_sensitivity", 0.1f);
     m_yaw += input.mouseDeltaX * mouseSensitivity * 0.01f;
     m_pitch += input.mouseDeltaY * mouseSensitivity * 0.01f;
 
-    // Clamp pitch to avoid flipping (limit to slightly less than 90 degrees up/down)
-    m_pitch = std::clamp(m_pitch, -1.5f, 1.5f); // About 85 degrees
+    // Clamp pitch tighter than ±90° — anywhere past ~60° starts feeling
+    // disorienting in third-person and makes the look-up/look-down workflow
+    // unpleasant.
+    m_pitch = std::clamp(m_pitch, -1.05f, 1.0f); // ~ -60° .. +57°
 }
 
 void Camera::updateZoom(const InputState& input) {
-    // Process zoom using both mouse wheel and right mouse button
-    // Mouse wheel zooming
+    // Mouse wheel only. Previous build also zoomed on right-mouse-drag, which
+    // collided with mouse-look and triggered by accident.
     m_params.orbitDistance -= input.mouseWheelDelta * m_params.zoomSpeed;
-
-    // Right mouse button + vertical mouse movement for zooming
-    if (input.mouseRightButton) {
-        m_params.orbitDistance -= input.mouseDeltaY * m_params.zoomSpeed * 0.05f;
-    }
-
-    // Clamp orbit distance
     m_params.orbitDistance = std::clamp(m_params.orbitDistance, m_params.minDistance, m_params.maxDistance);
 }
 
@@ -69,12 +63,16 @@ void Camera::updateVectors() {
     m_up = glm::normalize(glm::cross(m_right, m_forward));
 }
 
-void Camera::updateOrbit(float /*deltaTime*/, const Player& player, const InputState& input) {
-    // Get player position and update target
-    Vec3 const playerPos = player.getPosition();
-    m_target = playerPos + Vec3(0.0f, m_params.targetHeight, 0.0f);
+void Camera::updateOrbit(float deltaTime, const Player& player, const InputState& input) {
+    // Smooth the camera target toward the player's head position. Snapping
+    // (the previous behavior) caused visible jitter on jumps and rapid
+    // movement; exponential damping keeps the camera responsive while
+    // absorbing single-frame spikes. 1 - exp(-dt*k) is framerate-independent.
+    const Vec3 desiredTarget = player.getPosition() + Vec3(0.0f, m_params.targetHeight, 0.0f);
+    const float k = Config::getFloat("Camera.follow_smoothing", 12.0f);
+    const float t = 1.0f - std::exp(-deltaTime * k);
+    m_target = glm::mix(m_target, desiredTarget, t);
 
-    // Update camera components
     updateRotation(input);
     updateZoom(input);
     updatePosition();

@@ -75,6 +75,11 @@ void mouseButtonCallback(GLFWwindow* /*window*/, int button, int action, int /*m
 }
 
 // Mouse movement callback.
+//
+// Accumulates raw deltas across every callback fire within a frame. GLFW can
+// invoke this many times per render frame (mouse polling rate ≫ display Hz);
+// assigning instead of += would silently drop all but the last event and make
+// camera sensitivity depend on framerate.
 void cursorPosCallback(GLFWwindow* /*window*/, double xpos, double ypos) {
     static double lastX = xpos;
     static double lastY = ypos;
@@ -86,18 +91,16 @@ void cursorPosCallback(GLFWwindow* /*window*/, double xpos, double ypos) {
         firstMouse = false;
     }
 
-    // Calculate delta
-    s_inputState.mouseDeltaX = static_cast<float>(xpos - lastX);
-    s_inputState.mouseDeltaY = static_cast<float>(lastY - ypos); // Reversed since y-coordinates go from bottom to top
+    s_inputState.mouseDeltaX += static_cast<float>(xpos - lastX);
+    s_inputState.mouseDeltaY += static_cast<float>(lastY - ypos); // GLFW Y grows down; flip so up=positive
 
-    // Update last position
     lastX = xpos;
     lastY = ypos;
 }
 
-// Scroll callback for mouse wheel input.
+// Scroll callback for mouse wheel input. Accumulate (same reason as cursor).
 void scrollCallback(GLFWwindow* /*window*/, double /*xoffset*/, double yoffset) {
-    s_inputState.mouseWheelDelta = static_cast<float>(yoffset);
+    s_inputState.mouseWheelDelta += static_cast<float>(yoffset);
 }
 
 } // namespace
