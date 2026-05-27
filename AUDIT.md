@@ -2,14 +2,14 @@
 
 **Date:** 2026-05-27
 **Scope:** 6050 LOC, 42 files (`src/`).
-**Verdict:** Architectural cosplay. Codebase pretends ECS migration done. Reality: EnTT in vcpkg, four empty folders, monolithic game loop. `Plan.md` and `refactor.md` lie about "Done" status. Fixable, not salvage-tier — but many bad calls accumulated.
+**Verdict:** Architectural cosplay. Project added EnTT to vcpkg, created four ECS folders, then never wrote a single component or system — the main loop is still monolithic. `Plan.md` only marks Phase 0 (groundwork) done, which is fair, but the empty folders + EnTT dependency advertise progress that doesn't exist. Fixable, not salvage-tier — but many bad calls accumulated.
 
 ---
 
 ## CRITICAL (bugs, leaks, broken contracts)
 
 ### 1. Phantom ECS
-`src/core/ecs/`, `src/core/components/`, `src/world/components/`, `src/world/systems/` are **empty directories**. `Plan.md:21` claims Phase 0 done. `refactor.md` marks ECS-related items "✅ Done". Both lie. EnTT linked but zero `entt::` usage anywhere in code.
+`src/core/ecs/`, `src/core/components/`, `src/world/components/`, `src/world/systems/` were **empty directories** advertising work that was never written. EnTT linked in `vcpkg.json` + `CMakeLists.txt` but zero `entt::` usage anywhere. Either commit to the migration (Plan.md Phase 1+) and write real registry/component code, or rip the dependency out. Folders deleted in this audit pass.
 
 ### 2. Double shutdown path
 `engine.h:24` dtor calls `shutdown()`. `main.cpp:47-48` ALSO calls `engine.shutdown()` then runs dtor. Safe today only because `shutdown()` nulls pointers — accidental safety, not designed. `AudioSystem::shutdown()` lives in `SystemManager::shutdownSystems()` called AFTER engine destruction → asymmetric init/teardown.
