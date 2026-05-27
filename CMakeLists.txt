@@ -13,7 +13,6 @@ find_package(glad REQUIRED)
 find_package(glm REQUIRED)
 find_package(tinyobjloader REQUIRED)
 find_package(OpenAL REQUIRED)
-find_package(EnTT REQUIRED)
 
 # Source files (explicit list — globbing skips rebuild triggers on new files)
 set(SOURCES
@@ -48,7 +47,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glm::glm
     tinyobjloader::tinyobjloader
     OpenAL::OpenAL
-    EnTT::EnTT
 )
 
 # Copy assets + config next to the executable so the game can be launched

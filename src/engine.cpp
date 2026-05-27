@@ -223,6 +223,10 @@ void Engine::shutdown() {
         m_window->shutdown();
         m_window.reset();
     }
+    // Clear input module statics — GLFW callbacks have been unregistered with
+    // the window above; this resets the captured state struct so a second
+    // Engine instance / test run starts clean.
+    Input::shutdown();
     // Audio is context-independent; tear it down last.
     m_audio.reset();
     m_shutdownComplete = true;

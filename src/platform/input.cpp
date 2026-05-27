@@ -174,15 +174,17 @@ bool isKeyPressed(int key) {
     return glfwGetKey(s_window, key) == GLFW_PRESS;
 }
 
-void shutdown() {
-    Logger::logInfo("Shutting down Input system");
-    s_window = nullptr;
-}
-
 void reset() {
     s_inputState = InputState{};
     s_window = nullptr;
     s_cursorDisabled = true;
+}
+
+void shutdown() {
+    Logger::logInfo("Shutting down Input system");
+    // Single source of truth — module statics are file-scope so a second
+    // Engine instance (or a test) would otherwise inherit leftover state.
+    reset();
 }
 
 } // namespace Sylva::Input

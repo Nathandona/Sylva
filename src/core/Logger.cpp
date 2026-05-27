@@ -25,10 +25,12 @@ Logger::Logger() = default;
 Logger::~Logger() {
     // m_fileStream's own destructor closes + flushes. We don't call close()
     // explicitly because it can throw (and ~Logger must be noexcept).
-    // If we *were* the active logger, fall back to the default so subsequent
-    // logs don't reference us after destruction.
-    if (s_current == this) {
-        s_current = nullptr;
+    // If we *were* the active logger, restore the process-wide default so
+    // a concurrent thread that races a null s_current with current() still
+    // gets a valid logger. defaultLogger() outlives every other Logger, so
+    // this pointer never dangles.
+    if (s_current == this && this != &defaultLogger()) {
+        s_current = &defaultLogger();
     }
 }
 
