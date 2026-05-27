@@ -3,6 +3,7 @@
 #include "shader.h"
 #include "core/logger.h"
 #include "core/config.h"
+#include <memory>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glad/glad.h>
@@ -20,7 +21,7 @@ static int s_windowHeight = 720;
 // OpenGL objects
 static unsigned int s_crosshairVAO = 0;
 static unsigned int s_crosshairVBO = 0;
-static Shader* s_uiShader = nullptr;
+static std::unique_ptr<Shader> s_uiShader;
 
 static void updateCrosshairGeometry() {
     if (s_crosshairVAO == 0 || s_crosshairVBO == 0) {
@@ -84,7 +85,7 @@ void initialize(int windowWidth, int windowHeight) {
     
     // Create shader
     try {
-        s_uiShader = new Shader("assets/shaders/ui.vert", "assets/shaders/ui.frag");
+        s_uiShader = std::make_unique<Shader>("assets/shaders/ui.vert", "assets/shaders/ui.frag");
     } catch (const std::exception& e) {
         Logger::logError("Failed to load UI shader: " + std::string(e.what()));
         return;
@@ -110,8 +111,21 @@ void resize(int windowWidth, int windowHeight) {
     Logger::logDebug("UI resized to " + std::to_string(windowWidth) + "x" + std::to_string(windowHeight));
 }
 
+void shutdown() {
+    if (s_crosshairVBO != 0) {
+        glDeleteBuffers(1, &s_crosshairVBO);
+        s_crosshairVBO = 0;
+    }
+    if (s_crosshairVAO != 0) {
+        glDeleteVertexArrays(1, &s_crosshairVAO);
+        s_crosshairVAO = 0;
+    }
+    s_uiShader.reset();
+    Logger::logDebug("UI shutdown");
+}
+
 void renderCrosshair(const Camera& camera) {
-    if (s_uiShader == nullptr || s_crosshairVAO == 0) {
+    if (!s_uiShader || s_crosshairVAO == 0) {
         Logger::logWarning("Cannot render crosshair, UI system not properly initialized");
         return;
     }

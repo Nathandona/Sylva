@@ -22,6 +22,11 @@ namespace UI {
 void initialize(int windowWidth, int windowHeight);
 
 /**
+ * @brief Release UI GL resources. Must be called before GL context is destroyed.
+ */
+void shutdown();
+
+/**
  * @brief Resize the UI viewport
  * @param windowWidth The new width of the window
  * @param windowHeight The new height of the window

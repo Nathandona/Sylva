@@ -18,16 +18,14 @@
 
 namespace Sylva {
 
-Engine::Engine()
-    : m_window(nullptr), m_player(nullptr), m_camera(nullptr), m_voxelWorld(nullptr) {}
+Engine::Engine() = default;
 
 Engine::~Engine() {
     shutdown();
 }
 
 bool Engine::initialize(const std::string& configPath) {
-    // Create window
-    m_window = new Window();
+    m_window = std::make_unique<Window>();
     if (!m_window->create(
         Config::getInt("Window.width"),
         Config::getInt("Window.height"),
@@ -71,17 +69,20 @@ bool Engine::initialize(const std::string& configPath) {
     if (Config::getBool("Audio.mute_voice", false)) {
         AudioSystem::setTypeMuted(AudioType::VOICE, true);
     }
-    // Initialize camera, player, voxel world
-    m_camera = new Camera();
-    m_player = new Player();
-    m_voxelWorld = new VoxelWorld();
-    // Initialize voxel world graphics
+    m_camera = std::make_unique<Camera>();
+    m_player = std::make_unique<Player>();
+    m_voxelWorld = std::make_unique<VoxelWorld>();
     if (!m_voxelWorld->initializeGraphics()) {
         Logger::logError("Failed to initialize voxel world graphics");
         return false;
     }
     // TODO: Replace with ShaderManager later
-    Shader* playerShader = new Shader("assets/shaders/colored.vert", "assets/shaders/colored.frag");
+    try {
+        m_playerShader = std::make_unique<Shader>("assets/shaders/colored.vert", "assets/shaders/colored.frag");
+    } catch (const std::exception& e) {
+        Logger::logError("Failed to load player shader: " + std::string(e.what()));
+        return false;
+    }
     // Enable collision debug visualization if specified in config
     bool collisionDebug = Config::getBool("Debug.collision_visualization", false);
     m_voxelWorld->setCollisionDebugEnabled(collisionDebug);
@@ -113,7 +114,6 @@ bool Engine::initialize(const std::string& configPath) {
     glCullFace(GL_BACK);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    m_playerShader = playerShader;
     return true;
 }
 
@@ -182,13 +182,25 @@ void Engine::run() {
 }
 
 void Engine::shutdown() {
+    if (!m_window && !m_player && !m_camera && !m_voxelWorld && !m_playerShader) {
+        return; // already shut down (idempotent)
+    }
     Logger::logInfo("Cleaning up...");
-    AudioSystem::stopSound(m_musicId);
-    if (m_playerShader) { delete m_playerShader; m_playerShader = nullptr; }
-    if (m_player) { delete m_player; m_player = nullptr; }
-    if (m_camera) { delete m_camera; m_camera = nullptr; }
-    if (m_voxelWorld) { delete m_voxelWorld; m_voxelWorld = nullptr; }
-    if (m_window) { m_window->shutdown(); delete m_window; m_window = nullptr; }
+    if (m_musicId != 0) {
+        AudioSystem::stopSound(m_musicId);
+        m_musicId = 0;
+    }
+    // Release GL resources held by free systems before the window/context dies.
+    UI::shutdown();
+    // Order matters: shaders + GL-owning objects before the window destroys the GL context.
+    m_playerShader.reset();
+    m_voxelWorld.reset();
+    m_camera.reset();
+    m_player.reset();
+    if (m_window) {
+        m_window->shutdown();
+        m_window.reset();
+    }
     Logger::logInfo("Sylva Engine shut down.");
 }
 

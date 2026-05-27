@@ -16,8 +16,7 @@
 
 namespace Sylva {
 
-VoxelWorld::VoxelWorld() 
-    : m_shader(nullptr) {
+VoxelWorld::VoxelWorld() {
     // Load world parameters from config if available
     m_params.terrainSize = Config::getInt("World.terrain_size", m_params.terrainSize);
     m_params.cellSize = Config::getFloat("World.cell_size", m_params.cellSize);
@@ -39,9 +38,8 @@ VoxelWorld::VoxelWorld()
                    " chunks and view distance " + std::to_string(m_viewDistanceInChunks) + " chunks");
 }
 
-VoxelWorld::VoxelWorld(const WorldParams& params) 
-    : m_params(params),
-      m_shader(nullptr) {
+VoxelWorld::VoxelWorld(const WorldParams& params)
+    : m_params(params) {
     m_worldSizeInChunks = Config::getInt("World.size_in_chunks", m_worldSizeInChunks);
     m_viewDistanceInChunks = Config::getInt("World.view_distance", m_viewDistanceInChunks);
     m_terrainGenerator = std::make_unique<TerrainGenerator>(m_params);
@@ -53,23 +51,15 @@ VoxelWorld::VoxelWorld(const WorldParams& params)
 }
 
 VoxelWorld::~VoxelWorld() {
-    if (m_shader != nullptr) {
-        delete m_shader;
-        m_shader = nullptr;
-    }
-    
-    // Clean up debug resources
     if (m_debugVAO != 0) {
         glDeleteVertexArrays(1, &m_debugVAO);
         m_debugVAO = 0;
     }
-    
     if (m_debugVBO != 0) {
         glDeleteBuffers(1, &m_debugVBO);
         m_debugVBO = 0;
     }
-    
-    m_chunks.clear();
+    // m_shader / m_debugShader / m_chunks cleaned up by unique_ptr / map dtors.
 }
 
 bool VoxelWorld::initializeGraphics() {
@@ -83,15 +73,8 @@ bool VoxelWorld::initializeGraphics() {
 }
 
 bool VoxelWorld::createShader() {
-    // Clean up old shader if it exists
-    if (m_shader != nullptr) {
-        delete m_shader;
-        m_shader = nullptr;
-    }
-    
-    // Create new shader
     try {
-        m_shader = new Shader("assets/shaders/voxel.vert", "assets/shaders/voxel.frag");
+        m_shader = std::make_unique<Shader>("assets/shaders/voxel.vert", "assets/shaders/voxel.frag");
         Logger::logInfo("Voxel shader created successfully");
         return true;
     } catch (const std::exception& e) {
@@ -344,27 +327,26 @@ void VoxelWorld::renderCollisionDebug(const Camera& camera, const Player& player
         glBindVertexArray(0);
     }
     
-    // Create a simple shader program for rendering debug points if m_shader is not available
-    static Shader* debugShader = nullptr;
-    if (debugShader == nullptr) {
+    // Lazy-init debug shader as a member (lifetime tied to VoxelWorld; no leak).
+    if (!m_debugShader) {
         try {
-            debugShader = new Shader("assets/shaders/debug.vert", "assets/shaders/debug.frag");
+            m_debugShader = std::make_unique<Shader>("assets/shaders/debug.vert", "assets/shaders/debug.frag");
         } catch (const std::exception& e) {
             Logger::logError("Failed to create debug shader: " + std::string(e.what()));
             return;
         }
     }
-    
+
     // Update buffer with collision points
     glBindBuffer(GL_ARRAY_BUFFER, m_debugVBO);
-    glBufferData(GL_ARRAY_BUFFER, m_collisionDebugPoints.size() * sizeof(glm::vec3), 
+    glBufferData(GL_ARRAY_BUFFER, m_collisionDebugPoints.size() * sizeof(glm::vec3),
                 m_collisionDebugPoints.data(), GL_DYNAMIC_DRAW);
-    
+
     // Render points
-    debugShader->use();
-    debugShader->setMat4("view", camera.getViewMatrix());
-    debugShader->setMat4("projection", camera.getProjectionMatrix(16.0f / 9.0f)); // TODO: Get actual aspect ratio
-    debugShader->setVec4("color", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)); // Red points
+    m_debugShader->use();
+    m_debugShader->setMat4("view", camera.getViewMatrix());
+    m_debugShader->setMat4("projection", camera.getProjectionMatrix(16.0f / 9.0f)); // TODO: Get actual aspect ratio
+    m_debugShader->setVec4("color", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)); // Red points
     
     // Point size for visibility, configurable
     float pointSize = Config::getFloat("Debug.collision_point_size", 5.0f);

@@ -22,6 +22,19 @@ public:
     Shader(const char* vertexPath, const char* fragmentPath);
 
     /**
+     * @brief Destructor releases the GL program.
+     */
+    ~Shader();
+
+    // Non-copyable — owns a GL handle.
+    Shader(const Shader&) = delete;
+    Shader& operator=(const Shader&) = delete;
+
+    // Movable.
+    Shader(Shader&& other) noexcept;
+    Shader& operator=(Shader&& other) noexcept;
+
+    /**
      * @brief Get the program ID
      * @return The OpenGL shader program ID
      */
@@ -103,8 +116,8 @@ private:
      */
     void checkCompileErrors(unsigned int shader, const std::string& type);
 
-    // OpenGL program ID
-    unsigned int m_ID;
+    // OpenGL program ID (0 == invalid/moved-from)
+    unsigned int m_ID = 0;
 };
 
 } // namespace Sylva 

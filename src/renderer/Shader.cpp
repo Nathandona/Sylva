@@ -4,11 +4,13 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <stdexcept>
+#include <utility>
 #include <glm/gtc/type_ptr.hpp>
 
 namespace Sylva {
 
-Shader::Shader(const char* vertexPath, const char* fragmentPath) {
+Shader::Shader(const char* vertexPath, const char* fragmentPath) : m_ID(0) {
     Logger::logInfo("Loading shader: " + std::string(vertexPath) + " and " + std::string(fragmentPath));
     
     // 1. Retrieve vertex/fragment source code from filePath
@@ -41,7 +43,7 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     }
     catch (std::ifstream::failure& e) {
         Logger::logError("ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: " + std::string(e.what()));
-        return;
+        throw std::runtime_error("Shader file read failed: " + std::string(e.what()));
     }
     
     const char* vShaderCode = vertexCode.c_str();
@@ -74,6 +76,26 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     glDeleteShader(fragment);
     
     Logger::logInfo("Shader compiled successfully: ID " + std::to_string(m_ID));
+}
+
+Shader::~Shader() {
+    if (m_ID != 0) {
+        glDeleteProgram(m_ID);
+        m_ID = 0;
+    }
+}
+
+Shader::Shader(Shader&& other) noexcept : m_ID(other.m_ID) {
+    other.m_ID = 0;
+}
+
+Shader& Shader::operator=(Shader&& other) noexcept {
+    if (this != &other) {
+        if (m_ID != 0) glDeleteProgram(m_ID);
+        m_ID = other.m_ID;
+        other.m_ID = 0;
+    }
+    return *this;
 }
 
 void Shader::use() const {

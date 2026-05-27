@@ -5,6 +5,12 @@
 
 namespace Sylva {
 
+class Window;
+class Player;
+class Camera;
+class VoxelWorld;
+class Shader;
+
 class Engine {
 public:
     Engine();
@@ -12,15 +18,17 @@ public:
     bool initialize(const std::string& configPath = "config/default_config.ini");
     void run();
     void shutdown();
+
+    Engine(const Engine&) = delete;
+    Engine& operator=(const Engine&) = delete;
+
 private:
-    // Add pointers to subsystems as needed
-    class Window* m_window;
-    class Player* m_player;
-    class Camera* m_camera;
-    class VoxelWorld* m_voxelWorld;
-    class Shader* m_playerShader;
+    std::unique_ptr<Window> m_window;
+    std::unique_ptr<Player> m_player;
+    std::unique_ptr<Camera> m_camera;
+    std::unique_ptr<VoxelWorld> m_voxelWorld;
+    std::unique_ptr<Shader> m_playerShader;
     unsigned int m_musicId = 0;
-    // ... other subsystems
 };
 
-} // namespace Sylva 
+} // namespace Sylva

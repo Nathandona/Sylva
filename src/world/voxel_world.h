@@ -172,7 +172,7 @@ public:
      */
     bool updatePlayerChunkPosition(const glm::ivec3& playerChunkPos, glm::ivec3& lastPlayerChunkPos) const;
 
-    Shader* getShader() const { return m_shader; }
+    Shader* getShader() const { return m_shader.get(); }
     const std::unordered_map<glm::ivec3, std::unique_ptr<Chunk>, Vec3Hash>& getChunks() const { return m_chunks; }
     const WorldParams& getParams() const { return m_params; }
 
@@ -210,7 +210,8 @@ private:
     std::unordered_map<glm::ivec3, std::unique_ptr<Chunk>, Vec3Hash> m_chunks;
     
     // Rendering resources
-    Shader* m_shader;
+    std::unique_ptr<Shader> m_shader;
+    std::unique_ptr<Shader> m_debugShader;
     
     // World generation parameters
     int m_worldSizeInChunks = 8;     // Number of chunks in each direction from center
