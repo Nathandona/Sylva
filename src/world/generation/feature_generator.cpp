@@ -6,6 +6,17 @@
 
 namespace Sylva {
 
+namespace {
+// Top non-air, non-water voxel Y in column (x,z). -1 if none.
+int findGroundY(Chunk* chunk, int x, int z) {
+    for (int y = CHUNK_SIZE - 1; y >= 0; --y) {
+        BlockType b = chunk->getBlock(x, y, z);
+        if (b != BlockType::AIR && b != BlockType::WATER) return y;
+    }
+    return -1;
+}
+} // namespace
+
 FeatureGenerator::FeatureGenerator(const WorldParams& params)
     : m_params(params) {}
 
@@ -24,14 +35,7 @@ void FeatureGenerator::generateTrees(Chunk* chunk, std::mt19937& rng, std::unifo
             int minGroundY = CHUNK_SIZE;
             for (int dx = 0; dx < currentTrunkBaseSideLength; ++dx) {
                 for (int dz = 0; dz < currentTrunkBaseSideLength; ++dz) {
-                    int currentGroundY = -1;
-                    for (int y_local = CHUNK_SIZE - 1; y_local >= 0; y_local--) {
-                        BlockType block = chunk->getBlock(treeX + dx, y_local, treeZ + dz);
-                        if (block != BlockType::AIR && block != BlockType::WATER) {
-                            currentGroundY = y_local;
-                            break;
-                        }
-                    }
+                    int currentGroundY = findGroundY(chunk, treeX + dx, treeZ + dz);
                     if (currentGroundY == -1 || chunk->getBlock(treeX + dx, currentGroundY, treeZ + dz) != BlockType::GRASS) {
                         canPlaceTrunk = false;
                         break;
@@ -107,14 +111,7 @@ void FeatureGenerator::generateRocks(Chunk* chunk, std::mt19937& rng, std::unifo
         for (int i = 0; i < numRocks; i++) {
             int rockX = randPos(rng);
             int rockZ = randPos(rng);
-            int groundY = -1;
-            for (int y_local = CHUNK_SIZE - 1; y_local >= 0; y_local--) {
-                BlockType block = chunk->getBlock(rockX, y_local, rockZ);
-                if (block != BlockType::AIR && block != BlockType::WATER) {
-                    groundY = y_local;
-                    break;
-                }
-            }
+            int groundY = findGroundY(chunk, rockX, rockZ);
             if (groundY >= 0) {
                 bool isFlat = rand01(rng) > 0.7f;
                 int rockHeight = isFlat ? 1 : 1 + static_cast<int>(rand01(rng) * 2.0f);
@@ -159,14 +156,7 @@ void FeatureGenerator::generateVegetation(Chunk* chunk, std::mt19937& rng, std::
                 int flowerZ = patchZ + static_cast<int>(sin(angle) * distance);
                 flowerX = std::max(0, std::min(flowerX, CHUNK_SIZE - 1));
                 flowerZ = std::max(0, std::min(flowerZ, CHUNK_SIZE - 1));
-                int groundY = -1;
-                for (int y_local = CHUNK_SIZE - 1; y_local >= 0; y_local--) {
-                    BlockType block = chunk->getBlock(flowerX, y_local, flowerZ);
-                    if (block != BlockType::AIR && block != BlockType::WATER) {
-                        groundY = y_local;
-                        break;
-                    }
-                }
+                int groundY = findGroundY(chunk, flowerX, flowerZ);
                 if (groundY >= 0 && chunk->getBlock(flowerX, groundY, flowerZ) == BlockType::GRASS) {
                     chunk->setBlock(flowerX, groundY + 1, flowerZ, BlockType::LEAVES);
                 }
@@ -184,15 +174,8 @@ void FeatureGenerator::generateDecorations(Chunk* chunk, std::mt19937& rng, std:
         for (int i = 0; i < numMushrooms; i++) {
             int mushroomX = randPos(rng);
             int mushroomZ = randPos(rng);
-            int groundY = -1;
-            for (int y_local = CHUNK_SIZE - 1; y_local >= 0; y_local--) {
-                BlockType block = chunk->getBlock(mushroomX, y_local, mushroomZ);
-                if (block != BlockType::AIR && block != BlockType::WATER) {
-                    groundY = y_local;
-                    break;
-                }
-            }
-            if (groundY >= 0 && (chunk->getBlock(mushroomX, groundY, mushroomZ) == BlockType::DIRT || 
+            int groundY = findGroundY(chunk, mushroomX, mushroomZ);
+            if (groundY >= 0 && (chunk->getBlock(mushroomX, groundY, mushroomZ) == BlockType::DIRT ||
                                 chunk->getBlock(mushroomX, groundY, mushroomZ) == BlockType::GRASS)) {
                 chunk->setBlock(mushroomX, groundY + 1, mushroomZ, BlockType::WOOD);
                 if (groundY + 2 < CHUNK_SIZE) {
@@ -216,14 +199,7 @@ void FeatureGenerator::generateDecorations(Chunk* chunk, std::mt19937& rng, std:
         for (int i = 0; i < numBushes; i++) {
             int bushX = randPos(rng);
             int bushZ = randPos(rng);
-            int groundY = -1;
-            for (int y_local = CHUNK_SIZE - 1; y_local >= 0; y_local--) {
-                BlockType block = chunk->getBlock(bushX, y_local, bushZ);
-                if (block != BlockType::AIR && block != BlockType::WATER) {
-                    groundY = y_local;
-                    break;
-                }
-            }
+            int groundY = findGroundY(chunk, bushX, bushZ);
             if (groundY >= 0 && chunk->getBlock(bushX, groundY, bushZ) == BlockType::GRASS) {
                 int bushHeight = 1 + static_cast<int>(rand01(rng) * 2.0f);
                 for (int by = 0; by < bushHeight; by++) {

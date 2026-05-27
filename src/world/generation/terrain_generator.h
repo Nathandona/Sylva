@@ -37,16 +37,6 @@ public:
      */
     void generateFeatures(Chunk* chunk);
 
-    /**
-     * @brief Get the height of the terrain at a specific world position.
-     *        This might be complex if it depends on detailed voxel data not yet generated.
-     *        For now, assuming it's based on the primary noise functions.
-     * @param x The x-coordinate in world space.
-     * @param z The z-coordinate in world space.
-     * @return The height at the specified position.
-     */
-    float getHeightAt(float x, float z) const;
-
 private:
     /**
      * @brief Generate base height for a given world position
