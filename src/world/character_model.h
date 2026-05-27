@@ -2,6 +2,8 @@
 
 #include <glm/glm.hpp>
 #include <array>
+#include <string>
+#include <vector>
 
 namespace Sylva {
 
@@ -65,26 +67,39 @@ public:
                 const glm::mat4& viewMatrix,
                 const glm::mat4& projectionMatrix);
 
+    /**
+     * @brief Dense small voxel grid used to author each body part.
+     *
+     * cells[(y * sz + z) * sx + x] indexes a single voxel cell. Each cell
+     * carries a single character code looked up in the part palette
+     * (`.` reserved for empty). Authored via human-readable layer strings —
+     * see character_model.cpp. Public so anonymous-namespace helpers in the
+     * cpp can construct grids.
+     */
+    struct VoxelGrid {
+        int sx{0};
+        int sy{0};
+        int sz{0};
+        std::vector<char> cells;
+    };
+
 private:
+
     /**
      * @brief One rigid body segment with its own GPU mesh + bone state.
      *
-     * Geometry is built in the part's *local* space with the bone pivot at
-     * the origin. e.g. an arm's vertices live at y in [-armLength, 0] so
-     * rotating around the pivot swings the hand, not the shoulder joint.
-     *
-     * `attachOffset` is where this bone connects to the parent (or root)
-     * in the parent's space. `restEuler` is the default pose offset before
-     * the animation contribution is added.
+     * The part's voxel grid is meshed at bake time: each visible cell face
+     * becomes one quad, with neighbor cells inside the same grid culled.
+     * Bone pivot is expressed in cell units (`pivotCells`); the baker shifts
+     * geometry by -pivot * cellSize so rotation happens at the joint.
      */
     struct BodyPart {
-        glm::vec3 size{};        // width, height, depth in world units
-        glm::vec3 pivotInGeom{}; // pivot location inside the geometry, world units
+        VoxelGrid grid;
+        float cellSize{0.1f};
+        glm::vec3 pivotCells{}; // pivot inside the grid, in cell units
         glm::vec3 attachOffset{};
         glm::vec3 restEuler{}; // radians
         glm::vec3 animEuler{}; // radians; updated by update()
-        glm::vec3 baseColor{1.0f};
-        glm::vec3 topColor{1.0f}; // brighter shade for the upward face
 
         unsigned int vao{0};
         unsigned int vbo{0};
@@ -93,10 +108,11 @@ private:
     };
 
     /**
-     * @brief Bake a cuboid mesh for a single body part. Generates 24 vertices
-     *        (4 per face) so each face can carry its own color.
+     * @brief Bake a face-culled voxel mesh for a single body part. Emits
+     *        only cell faces that touch an empty neighbor inside the grid;
+     *        outer faces are unconditional.
      */
-    static void bakeCuboid(BodyPart& part);
+    static void bakeVoxelMesh(BodyPart& part);
 
     /**
      * @brief Release a part's GL handles. Safe to call on already-cleaned parts.
