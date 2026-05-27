@@ -163,12 +163,17 @@ private:
     Vec3 updatePosition(float deltaTime, const Vec3& moveDirection, const VoxelWorld& world);
 
     /**
-     * @brief Handle player collisions with the world
-     * @param newPosition Desired new position
-     * @param world VoxelWorld to check collisions against
-     * @return True if collision detected, false otherwise
+     * @brief Test if the player bbox would collide if it were at @p probe.
+     *        Swaps m_position temporarily so checkCollision can run.
      */
-    bool handleCollisions(const Vec3& newPosition, const VoxelWorld& world);
+    bool collidesAt(const Vec3& probe, const VoxelWorld& world);
+
+    /**
+     * @brief Try to move horizontally to (tx, tz). On block, attempt auto-step.
+     *        Sets m_position and isGrounded / velocity if successful.
+     * @return true if the player moved horizontally.
+     */
+    bool tryMoveTo(float tx, float tz, float fallbackY, const VoxelWorld& world);
 
     /**
      * @brief Update player animation state

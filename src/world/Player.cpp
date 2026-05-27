@@ -164,23 +164,42 @@ Vec3 Player::updatePosition(float deltaTime, const Vec3& moveDirection, const Vo
     return newPosition;
 }
 
-bool Player::handleCollisions(const Vec3& newPosition, const VoxelWorld& world) {
-    // Only check horizontal collision if there's horizontal movement
-    if (newPosition.x != m_position.x || newPosition.z != m_position.z) {
-        // Create a test position that only includes horizontal movement
-        Vec3 testPosition = m_position;
-        testPosition.x = newPosition.x;
-        testPosition.z = newPosition.z;
+bool Player::collidesAt(const Vec3& probe, const VoxelWorld& world) {
+    const Vec3 saved = m_position;
+    m_position = probe;
+    const bool c = checkCollision(world);
+    m_position = saved;
+    return c;
+}
 
-        // Temporarily update position for collision check
-        Vec3 const oldPosition = m_position;
-        m_position = testPosition;
-        bool const collision = checkCollision(world);
-        m_position = oldPosition; // Restore position
-
-        return collision;
+bool Player::tryMoveTo(float tx, float tz, float fallbackY, const VoxelWorld& world) {
+    // Pick a landing Y. While grounded, snap to terrain at the new XZ so an
+    // axis-slide along a slope still tracks the ground. While airborne, honor
+    // the caller's Y (gravity-resolved).
+    float ty = fallbackY;
+    if (m_params.isGrounded) {
+        ty = world.getHeightAt(tx, tz);
     }
 
+    const Vec3 target(tx, ty, tz);
+    if (!collidesAt(target, world)) {
+        m_position = target;
+        return true;
+    }
+
+    // Blocked at the desired landing. Try auto-step.
+    if (m_params.isGrounded && m_params.autoStepHeight > 0.0f) {
+        const Vec3 stepped(tx, m_position.y + m_params.autoStepHeight, tz);
+        if (!collidesAt(stepped, world)) {
+            // Body fits when raised by step height. Land on actual terrain.
+            m_position.x = tx;
+            m_position.z = tz;
+            m_position.y = world.getHeightAt(tx, tz);
+            m_velocity.y = 0.0f;
+            m_params.isGrounded = true;
+            return true;
+        }
+    }
     return false;
 }
 
@@ -195,51 +214,33 @@ void Player::updateMovement(float deltaTime,
                             const Vec3& cameraForward,
                             const Vec3& cameraRight,
                             const VoxelWorld& world) {
-    Vec3 const moveDirection = handlePlayerInput(input, cameraForward, cameraRight);
+    const Vec3 moveDirection = handlePlayerInput(input, cameraForward, cameraRight);
 
-    // Handle jumping
     if (input.jump && m_params.isGrounded) {
         m_velocity.y = m_params.jumpForce;
         m_params.isGrounded = false;
-        Logger::logDebug("Player jumped");
     }
 
-    // Calculate new position based on movement and physics
-    const Vec3 newPosition = updatePosition(deltaTime, moveDirection, world);
+    const Vec3 desired = updatePosition(deltaTime, moveDirection, world);
 
-    // Check for collisions
-    const bool collision = handleCollisions(newPosition, world);
+    // 1. Try the full combined XZ move.
+    bool moved = tryMoveTo(desired.x, desired.z, desired.y, world);
 
-    if (!collision) {
-        m_position = newPosition;
-    } else if (m_params.isGrounded && m_params.autoStepHeight > 0.0f &&
-               (newPosition.x != m_position.x || newPosition.z != m_position.z)) {
-        // Auto-step: the desired horizontal move is blocked, but the obstacle
-        // might be a low ledge. updatePosition has already computed where
-        // the new ground sits — step exactly to that height (no overshoot,
-        // no fall-back-down jitter on subsequent frames).
-        const float climb = newPosition.y - m_position.y;
-        if (climb > 0.0f && climb <= m_params.autoStepHeight) {
-            const Vec3 stepped = newPosition; // X/Z + exact terrain Y at the new XZ
-            const Vec3 oldPos = m_position;
-            m_position = stepped;
-            const bool steppedBlocked = checkCollision(world);
-            if (!steppedBlocked) {
-                m_velocity.y = 0.0f;
-                m_params.isGrounded = true;
-                updateAnimation(deltaTime, moveDirection);
-                return;
-            }
-            m_position = oldPos;
-        }
-        // Climb too tall, or there is something solid where the body would land.
-        m_position.y = newPosition.y;
-    } else {
-        // Apply vertical motion only.
-        m_position.y = newPosition.y;
+    // 2. If blocked, slide along each axis independently. Diagonal-into-corner
+    //    previously stopped both axes; now if one axis is clear the player
+    //    still slides along it.
+    if (!moved) {
+        const bool xMoved = tryMoveTo(desired.x, m_position.z, desired.y, world);
+        const bool zMoved = tryMoveTo(m_position.x, desired.z, desired.y, world);
+        moved = xMoved || zMoved;
     }
 
-    // Update animation state
+    // 3. No horizontal progress at all — apply vertical motion (gravity/jump)
+    //    standalone. tryMoveTo already sets Y when it succeeds.
+    if (!moved) {
+        m_position.y = desired.y;
+    }
+
     updateAnimation(deltaTime, moveDirection);
 }
 
