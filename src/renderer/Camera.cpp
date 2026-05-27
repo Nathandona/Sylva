@@ -10,38 +10,18 @@
 
 namespace Sylva {
 
-Camera::Camera() : m_yaw(0.0f), m_pitch(0.0f) {
-    // Load camera parameters from config if available
+Camera::Camera() {
+    // Defaults come from NSDMI; only override the params from config here.
     m_params.orbitDistance = Config::getFloat("Camera.orbit_distance", m_params.orbitDistance);
-    m_params.minDistance = Config::getFloat("Camera.min_distance", m_params.minDistance);
-    m_params.maxDistance = Config::getFloat("Camera.max_distance", m_params.maxDistance);
-    m_params.targetHeight = Config::getFloat("Camera.target_height", m_params.targetHeight);
+    m_params.minDistance   = Config::getFloat("Camera.min_distance",   m_params.minDistance);
+    m_params.maxDistance   = Config::getFloat("Camera.max_distance",   m_params.maxDistance);
+    m_params.targetHeight  = Config::getFloat("Camera.target_height",  m_params.targetHeight);
     m_params.rotationSpeed = Config::getFloat("Camera.rotation_speed", m_params.rotationSpeed);
-    m_params.zoomSpeed = Config::getFloat("Camera.zoom_speed", m_params.zoomSpeed);
-    
-    // Initialize vectors
-    m_forward = Vec3(0.0f, 0.0f, -1.0f);
-    m_up = Vec3(0.0f, 1.0f, 0.0f);
-    m_right = Vec3(1.0f, 0.0f, 0.0f);
-    
-    // Set initial position
-    m_position = Vec3(0.0f, 5.0f, 5.0f);
-    m_target = Vec3(0.0f, 0.0f, 0.0f);
-    
-    Logger::logDebug("Camera initialized with orbit distance: " + 
-                    std::to_string(m_params.orbitDistance));
+    m_params.zoomSpeed     = Config::getFloat("Camera.zoom_speed",     m_params.zoomSpeed);
+    Logger::logDebug("Camera initialized with orbit distance: " + std::to_string(m_params.orbitDistance));
 }
 
-Camera::Camera(const CameraParams& params) : m_params(params), m_yaw(0.0f), m_pitch(0.0f) {
-    // Initialize vectors
-    m_forward = Vec3(0.0f, 0.0f, -1.0f);
-    m_up = Vec3(0.0f, 1.0f, 0.0f);
-    m_right = Vec3(1.0f, 0.0f, 0.0f);
-    
-    // Set initial position
-    m_position = Vec3(0.0f, 5.0f, 5.0f);
-    m_target = Vec3(0.0f, 0.0f, 0.0f);
-    
+Camera::Camera(const CameraParams& params) : m_params(params) {
     Logger::logDebug("Camera initialized with custom parameters");
 }
 

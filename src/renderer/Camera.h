@@ -116,18 +116,18 @@ private:
     void updateVectors();
 
     // Camera parameters
-    CameraParams m_params;
-    
-    // Camera state
-    Vec3 m_position;     // Position in world space
-    Vec3 m_target;       // Look-at target
-    float m_yaw;         // Horizontal rotation in radians
-    float m_pitch;       // Vertical rotation in radians
-    
-    // Camera vectors
-    Vec3 m_forward;      // Forward vector
-    Vec3 m_up;           // Up vector
-    Vec3 m_right;        // Right vector
+    CameraParams m_params{};
+
+    // Camera state (NSDMI — both ctors share these defaults)
+    Vec3 m_position{0.0f, 5.0f, 5.0f};
+    Vec3 m_target{0.0f};
+    float m_yaw   = 0.0f;
+    float m_pitch = 0.0f;
+
+    // Orientation basis
+    Vec3 m_forward{0.0f, 0.0f, -1.0f};
+    Vec3 m_up     {0.0f, 1.0f,  0.0f};
+    Vec3 m_right  {1.0f, 0.0f,  0.0f};
 };
 
 } // namespace Sylva 
