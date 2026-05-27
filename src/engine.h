@@ -11,6 +11,7 @@ class Camera;
 class VoxelWorld;
 class Shader;
 class IAudioSystem;
+class UISystem;
 
 class Engine {
 public:
@@ -35,6 +36,7 @@ private:
     std::unique_ptr<VoxelWorld> m_voxelWorld;
     std::unique_ptr<Shader> m_playerShader;
     std::unique_ptr<IAudioSystem> m_audio;
+    std::unique_ptr<UISystem> m_ui;
     unsigned int m_musicId = 0;
     bool m_shutdownComplete = false;
 

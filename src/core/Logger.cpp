@@ -1,104 +1,83 @@
 #include "logger.h"
-#include <iostream>
-#include <iomanip>
 #include <chrono>
 #include <ctime>
+#include <iomanip>
+#include <iostream>
 #include <sstream>
 
 namespace Sylva {
 
-Logger::Logger() {
-    // Initialize logger
-}
-
-Logger::~Logger() {
-    // Close file if open
-    if (m_fileStream.is_open()) {
-        m_fileStream.close();
-    }
-}
-
-Logger& Logger::getInstance() {
+namespace {
+// The default logger lives for the entire process. Reaching it via current()
+// means callers never have to worry about a null pointer; tests opt into a
+// substitute by calling setCurrent(testLogger), then restore by passing
+// nullptr.
+Logger& defaultLogger() {
     static Logger instance;
     return instance;
 }
+} // namespace
 
-void Logger::logDebug(const std::string& message) {
-    getInstance().log(LogLevel::DEBUG, message);
-}
+Logger* Logger::s_current = nullptr;
 
-void Logger::logInfo(const std::string& message) {
-    getInstance().log(LogLevel::INFO, message);
-}
+Logger::Logger() = default;
 
-void Logger::logWarning(const std::string& message) {
-    getInstance().log(LogLevel::WARNING, message);
-}
-
-void Logger::logError(const std::string& message) {
-    getInstance().log(LogLevel::ERROR, message);
-}
-
-void Logger::setLogLevel(LogLevel level) {
-    getInstance().m_currentLevel.store(level, std::memory_order_relaxed);
-}
-
-void Logger::reset() {
-    Logger& inst = getInstance();
-    std::lock_guard<std::mutex> lock(inst.m_mutex);
-    if (inst.m_fileStream.is_open()) {
-        inst.m_fileStream.close();
+Logger::~Logger() {
+    if (m_fileStream.is_open()) {
+        m_fileStream.close();
     }
-    inst.m_fileLoggingEnabled = false;
-    inst.m_currentLevel.store(LogLevel::INFO, std::memory_order_relaxed);
+    // If we *were* the active logger, fall back to the default so subsequent
+    // logs don't reference us after destruction.
+    if (s_current == this) {
+        s_current = nullptr;
+    }
 }
 
-bool Logger::setLogFile(const std::string& filePath) {
-    std::lock_guard<std::mutex> lock(getInstance().m_mutex);
-    
-    // Close existing file if open
-    if (getInstance().m_fileStream.is_open()) {
-        getInstance().m_fileStream.close();
-        getInstance().m_fileLoggingEnabled = false;
-    }
-    
-    // Open new file
-    getInstance().m_fileStream.open(filePath, std::ios::out | std::ios::app);
-    
-    if (getInstance().m_fileStream.is_open()) {
-        getInstance().m_fileLoggingEnabled = true;
-        return true;
-    }
-    
-    return false;
+Logger& Logger::current() {
+    return s_current ? *s_current : defaultLogger();
 }
+
+void Logger::setCurrent(Logger* logger) {
+    s_current = logger;
+}
+
+void Logger::setLevel(LogLevel level) {
+    m_currentLevel.store(level, std::memory_order_relaxed);
+}
+
+bool Logger::setFile(const std::string& filePath) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_fileStream.is_open()) {
+        m_fileStream.close();
+        m_fileLoggingEnabled = false;
+    }
+    m_fileStream.open(filePath, std::ios::out | std::ios::app);
+    m_fileLoggingEnabled = m_fileStream.is_open();
+    return m_fileLoggingEnabled;
+}
+
+void Logger::info(const std::string& m)    { log(LogLevel::INFO,    m); }
+void Logger::warning(const std::string& m) { log(LogLevel::WARNING, m); }
+void Logger::error(const std::string& m)   { log(LogLevel::ERROR,   m); }
+void Logger::debug(const std::string& m)   { log(LogLevel::DEBUG,   m); }
 
 void Logger::log(LogLevel level, const std::string& message) {
-    // Skip if level is below current log level
     if (level < m_currentLevel.load(std::memory_order_relaxed)) {
         return;
     }
-    
-    // Get current time
+
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
-    
     std::stringstream timeStr;
     timeStr << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S");
-    
-    // Format message
-    std::stringstream formattedMessage;
-    formattedMessage << "[" << timeStr.str() << "] [" << logLevelToString(level) << "] " << message;
-    
-    // Lock for thread safety
+
+    std::stringstream formatted;
+    formatted << "[" << timeStr.str() << "] [" << logLevelToString(level) << "] " << message;
+
     std::lock_guard<std::mutex> lock(m_mutex);
-    
-    // Output to console
-    std::cout << formattedMessage.str() << std::endl;
-    
-    // Output to file if enabled
+    std::cout << formatted.str() << std::endl;
     if (m_fileLoggingEnabled && m_fileStream.is_open()) {
-        m_fileStream << formattedMessage.str() << std::endl;
+        m_fileStream << formatted.str() << std::endl;
         m_fileStream.flush();
     }
 }
@@ -109,8 +88,8 @@ std::string Logger::logLevelToString(LogLevel level) {
         case LogLevel::INFO:    return "INFO";
         case LogLevel::WARNING: return "WARNING";
         case LogLevel::ERROR:   return "ERROR";
-        default:                return "UNKNOWN";
     }
+    return "UNKNOWN";
 }
 
-} // namespace Sylva 
+} // namespace Sylva

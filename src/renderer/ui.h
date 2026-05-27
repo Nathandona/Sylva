@@ -1,64 +1,52 @@
 #pragma once
 
 #include "core/types.h"
+#include <memory>
 
 namespace Sylva {
 
+class Shader;
+
 /**
- * @brief UI system
+ * @brief Screen-space UI overlay (crosshair, future HUD elements).
  *
- * Handles rendering of user interface elements.
+ * Owns its OpenGL resources (VAO/VBO for crosshair geometry, shader).
+ * Engine constructs one per window/context. Destructor releases GL state
+ * — call it before the GL context is torn down.
  */
-namespace UI {
+class UISystem {
+public:
+    /**
+     * @brief Initializes the UI system at the given window dimensions.
+     *        Loads the UI shader and uploads the crosshair geometry.
+     */
+    UISystem(int windowWidth, int windowHeight);
+    ~UISystem();
 
-/**
- * @brief Initialize the UI system
- * @param windowWidth The width of the window
- * @param windowHeight The height of the window
- */
-void initialize(int windowWidth, int windowHeight);
+    UISystem(const UISystem&) = delete;
+    UISystem& operator=(const UISystem&) = delete;
 
-/**
- * @brief Release UI GL resources. Must be called before GL context is destroyed.
- */
-void shutdown();
+    void resize(int windowWidth, int windowHeight);
 
-/**
- * @brief Resize the UI viewport
- * @param windowWidth The new width of the window
- * @param windowHeight The new height of the window
- */
-void resize(int windowWidth, int windowHeight);
+    void renderCrosshair();
 
-/**
- * @brief Render the crosshair at the center of the screen.
- */
-void renderCrosshair();
+    void setCrosshairSize(float size);
+    void setCrosshairColor(const Vec4& color);
+    void setCrosshairThickness(float thickness);
+    void setParams(const UIParams& params);
 
-/**
- * @brief Set the crosshair size
- * @param size The size in pixels
- */
-void setCrosshairSize(float size);
+    bool isReady() const;
 
-/**
- * @brief Set the crosshair color
- * @param color The color (RGBA)
- */
-void setCrosshairColor(const Vec4& color);
+private:
+    void updateCrosshairGeometry();
 
-/**
- * @brief Set the crosshair thickness
- * @param thickness The thickness in pixels
- */
-void setCrosshairThickness(float thickness);
+    UIParams m_params{};
+    int m_windowWidth  = 1280;
+    int m_windowHeight = 720;
+    unsigned int m_crosshairVAO = 0;
+    unsigned int m_crosshairVBO = 0;
+    std::unique_ptr<Shader> m_uiShader;
+    bool m_ready = false;
+};
 
-/**
- * @brief Set the UI parameters
- * @param params The new parameters
- */
-void setParams(const UIParams& params);
-
-} // namespace UI
-
-} // namespace Sylva 
+} // namespace Sylva

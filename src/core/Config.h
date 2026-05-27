@@ -1,96 +1,58 @@
 #pragma once
 
-#include <string>
 #include <map>
-#include <any>
-#include <memory>
-#include <variant>
 #include <mutex>
+#include <string>
+#include <variant>
 
 namespace Sylva {
 
 /**
- * @brief Configuration system for engine and game settings
- * 
- * Loads engine and game settings from .ini files, supporting
- * default and user-specific overrides. Provides access to
- * configuration values throughout the engine.
+ * @brief Configuration store with a service-locator surface.
+ *
+ * Config is a real class with per-instance state — there is no global
+ * key/value map. All static accessors route through the *current* Config
+ * (a registered instance), so existing call sites (Config::getInt(...))
+ * keep working while tests can swap in their own Config:
+ *
+ *     Config testCfg;
+ *     Config::setCurrent(&testCfg);
+ *     Config::set("Player.move_speed", 9.0f);     // populates testCfg
+ *     float v = Config::getFloat("Player.move_speed");   // 9.0
+ *     Config::setCurrent(nullptr);                // restore default
+ *
+ * A process-wide default Config exists from program start so logging /
+ * subsystems can read values during early bootstrap.
  */
 class Config {
 public:
-    /**
-     * @brief Get the Config instance
-     * @return Reference to the Config singleton
-     */
-    static Config& getInstance();
+    Config();
 
-    /**
-     * @brief Load configuration from a file
-     * @param path Path to the configuration file
-     * @return true if file was loaded successfully, false otherwise
-     */
-    static bool load(const std::string& path);
-
-    /**
-     * @brief Get a string value from the configuration
-     * @param key The key to look up
-     * @param defaultValue The default value to return if key is not found
-     * @return The value associated with the key, or defaultValue if not found
-     */
-    static std::string getString(const std::string& key, const std::string& defaultValue = "");
-
-    /**
-     * @brief Get an integer value from the configuration
-     * @param key The key to look up
-     * @param defaultValue The default value to return if key is not found
-     * @return The value associated with the key, or defaultValue if not found
-     */
-    static int getInt(const std::string& key, int defaultValue = 0);
-
-    /**
-     * @brief Get a float value from the configuration
-     * @param key The key to look up
-     * @param defaultValue The default value to return if key is not found
-     * @return The value associated with the key, or defaultValue if not found
-     */
-    static float getFloat(const std::string& key, float defaultValue = 0.0f);
-
-    /**
-     * @brief Get a boolean value from the configuration
-     * @param key The key to look up
-     * @param defaultValue The default value to return if key is not found
-     * @return The value associated with the key, or defaultValue if not found
-     */
-    static bool getBool(const std::string& key, bool defaultValue = false);
-
-    /**
-     * @brief Set a value in the configuration
-     * @param key The key to set
-     * @param value The value to set
-     */
-    template<typename T>
-    static void set(const std::string& key, const T& value);
-
-    /**
-     * @brief Discard all loaded keys. Provided for test isolation — production
-     *        code shouldn't need to wipe Config mid-run.
-     */
-    static void reset();
-
-    // Delete copy constructor and assignment operator
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
 
+    // --- Static API (all calls route through current()) ---
+    static bool load(const std::string& path);
+
+    static std::string getString(const std::string& key);
+    static std::string getString(const std::string& key, const std::string& defaultValue);
+    static int   getInt  (const std::string& key, int   defaultValue = 0);
+    static float getFloat(const std::string& key, float defaultValue = 0.0f);
+    static bool  getBool (const std::string& key, bool  defaultValue = false);
+
+    template <typename T>
+    static void set(const std::string& key, const T& value);
+
+    // --- Service locator ---
+    static Config& current();
+    static void setCurrent(Config* config);
+
 private:
-    // Private constructor for singleton pattern
-    Config();
-    
-    // Configuration values
     using ConfigValue = std::variant<std::string, int, float, bool>;
     std::map<std::string, ConfigValue> m_values;
-    
-    // Mutex for thread safety
-    std::mutex m_mutex;
+    mutable std::mutex m_mutex;
+
+    static Config* s_current;
 };
 
-} // namespace Sylva 
+} // namespace Sylva

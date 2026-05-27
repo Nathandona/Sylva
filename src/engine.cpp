@@ -65,11 +65,11 @@ bool Engine::initialize(const std::string& configPath) {
     m_window->setVSync(Config::getBool("Graphics.vsync", true));
     // Initialize Input system
     Input::initialize(m_window->getGLFWwindow());
-    // Initialize UI
-    UI::initialize(m_window->getWidth(), m_window->getHeight());
-    // Set up window resize callback
-    m_window->setResizeCallback([](int width, int height) {
-        UI::resize(width, height);
+    // Initialize UI overlay
+    m_ui = std::make_unique<UISystem>(m_window->getWidth(), m_window->getHeight());
+    // Set up window resize callback — forwards to the engine-owned UI instance.
+    m_window->setResizeCallback([this](int width, int height) {
+        if (m_ui) m_ui->resize(width, height);
         Logger::logInfo("Window resized to " + std::to_string(width) + "x" + std::to_string(height));
     });
     // Audio: ctor opens the AL device + reads volumes/mute states from
@@ -168,7 +168,7 @@ void Engine::renderFrame(float aspectRatio) {
         m_voxelWorld->renderCollisionDebug(*m_camera, *m_player, aspectRatio);
     }
     m_player->renderPlayer(*m_playerShader, view, proj);
-    UI::renderCrosshair();
+    if (m_ui) m_ui->renderCrosshair();
 }
 
 void Engine::handleDebugToggles() {
@@ -203,9 +203,9 @@ void Engine::shutdown() {
         m_audio->stopSound(m_musicId);
         m_musicId = 0;
     }
-    // Release GL resources held by free systems before the window/context dies.
-    UI::shutdown();
-    // Order matters: shaders + GL-owning objects before the window destroys the GL context.
+    // Order matters: every GL-owning object must die before the window
+    // tears down the GL context.
+    m_ui.reset();
     m_playerShader.reset();
     m_voxelWorld.reset();
     m_camera.reset();

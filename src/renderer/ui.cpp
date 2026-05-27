@@ -2,149 +2,118 @@
 #include "shader.h"
 #include "core/logger.h"
 #include "core/config.h"
-#include <memory>
+
+#include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glad/glad.h>
 
 namespace Sylva {
-namespace UI {
 
-// UI parameters
-static UIParams s_params;
-
-// Window dimensions
-static int s_windowWidth = 1280;
-static int s_windowHeight = 720;
-
-// OpenGL objects
-static unsigned int s_crosshairVAO = 0;
-static unsigned int s_crosshairVBO = 0;
-static std::unique_ptr<Shader> s_uiShader;
-
-static void updateCrosshairGeometry() {
-    if (s_crosshairVAO == 0 || s_crosshairVBO == 0) {
-        Logger::logWarning("Cannot update crosshair geometry, VAO/VBO not initialized");
-        return;
-    }
-    
-    // Calculate crosshair dimensions
-    float halfSize = s_params.crosshairSize / 2.0f;
-    float halfThickness = s_params.crosshairThickness / 2.0f;
-    
-    // Center of the screen
-    float centerX = s_windowWidth / 2.0f;
-    float centerY = s_windowHeight / 2.0f;
-    
-    // Crosshair vertices (2 quads for a plus shape)
-    float vertices[] = {
-        // Horizontal bar (quad)
-        centerX - halfSize, centerY - halfThickness,
-        centerX + halfSize, centerY - halfThickness,
-        centerX + halfSize, centerY + halfThickness,
-        centerX - halfSize, centerY - halfThickness,
-        centerX + halfSize, centerY + halfThickness,
-        centerX - halfSize, centerY + halfThickness,
-        
-        // Vertical bar (quad)
-        centerX - halfThickness, centerY - halfSize,
-        centerX + halfThickness, centerY - halfSize,
-        centerX + halfThickness, centerY + halfSize,
-        centerX - halfThickness, centerY - halfSize,
-        centerX + halfThickness, centerY + halfSize,
-        centerX - halfThickness, centerY + halfSize
-    };
-    
-    // Bind VAO and VBO
-    glBindVertexArray(s_crosshairVAO);
-    
-    // Upload data
-    glBindBuffer(GL_ARRAY_BUFFER, s_crosshairVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    
-    // Set attribute pointers
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    
-    // Unbind
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-}
-
-void initialize(int windowWidth, int windowHeight) {
+UISystem::UISystem(int windowWidth, int windowHeight)
+    : m_windowWidth(windowWidth),
+      m_windowHeight(windowHeight) {
     Logger::logDebug("Initializing UI system");
-    
-    // Set window dimensions
-    s_windowWidth = windowWidth;
-    s_windowHeight = windowHeight;
-    
-    // Load UI parameters from config
-    s_params.crosshairSize = Config::getFloat("UI.crosshair_size", s_params.crosshairSize);
-    s_params.crosshairThickness = Config::getFloat("UI.crosshair_thickness", s_params.crosshairThickness);
-    
-    // Create shader
+
+    m_params.crosshairSize      = Config::getFloat("UI.crosshair_size",      m_params.crosshairSize);
+    m_params.crosshairThickness = Config::getFloat("UI.crosshair_thickness", m_params.crosshairThickness);
+
     try {
-        s_uiShader = std::make_unique<Shader>("assets/shaders/ui.vert", "assets/shaders/ui.frag");
+        m_uiShader = std::make_unique<Shader>("assets/shaders/ui.vert", "assets/shaders/ui.frag");
     } catch (const std::exception& e) {
         Logger::logError("Failed to load UI shader: " + std::string(e.what()));
         return;
     }
-    
-    // Create crosshair geometry
-    glGenVertexArrays(1, &s_crosshairVAO);
-    glGenBuffers(1, &s_crosshairVBO);
-    
-    // Update crosshair geometry
+
+    glGenVertexArrays(1, &m_crosshairVAO);
+    glGenBuffers(1, &m_crosshairVBO);
     updateCrosshairGeometry();
-    
+
+    m_ready = true;
     Logger::logInfo("UI system initialized");
 }
 
-void resize(int windowWidth, int windowHeight) {
-    s_windowWidth = windowWidth;
-    s_windowHeight = windowHeight;
-    
-    // Update crosshair geometry for new window size
-    updateCrosshairGeometry();
-    
-    Logger::logDebug("UI resized to " + std::to_string(windowWidth) + "x" + std::to_string(windowHeight));
-}
-
-void shutdown() {
-    if (s_crosshairVBO != 0) {
-        glDeleteBuffers(1, &s_crosshairVBO);
-        s_crosshairVBO = 0;
+UISystem::~UISystem() {
+    if (m_crosshairVBO != 0) {
+        glDeleteBuffers(1, &m_crosshairVBO);
+        m_crosshairVBO = 0;
     }
-    if (s_crosshairVAO != 0) {
-        glDeleteVertexArrays(1, &s_crosshairVAO);
-        s_crosshairVAO = 0;
+    if (m_crosshairVAO != 0) {
+        glDeleteVertexArrays(1, &m_crosshairVAO);
+        m_crosshairVAO = 0;
     }
-    s_uiShader.reset();
+    m_uiShader.reset();
+    m_ready = false;
     Logger::logDebug("UI shutdown");
 }
 
-void renderCrosshair() {
-    if (!s_uiShader || s_crosshairVAO == 0) {
+bool UISystem::isReady() const { return m_ready; }
+
+void UISystem::updateCrosshairGeometry() {
+    if (m_crosshairVAO == 0 || m_crosshairVBO == 0) {
+        Logger::logWarning("Cannot update crosshair geometry, VAO/VBO not initialized");
+        return;
+    }
+
+    const float halfSize      = m_params.crosshairSize / 2.0f;
+    const float halfThickness = m_params.crosshairThickness / 2.0f;
+    const float cx = m_windowWidth  / 2.0f;
+    const float cy = m_windowHeight / 2.0f;
+
+    const float vertices[] = {
+        // Horizontal bar
+        cx - halfSize, cy - halfThickness,
+        cx + halfSize, cy - halfThickness,
+        cx + halfSize, cy + halfThickness,
+        cx - halfSize, cy - halfThickness,
+        cx + halfSize, cy + halfThickness,
+        cx - halfSize, cy + halfThickness,
+        // Vertical bar
+        cx - halfThickness, cy - halfSize,
+        cx + halfThickness, cy - halfSize,
+        cx + halfThickness, cy + halfSize,
+        cx - halfThickness, cy - halfSize,
+        cx + halfThickness, cy + halfSize,
+        cx - halfThickness, cy + halfSize,
+    };
+
+    glBindVertexArray(m_crosshairVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_crosshairVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
+
+void UISystem::resize(int windowWidth, int windowHeight) {
+    m_windowWidth = windowWidth;
+    m_windowHeight = windowHeight;
+    updateCrosshairGeometry();
+    Logger::logDebug("UI resized to " + std::to_string(windowWidth) + "x" + std::to_string(windowHeight));
+}
+
+void UISystem::renderCrosshair() {
+    if (!m_uiShader || m_crosshairVAO == 0) {
         Logger::logWarning("Cannot render crosshair, UI system not properly initialized");
         return;
     }
 
-    GLboolean depthTestEnabled;
+    GLboolean depthTestEnabled = GL_FALSE;
     glGetBooleanv(GL_DEPTH_TEST, &depthTestEnabled);
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    s_uiShader->use();
-    const glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(s_windowWidth),
-                                            0.0f, static_cast<float>(s_windowHeight));
-    s_uiShader->setMat4("projection", projection);
-    s_uiShader->setVec4("color", glm::vec4(s_params.crosshairColor.x,
-                                           s_params.crosshairColor.y,
-                                           s_params.crosshairColor.z,
-                                           s_params.crosshairColor.w));
+    m_uiShader->use();
+    const glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(m_windowWidth),
+                                            0.0f, static_cast<float>(m_windowHeight));
+    m_uiShader->setMat4("projection", projection);
+    m_uiShader->setVec4("color", glm::vec4(m_params.crosshairColor.x,
+                                           m_params.crosshairColor.y,
+                                           m_params.crosshairColor.z,
+                                           m_params.crosshairColor.w));
 
-    glBindVertexArray(s_crosshairVAO);
+    glBindVertexArray(m_crosshairVAO);
     glDrawArrays(GL_TRIANGLES, 0, 12);
     glBindVertexArray(0);
 
@@ -153,24 +122,23 @@ void renderCrosshair() {
     }
 }
 
-void setCrosshairSize(float size) {
-    s_params.crosshairSize = size;
+void UISystem::setCrosshairSize(float size) {
+    m_params.crosshairSize = size;
     updateCrosshairGeometry();
 }
 
-void setCrosshairColor(const Vec4& color) {
-    s_params.crosshairColor = color;
+void UISystem::setCrosshairColor(const Vec4& color) {
+    m_params.crosshairColor = color;
 }
 
-void setCrosshairThickness(float thickness) {
-    s_params.crosshairThickness = thickness;
+void UISystem::setCrosshairThickness(float thickness) {
+    m_params.crosshairThickness = thickness;
     updateCrosshairGeometry();
 }
 
-void setParams(const UIParams& params) {
-    s_params = params;
+void UISystem::setParams(const UIParams& params) {
+    m_params = params;
     updateCrosshairGeometry();
 }
 
-} // namespace UI
-} // namespace Sylva 
+} // namespace Sylva
