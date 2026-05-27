@@ -23,10 +23,15 @@ bool Config::load(const std::string& path) {
     }
     
     Logger::logInfo("Loading configuration from: " + path);
-    
+
     std::string line;
     std::string currentSection;
-    
+
+    // Lock the whole load: concurrent readers should see either the pre-load
+    // state or the fully-loaded state, never a partial one.
+    std::lock_guard<std::mutex> lock(getInstance().m_mutex);
+    auto& values = getInstance().m_values;
+
     while (std::getline(file, line)) {
         // Trim whitespace
         line.erase(0, line.find_first_not_of(" \t"));
@@ -63,34 +68,15 @@ bool Config::load(const std::string& path) {
             // Store with section prefix
             std::string fullKey = currentSection.empty() ? key : currentSection + "." + key;
             
-            // Try to determine the type
+            // Type guess: bool > float > int > string (fallback).
             if (value == "true" || value == "false") {
-                // Boolean value
-                bool boolValue = (value == "true");
-                getInstance().m_values[fullKey] = boolValue;
-                Logger::logDebug("Config: " + fullKey + " = " + (boolValue ? "true" : "false"));
+                values[fullKey] = (value == "true");
             } else if (value.find('.') != std::string::npos) {
-                // Likely float value
-                try {
-                    float floatValue = std::stof(value);
-                    getInstance().m_values[fullKey] = floatValue;
-                    Logger::logDebug("Config: " + fullKey + " = " + std::to_string(floatValue));
-                } catch (...) {
-                    // If conversion fails, store as string
-                    getInstance().m_values[fullKey] = value;
-                    Logger::logDebug("Config: " + fullKey + " = " + value);
-                }
+                try { values[fullKey] = std::stof(value); }
+                catch (...) { values[fullKey] = value; }
             } else {
-                // Try to parse as integer
-                try {
-                    int intValue = std::stoi(value);
-                    getInstance().m_values[fullKey] = intValue;
-                    Logger::logDebug("Config: " + fullKey + " = " + std::to_string(intValue));
-                } catch (...) {
-                    // If conversion fails, store as string
-                    getInstance().m_values[fullKey] = value;
-                    Logger::logDebug("Config: " + fullKey + " = " + value);
-                }
+                try { values[fullKey] = std::stoi(value); }
+                catch (...) { values[fullKey] = value; }
             }
         }
     }
@@ -216,13 +202,5 @@ template void Config::set<std::string>(const std::string& key, const std::string
 template void Config::set<int>(const std::string& key, const int& value);
 template void Config::set<float>(const std::string& key, const float& value);
 template void Config::set<bool>(const std::string& key, const bool& value);
-
-std::pair<std::string, std::string> Config::parseKey(const std::string& key) {
-    size_t dotPos = key.find('.');
-    if (dotPos != std::string::npos) {
-        return {key.substr(0, dotPos), key.substr(dotPos + 1)};
-    }
-    return {"", key};
-}
 
 } // namespace Sylva 

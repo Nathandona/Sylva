@@ -13,46 +13,43 @@ static bool s_cursorDisabled = true;  // Track cursor state
 
 // Key callback function for GLFW
 static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    // Only handle press and release actions
-    bool keyState = (action == GLFW_PRESS);
-    
-    // Update input state based on key
+    const bool down = (action != GLFW_RELEASE); // true on press OR repeat, false on release
     switch (key) {
         // Movement controls
         case GLFW_KEY_W:
-            s_inputState.moveForward = (action != GLFW_RELEASE);
+            s_inputState.moveForward = down;
             break;
         case GLFW_KEY_S:
-            s_inputState.moveBackward = (action != GLFW_RELEASE);
+            s_inputState.moveBackward = down;
             break;
         case GLFW_KEY_A:
-            s_inputState.moveLeft = (action != GLFW_RELEASE);
+            s_inputState.moveLeft = down;
             break;
         case GLFW_KEY_D:
-            s_inputState.moveRight = (action != GLFW_RELEASE);
+            s_inputState.moveRight = down;
             break;
             
         // Additional controls
         case GLFW_KEY_SPACE:
-            s_inputState.jump = (action != GLFW_RELEASE);
+            s_inputState.jump = down;
             break;
         case GLFW_KEY_E:
-            s_inputState.interact = (action != GLFW_RELEASE);
+            s_inputState.interact = down;
             break;
         case GLFW_KEY_LEFT_SHIFT:
         case GLFW_KEY_RIGHT_SHIFT:
-            s_inputState.sprint = (action != GLFW_RELEASE);
+            s_inputState.sprint = down;
             break;
             
         // Audio controls
         case GLFW_KEY_UP:
-            s_inputState.volumeUp = (action != GLFW_RELEASE);
+            s_inputState.volumeUp = down;
             break;
         case GLFW_KEY_DOWN:
-            s_inputState.volumeDown = (action != GLFW_RELEASE);
+            s_inputState.volumeDown = down;
             break;
         case GLFW_KEY_M:
-            s_inputState.mute = (action != GLFW_RELEASE);
+            s_inputState.mute = down;
             break;
             
         // Cursor toggle (only on press, not hold)

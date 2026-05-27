@@ -123,50 +123,70 @@ bool Engine::initialize(const std::string& configPath) {
 
 void Engine::run() {
     Logger::logInfo("Entering main loop...");
-    int maxFrames = Config::getInt("Debug.max_frames", 0);
+    const int maxFrames = Config::getInt("Debug.max_frames", 0);
     int frames = 0;
-    bool f1KeyDown = false;
     while (!m_window->shouldClose() && (maxFrames == 0 || frames < maxFrames)) {
-        float deltaTime = m_window->getDeltaTime();
+        const float deltaTime = m_window->getDeltaTime();
         m_window->pollEvents();
-        const InputState& inputState = Input::getState();
-        m_player->updateMovement(deltaTime, inputState, m_camera->getForward(), m_camera->getRight(), *m_voxelWorld);
-        m_camera->updateOrbit(deltaTime, *m_player, inputState);
-        m_voxelWorld->update(deltaTime, m_player->getPosition());
-        bool f1KeyPressed = Input::isKeyPressed(GLFW_KEY_F1);
-        if (f1KeyPressed && !f1KeyDown) {
-            bool collisionDebug = !m_voxelWorld->isCollisionDebugEnabled();
-            m_voxelWorld->setCollisionDebugEnabled(collisionDebug);
-            Logger::logInfo("Collision debug visualization: " + std::string(collisionDebug ? "enabled" : "disabled"));
-        }
-        f1KeyDown = f1KeyPressed;
-        Input::update();
-        AudioSystem::update();
-        const glm::vec3 camPos = m_camera->getPosition();
-        const glm::vec3 camFwd = m_camera->getForward();
-        const glm::vec3 camUp  = m_camera->getUp();
-        AudioSystem::setListenerPosition(glm::value_ptr(camPos));
-        AudioSystem::setListenerOrientation(glm::value_ptr(camFwd), glm::value_ptr(camUp));
-        glClearColor(0.5f, 0.7f, 0.9f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        float aspectRatio = static_cast<float>(m_window->getWidth()) / static_cast<float>(m_window->getHeight());
-        glm::mat4 projectionMatrix = m_camera->getProjectionMatrix(aspectRatio);
-        glm::mat4 viewMatrix = m_camera->getViewMatrix();
-        m_voxelWorld->render(*m_camera, aspectRatio);
-        if (m_voxelWorld->isCollisionDebugEnabled()) {
-            m_voxelWorld->renderCollisionDebug(*m_camera, *m_player, aspectRatio);
-        }
-        m_player->renderPlayer(*m_playerShader, viewMatrix, projectionMatrix);
-        UI::renderCrosshair(*m_camera);
+        tick(deltaTime);
+        const float aspectRatio = static_cast<float>(m_window->getWidth()) / static_cast<float>(m_window->getHeight());
+        renderFrame(aspectRatio);
         m_window->swapBuffers();
-        frames++;
-        if (frames % 60 == 0) {
-            Logger::logDebug("FPS: " + std::to_string(1.0f / deltaTime));
-            Logger::logDebug("Player position: " +
-                            std::to_string(m_player->getPosition().x) + ", " +
-                            std::to_string(m_player->getPosition().y) + ", " +
-                            std::to_string(m_player->getPosition().z));
-        }
+        ++frames;
+        logFrameStats(deltaTime);
+    }
+}
+
+void Engine::tick(float deltaTime) {
+    const InputState& inputState = Input::getState();
+    m_player->updateMovement(deltaTime, inputState, m_camera->getForward(), m_camera->getRight(), *m_voxelWorld);
+    m_camera->updateOrbit(deltaTime, *m_player, inputState);
+    m_voxelWorld->update(deltaTime, m_player->getPosition());
+    handleDebugToggles();
+    Input::update();
+    AudioSystem::update();
+    const glm::vec3 camPos = m_camera->getPosition();
+    const glm::vec3 camFwd = m_camera->getForward();
+    const glm::vec3 camUp  = m_camera->getUp();
+    AudioSystem::setListenerPosition(glm::value_ptr(camPos));
+    AudioSystem::setListenerOrientation(glm::value_ptr(camFwd), glm::value_ptr(camUp));
+}
+
+void Engine::renderFrame(float aspectRatio) {
+    glClearColor(0.5f, 0.7f, 0.9f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    const glm::mat4 view = m_camera->getViewMatrix();
+    const glm::mat4 proj = m_camera->getProjectionMatrix(aspectRatio);
+    m_voxelWorld->render(*m_camera, aspectRatio);
+    if (m_voxelWorld->isCollisionDebugEnabled()) {
+        m_voxelWorld->renderCollisionDebug(*m_camera, *m_player, aspectRatio);
+    }
+    m_player->renderPlayer(*m_playerShader, view, proj);
+    UI::renderCrosshair(*m_camera);
+}
+
+void Engine::handleDebugToggles() {
+    // F1: rising-edge toggle for collision debug visualization.
+    const bool f1Pressed = Input::isKeyPressed(GLFW_KEY_F1);
+    if (f1Pressed && !m_f1KeyDown) {
+        const bool enabled = !m_voxelWorld->isCollisionDebugEnabled();
+        m_voxelWorld->setCollisionDebugEnabled(enabled);
+        Logger::logInfo(std::string("Collision debug visualization: ") + (enabled ? "enabled" : "disabled"));
+    }
+    m_f1KeyDown = f1Pressed;
+}
+
+void Engine::logFrameStats(float deltaTime) {
+    // Smooth FPS over 60 frames instead of logging single-frame instantaneous.
+    m_fpsAccum += deltaTime;
+    if (++m_fpsFrames >= 60) {
+        const float avgFps = m_fpsFrames / m_fpsAccum;
+        Logger::logDebug("FPS (avg over " + std::to_string(m_fpsFrames) + " frames): " + std::to_string(avgFps));
+        const glm::vec3 p = m_player->getPosition();
+        Logger::logDebug("Player position: " +
+                         std::to_string(p.x) + ", " + std::to_string(p.y) + ", " + std::to_string(p.z));
+        m_fpsAccum = 0.0f;
+        m_fpsFrames = 0;
     }
 }
 

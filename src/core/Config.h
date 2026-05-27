@@ -85,9 +85,6 @@ private:
     
     // Mutex for thread safety
     std::mutex m_mutex;
-    
-    // Parse a section.key notation
-    std::pair<std::string, std::string> parseKey(const std::string& key);
 };
 
 } // namespace Sylva 

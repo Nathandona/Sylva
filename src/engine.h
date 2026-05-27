@@ -23,6 +23,11 @@ public:
     Engine& operator=(const Engine&) = delete;
 
 private:
+    void tick(float deltaTime);
+    void renderFrame(float aspectRatio);
+    void handleDebugToggles();
+    void logFrameStats(float deltaTime);
+
     std::unique_ptr<Window> m_window;
     std::unique_ptr<Player> m_player;
     std::unique_ptr<Camera> m_camera;
@@ -30,6 +35,13 @@ private:
     std::unique_ptr<Shader> m_playerShader;
     unsigned int m_musicId = 0;
     bool m_shutdownComplete = false;
+
+    // Debug-toggle edge tracking (F1).
+    bool m_f1KeyDown = false;
+
+    // FPS smoothing: accumulate over N frames before logging an average.
+    float m_fpsAccum = 0.0f;
+    int   m_fpsFrames = 0;
 };
 
 } // namespace Sylva
