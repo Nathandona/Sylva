@@ -17,7 +17,7 @@
 
 ---
 
-Sylva renders a chunked micro-voxel world the player explores in third-person. Terrain is procedurally generated from layered noise, meshed per-chunk with culled faces and per-vertex ambient occlusion (with correct diagonal-neighbor sampling), and lit with a single directional source plus per-biome color variation. The engine is small, dependency-light, and built to grow into a full survival/exploration game — see [`character_design.md`](character_design.md) for the world-building direction.
+Sylva renders a chunked micro-voxel world the player explores in third-person. Terrain is procedurally generated from layered noise, meshed per-chunk with culled faces and per-vertex ambient occlusion (with correct diagonal-neighbor sampling), and lit with a single directional source plus per-biome color variation. The engine is small, dependency-light, and built to grow into a full survival/exploration game.
 
 ## Highlights
 
@@ -139,9 +139,9 @@ Pre-alpha. Runnable, hackable, not playable. Active areas:
 - 🚧 Asset & shader managers (currently ad-hoc — engine owns one player shader)
 - 🚧 Multithreaded chunk generation
 - 🚧 OGG / Vorbis decoder for music (only WAV supported today)
-- ⏳ ECS migration (EnTT linked, not wired in — see [`Plan.md`](Plan.md))
+- ⏳ ECS migration (EnTT linked, not wired in)
 - ⏳ Greedy meshing, LOD, frustum culling
-- ⏳ Gameplay (combat, crafting, magic, biomes) — see [`character_design.md`](character_design.md)
+- ⏳ Gameplay (combat, crafting, magic, biomes)
 
 See [`AUDIT.md`](AUDIT.md) for the original code-quality review and [`CLAUDE.md`](CLAUDE.md) for the architecture / conventions cheat-sheet.
 

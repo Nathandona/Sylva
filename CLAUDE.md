@@ -152,7 +152,7 @@ The repo's recent commits (`ab13f96`..`HEAD`) are a contiguous cleanup sweep. Re
 
 ## What's intentionally not done
 
-- **EnTT** is linked but unused. Either commit to the ECS migration in [`Plan.md`](Plan.md) or remove the dependency.
+- **EnTT** is linked but unused. Either commit to the ECS migration (`Plan.md` in the maintainer's local copy) or remove the dependency.
 - **No tests yet.** The service-locator hooks and `IAudioSystem` are wired so they can be added without further refactor.
 - **No OGG decoder.** `background.ogg` fails to load; engine runs silent.
 - **`VoxelWorld::getHeightAt` doesn't see player edits.** Fine until break/place gameplay exists; will need a fallback block scan for modified columns.
@@ -171,9 +171,9 @@ docs: rewrite README with badges, accurate feature list, layout
 
 Commits explicitly **do not** include a Claude / AI co-author trailer.
 
-## Plan & roadmap files
+## Documentation
 
-- [`AUDIT.md`](AUDIT.md) — original code-quality review.
-- [`Plan.md`](Plan.md) — ECS migration plan (not started past Phase 0 / dependency add).
-- [`refactor.md`](refactor.md) — earlier refactoring tracker; somewhat stale, see AUDIT.md for current state.
-- [`character_design.md`](character_design.md) — narrative / art direction.
+- [`AUDIT.md`](AUDIT.md) — original code-quality review; punch-list status.
+- `Plan.md`, `refactor.md`, `character_design.md` — local-only docs (in
+  `.gitignore`). Not part of the public repo. ECS migration plan + lore /
+  narrative direction live there for the maintainer.
