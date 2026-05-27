@@ -1,0 +1,92 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ------------------------------------------------------------------
+  # Fast formatting check. Doesn't need a build — runs in ~1 minute on
+  # Ubuntu with apt-installed clang-format.
+  # ------------------------------------------------------------------
+  clang-format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format-17
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format-17
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-17 100
+
+      - name: Show clang-format version
+        run: clang-format --version
+
+      - name: Check formatting
+        run: |
+          set -e
+          # Every .h / .cpp under src/ must match .clang-format.
+          # --dry-run + --Werror makes any deviation a fatal error.
+          find src -type f \( -name '*.h' -o -name '*.cpp' \) -print0 \
+            | xargs -0 clang-format --dry-run --Werror
+
+  # ------------------------------------------------------------------
+  # Build + clang-tidy. Windows runner because that's the target
+  # platform (GLFW + OpenAL + GLAD all fine via vcpkg).
+  # vcpkg installed dependencies are cached on the GitHub Action
+  # runner's hosted cache — first run is slow (~15 min), subsequent
+  # runs reuse the cache (~3 min).
+  # ------------------------------------------------------------------
+  build-and-tidy:
+    name: Build & clang-tidy (Windows)
+    runs-on: windows-latest
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Cache vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
+      - name: Ensure vcpkg cache dir exists
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+
+      - name: Configure (emit compile_commands.json for clang-tidy)
+        shell: pwsh
+        run: |
+          cmake -S . -B build `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build (Debug)
+        shell: pwsh
+        run: cmake --build build --config Debug
+
+      - name: Run clang-tidy (strict — any finding fails CI)
+        shell: pwsh
+        run: |
+          clang-tidy --version
+          $sources = Get-ChildItem -Recurse -Path src -Include *.cpp -File
+          foreach ($f in $sources) {
+            Write-Host "::group::clang-tidy $($f.FullName)"
+            clang-tidy -p build --warnings-as-errors='*' $f.FullName
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "::endgroup::"
+              Write-Error "clang-tidy failed on $($f.FullName)"
+              exit 1
+            }
+            Write-Host "::endgroup::"
+          }

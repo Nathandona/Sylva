@@ -1,0 +1,92 @@
+# Sylva C++ style — LLVM base with project-specific tweaks.
+# Designed to match the existing code (4-space, K&R-ish braces, attached
+# pointers) so adopting clang-format does NOT churn the codebase.
+#
+# Run:  clang-format -i src/**/*.{h,cpp}
+# CI verifies with: clang-format --dry-run --Werror
+
+---
+Language:        Cpp
+BasedOnStyle:    LLVM
+Standard:        c++17
+
+# Indentation
+IndentWidth:           4
+TabWidth:              4
+UseTab:                Never
+ContinuationIndentWidth: 4
+NamespaceIndentation:  None
+AccessModifierOffset:  -4
+IndentCaseLabels:      false
+IndentPPDirectives:    None
+
+# Line length — soft cap. clang-format will break long lines but won't
+# reflow short ones.
+ColumnLimit:           120
+
+# Braces (attached, K&R-ish — same line as the controlling statement)
+BreakBeforeBraces:     Attach
+Cpp11BracedListStyle:  true
+
+# Pointers / references attached to type:  Foo* p, const Bar& r
+PointerAlignment:      Left
+ReferenceAlignment:    Pointer
+
+# Spacing
+SpaceBeforeParens:                ControlStatements
+SpaceAfterCStyleCast:             false
+SpaceAfterTemplateKeyword:        false
+SpaceBeforeAssignmentOperators:   true
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses:          false
+SpacesBeforeTrailingComments:     1
+SpacesInAngles:                   false
+SpacesInCStyleCastParentheses:    false
+SpacesInParentheses:              false
+SpacesInSquareBrackets:           false
+
+# Function signatures / arguments
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllArgumentsOnNextLine:               false
+AllowShortFunctionsOnASingleLine:          Inline
+AllowShortIfStatementsOnASingleLine:       Never
+AllowShortLoopsOnASingleLine:              false
+AllowShortBlocksOnASingleLine:             Empty
+AllowShortLambdasOnASingleLine:            All
+AllowShortCaseLabelsOnASingleLine:         false
+BinPackArguments:    false
+BinPackParameters:   false
+
+# Constructor initializers — one per line, leading commas like LLVM
+BreakConstructorInitializers: BeforeColon
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 4
+PackConstructorInitializers: NextLine
+
+# Includes — keep manual ordering. We already group by layer in the
+# headers; SortIncludes would jumble dependent includes (e.g.
+# glad before GLFW must stay first).
+SortIncludes:        false
+IncludeBlocks:       Preserve
+
+# Misc
+AlignAfterOpenBracket:            Align
+AlignConsecutiveAssignments:      false
+AlignConsecutiveDeclarations:     false
+AlignConsecutiveMacros:           false
+AlignEscapedNewlines:             Right
+AlignOperands:                    true
+AlignTrailingComments:            true
+ReflowComments:                   true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep:              1
+FixNamespaceComments:             true
+CompactNamespaces:                false
+
+# Penalties (lower = clang-format more willing to apply that change)
+PenaltyBreakAssignment:           50
+PenaltyBreakBeforeFirstCallParameter: 50
+PenaltyReturnTypeOnItsOwnLine:    200
+PenaltyExcessCharacter:           5
+
+...

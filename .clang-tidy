@@ -1,0 +1,98 @@
+# Sylva clang-tidy config — curated for a game engine.
+#
+# Run:  clang-tidy src/**/*.cpp -p build/
+# CI runs it the same way (with -warnings-as-errors).
+#
+# Philosophy:
+# - Catch real bugs (bugprone, cert, security).
+# - Modernize C++ when the result is shorter or safer.
+# - Don't pull in performance/readability checks that fight the codebase
+#   style or that are too noisy without curated suppressions.
+# - Disable individual checks below when their advice doesn't fit (e.g.
+#   magic numbers in math code).
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  cppcoreguidelines-*,
+  google-build-using-namespace,
+  google-explicit-constructor,
+  google-global-names-in-headers,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -cert-err58-cpp,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-narrowing-conversions,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-pro-type-vararg,
+  -misc-non-private-member-variables-in-classes,
+  -misc-no-recursion,
+  -modernize-avoid-c-arrays,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard,
+  -readability-avoid-const-params-in-decls,
+  -readability-convert-member-functions-to-static,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-named-parameter,
+  -readability-uppercase-literal-suffix
+
+# Treat all enabled checks as warnings; CI flips to errors via -warnings-as-errors.
+WarningsAsErrors: ''
+
+# Header file matching — only lint our own headers, not vcpkg / system.
+HeaderFilterRegex: '.*[/\\]src[/\\].*'
+
+# Format integration — clang-tidy will use .clang-format for fixes.
+FormatStyle: file
+
+# Inline check options.
+CheckOptions:
+  # Allow short loop variable names (i, j, k, x, y, z) — common in voxel math.
+  - key:   readability-identifier-length.MinimumVariableNameLength
+    value: '1'
+  - key:   readability-identifier-length.MinimumParameterNameLength
+    value: '1'
+
+  # Naming: PascalCase classes, snake_case functions and locals,
+  # m_ prefix on members, s_ prefix on file-scope statics, k prefix on
+  # compile-time constants. Matches the existing codebase.
+  - key:   readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key:   readability-identifier-naming.StructCase
+    value: CamelCase
+  - key:   readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key:   readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE
+  - key:   readability-identifier-naming.FunctionCase
+    value: camelBack
+  - key:   readability-identifier-naming.VariableCase
+    value: camelBack
+  - key:   readability-identifier-naming.ParameterCase
+    value: camelBack
+  - key:   readability-identifier-naming.PrivateMemberPrefix
+    value: 'm_'
+  - key:   readability-identifier-naming.ProtectedMemberPrefix
+    value: 'm_'
+  - key:   readability-identifier-naming.StaticVariablePrefix
+    value: 's_'
+  - key:   readability-identifier-naming.ConstexprVariablePrefix
+    value: 'k'
+  - key:   readability-identifier-naming.NamespaceCase
+    value: CamelCase
