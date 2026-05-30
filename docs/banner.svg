@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0e1726"/>
+      <stop offset="0.55" stop-color="#13243b"/>
+      <stop offset="1" stop-color="#0a1320"/>
+    </linearGradient>
+    <linearGradient id="fog" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#13243b" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0a1320" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="word" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#eef6ee"/>
+      <stop offset="1" stop-color="#9fd7a8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="360" fill="url(#sky)"/>
+
+  <!-- starfield -->
+  <g fill="#cfe3ff" opacity="0.5">
+    <circle cx="120" cy="60" r="1.4"/>
+    <circle cx="320" cy="40" r="1"/>
+    <circle cx="540" cy="70" r="1.2"/>
+    <circle cx="900" cy="50" r="1"/>
+    <circle cx="1080" cy="80" r="1.4"/>
+    <circle cx="1180" cy="45" r="1"/>
+    <circle cx="700" cy="36" r="1"/>
+    <circle cx="240" cy="96" r="1"/>
+  </g>
+
+  <!-- isometric voxel cluster (right side) -->
+  <g transform="translate(910,150)">
+    <!-- cube helper: each cube = top + left + right faces -->
+    <!-- back-left cube -->
+    <g transform="translate(0,40)">
+      <polygon points="0,-30 52,0 0,30 -52,0" fill="#3f7d4f"/>
+      <polygon points="-52,0 0,30 0,90 -52,60" fill="#2c5b39"/>
+      <polygon points="52,0 0,30 0,90 52,60" fill="#244a2f"/>
+    </g>
+    <!-- right cube -->
+    <g transform="translate(104,40)">
+      <polygon points="0,-30 52,0 0,30 -52,0" fill="#4a8d5b"/>
+      <polygon points="-52,0 0,30 0,90 -52,60" fill="#356a44"/>
+      <polygon points="52,0 0,30 0,90 52,60" fill="#2a5537"/>
+    </g>
+    <!-- front-center cube (raised) -->
+    <g transform="translate(52,90)">
+      <polygon points="0,-30 52,0 0,30 -52,0" fill="#5aa86c"/>
+      <polygon points="-52,0 0,30 0,90 -52,60" fill="#3d7d4e"/>
+      <polygon points="52,0 0,30 0,90 52,60" fill="#316540"/>
+    </g>
+    <!-- water/leaf accent cube (top, translucent) -->
+    <g transform="translate(52,-10)" opacity="0.92">
+      <polygon points="0,-30 52,0 0,30 -52,0" fill="#7fd0a0"/>
+      <polygon points="-52,0 0,30 0,90 -52,60" fill="#52a079"/>
+      <polygon points="52,0 0,30 0,90 52,60" fill="#418564"/>
+    </g>
+  </g>
+
+  <rect width="1280" height="360" fill="url(#fog)"/>
+
+  <!-- wordmark -->
+  <text x="96" y="170" font-size="118" font-weight="700" letter-spacing="6" fill="url(#word)">SYLVA</text>
+  <text x="100" y="220" font-size="26" font-weight="400" letter-spacing="2" fill="#9fb4c9">A voxel engine for a primal-magic open world</text>
+  <rect x="100" y="244" width="64" height="4" rx="2" fill="#5aa86c"/>
+  <text x="100" y="290" font-size="16" font-weight="500" letter-spacing="3" fill="#6f859b">C++17  .  OPENGL  .  OPENAL  .  PROCEDURAL TERRAIN</text>
+</svg>
